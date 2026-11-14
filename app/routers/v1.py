@@ -1,0 +1,357 @@
+from __future__ import annotations
+
+import logging
+import time
+import uuid
+from typing import Any, Dict, List, Optional, Union
+
+from fastapi import APIRouter, BackgroundTasks, Header, Request
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
+
+from app.core.security import make_openai_error, parse_bearer_token
+from app.services.guardrails import (
+    ContextCompactor,
+    JSONSelfHealer,
+    PIIGuardrail,
+    PromptOptimizer,
+    SecurityInspector,
+)
+
+logger = logging.getLogger("sentinelgate.v1")
+
+router = APIRouter(prefix="/v1", tags=["OpenAI Compatible v1"])
+
+
+class ChatCompletionRequest(BaseModel):
+    model: str = "gpt-4o-mini"
+    messages: List[Dict[str, Any]]
+    temperature: Optional[float] = 0.7
+    max_tokens: Optional[int] = None
+    stream: Optional[bool] = False
+    response_format: Optional[Dict[str, Any]] = None
+    hedge: Optional[bool] = False
+
+
+class EmbeddingsRequest(BaseModel):
+    model: str = "text-embedding-3-small"
+    input: Union[str, List[str]]
+    user: Optional[str] = None
+
+
+class CreateKeyRequest(BaseModel):
+    name: str
+    daily_budget_usd: Optional[float] = 10.0
+    monthly_budget_usd: Optional[float] = 300.0
+    rate_limit_rpm: Optional[int] = 60
+
+
+class CacheWarmItem(BaseModel):
+    prompt: str
+    response: str
+    model: Optional[str] = "gpt-4o-mini"
+
+
+@router.get("/models")
+async def list_models(request: Request):
+    gateway_router = request.app.state.router
+    return JSONResponse(content={"object": "list", "data": gateway_router.get_all_models()})
+
+
+@router.post("/chat/completions")
+async def chat_completions(
+    req: ChatCompletionRequest,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    x_no_cache: Optional[str] = Header(None, alias="X-No-Cache"),
+    cache_control: Optional[str] = Header(None, alias="Cache-Control"),
+    x_hedge: Optional[str] = Header(None, alias="X-Hedge"),
+):
+    start_time = time.time()
+    req_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+
+    # Access app services
+    app_router = request.app.state.router
+    app_cache = request.app.state.cache
+    app_evals = request.app.state.evals
+    app_budget = request.app.state.budget
+    app_keys = request.app.state.virtual_keys
+
+    # 1. Virtual Key Authentication & Rate Limiting
+    bearer_token = parse_bearer_token(authorization)
+    if bearer_token and bearer_token.startswith("sg-"):
+        is_valid, err_msg = app_keys.verify_and_rate_limit(bearer_token)
+        if not is_valid:
+            status_code = 429 if "Rate limit" in (err_msg or "") else 401
+            code = "rate_limit_exceeded" if status_code == 429 else "invalid_api_key"
+            return make_openai_error(err_msg or "Authentication failed", error_type="auth_error", code=code, status_code=status_code)
+
+    # 2. Pre-Flight Guardrails
+    # A. Secret Credential Leak Detection
+    is_secrets_safe, secret_threat = SecurityInspector.inspect_secrets(req.messages)
+    if not is_secrets_safe:
+        app_evals.log_guardrail_event(req_id, "SECRET_LEAK", secret_threat or "", blocked=True)
+        return make_openai_error(
+            f"Security Violation: {secret_threat}",
+            error_type="security_guardrail_violation",
+            code="secret_leak_detected",
+            status_code=400,
+        )
+
+    # B. Prompt Injection & Jailbreak Heuristic
+    is_safe, threat_reason = SecurityInspector.inspect_injection(req.messages)
+    if not is_safe:
+        app_evals.log_guardrail_event(req_id, "PROMPT_INJECTION", threat_reason or "", blocked=True)
+        return make_openai_error(
+            f"Prompt Security Violation: {threat_reason}",
+            error_type="invalid_request_error",
+            code="prompt_injection_detected",
+            status_code=400,
+        )
+
+    # 3. Context Compaction & Whitespace Token Optimization
+    compacted = ContextCompactor.compact(req.messages)
+    optimized_messages = PromptOptimizer.optimize_messages(compacted)
+
+    # 4. PII Masking
+    masked_messages, pii_mapping = PIIGuardrail.mask_messages(optimized_messages)
+    raw_dict = req.model_dump(exclude_unset=True)
+    active_req = dict(raw_dict)
+    active_req["messages"] = masked_messages
+
+    requested_model = req.model
+    provider, internal_model, _ = app_router.resolve_model(requested_model, masked_messages)
+
+    # 5. Semantic Cache Lookup (Non-Streaming)
+    if not req.stream:
+        cached_result = app_cache.lookup(
+            messages=masked_messages,
+            model=requested_model,
+            bypass_header=x_no_cache,
+            cache_control=cache_control,
+        )
+        if cached_result:
+            cached_resp, _ = cached_result
+            latency_ms = (time.time() - start_time) * 1000.0
+
+            final_resp = PIIGuardrail.restore_in_response(cached_resp, pii_mapping)
+            final_resp["id"] = req_id
+
+            usage = final_resp.get("usage", {})
+            in_tokens = usage.get("prompt_tokens", 0)
+            out_tokens = usage.get("completion_tokens", 0)
+            cost_saved = app_router.get_model_cost(provider, internal_model, in_tokens, out_tokens)
+
+            app_evals.log_request(
+                request_id=req_id,
+                model=requested_model,
+                provider=f"{provider}(cached)",
+                latency_ms=latency_ms,
+                cache_hit=True,
+                prompt_tokens=in_tokens,
+                completion_tokens=out_tokens,
+                cost_usd=0.0,
+                cost_saved_usd=cost_saved,
+            )
+
+            headers = {
+                "X-Request-ID": req_id,
+                "X-Cache": "HIT",
+                "X-Provider-Used": f"{provider}(cached)",
+                "X-Latency-Ms": f"{latency_ms:.2f}",
+            }
+            return JSONResponse(content=final_resp, headers=headers)
+
+    # 6. Daily Budget Circuit Breaker Check
+    is_budget_ok, spent_today, budget_limit = app_budget.check_budget()
+    if not is_budget_ok:
+        return make_openai_error(
+            f"Daily Budget Limit Exceeded: Spent ${spent_today:.4f} of ${budget_limit:.2f} limit today.",
+            error_type="budget_limit_exceeded",
+            code="budget_limit_exceeded",
+            status_code=429,
+        )
+
+    # 7. Upstream Direct REST Execution
+    try:
+        use_hedge = (req.hedge or (x_hedge and x_hedge.lower() == "true")) and not req.stream
+        if use_hedge:
+            upstream_res, chosen_provider, chosen_model = await app_router.execute_hedged_request(active_req)
+        else:
+            upstream_res, chosen_provider, chosen_model = await app_router.execute_request(
+                active_req, stream=bool(req.stream)
+            )
+    except Exception as e:
+        logger.error(f"Execution failed for {requested_model}: {e}")
+        return make_openai_error(f"All upstream providers failed: {e}", error_type="upstream_error", status_code=502)
+
+    # 8. Handle SSE Streaming Response
+    if req.stream:
+        ttft_logged = {"done": False}
+
+        async def event_generator():
+            try:
+                async for chunk in upstream_res:
+                    if not ttft_logged["done"]:
+                        ttft_ms = (time.time() - start_time) * 1000.0
+                        app_evals.log_request(
+                            request_id=req_id,
+                            model=requested_model,
+                            provider=chosen_provider,
+                            latency_ms=ttft_ms,
+                            cache_hit=False,
+                            prompt_tokens=0,
+                            completion_tokens=0,
+                            cost_usd=0.0,
+                            ttft_ms=ttft_ms,
+                        )
+                        ttft_logged["done"] = True
+                    if pii_mapping:
+                        chunk = PIIGuardrail.restore_text(chunk, pii_mapping)
+                    yield chunk
+            except Exception as stream_err:
+                logger.error(f"Streaming error: {stream_err}")
+
+        stream_headers = {
+            "X-Request-ID": req_id,
+            "X-Cache": "MISS",
+            "X-Provider-Used": chosen_provider,
+            "X-Latency-Ms": f"{(time.time() - start_time) * 1000.0:.2f}",
+        }
+        return StreamingResponse(event_generator(), media_type="text/event-stream", headers=stream_headers)
+
+    # 9. Non-Streaming Post-Processing
+    if JSONSelfHealer.is_json_requested(active_req):
+        upstream_res = await JSONSelfHealer.repair_response(
+            router=app_router,
+            request_data=active_req,
+            initial_response=upstream_res,
+        )
+
+    final_resp = PIIGuardrail.restore_in_response(upstream_res, pii_mapping)
+    final_resp["id"] = req_id
+
+    latency_ms = (time.time() - start_time) * 1000.0
+    usage = final_resp.get("usage", {})
+    in_tok = usage.get("prompt_tokens", max(1, len(str(req.messages)) // 4))
+    out_tok = usage.get(
+        "completion_tokens",
+        max(1, len(final_resp.get("choices", [{}])[0].get("message", {}).get("content", "")) // 4),
+    )
+
+    cost_usd = app_router.get_model_cost(chosen_provider, chosen_model, in_tok, out_tok)
+
+    # Store in Semantic Cache
+    app_cache.store(
+        messages=masked_messages,
+        model=requested_model,
+        response=final_resp,
+        prompt_tokens=in_tok,
+        completion_tokens=out_tok,
+    )
+
+    # Log metrics & spend
+    app_evals.log_request(
+        request_id=req_id,
+        model=requested_model,
+        provider=chosen_provider,
+        latency_ms=latency_ms,
+        cache_hit=False,
+        prompt_tokens=in_tok,
+        completion_tokens=out_tok,
+        cost_usd=cost_usd,
+        cost_saved_usd=0.0,
+    )
+    app_budget.record_spend(cost_usd)
+
+    # Sample 10% Shadow Parity Evals
+    if app_evals.should_sample_shadow(cache_hit=False):
+        resp_text = final_resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+        background_tasks.add_task(
+            app_evals.run_shadow_eval,
+            router=app_router,
+            request_id=req_id,
+            original_model=requested_model,
+            messages=masked_messages,
+            original_response_text=resp_text,
+        )
+
+    headers = {
+        "X-Request-ID": req_id,
+        "X-Cache": "MISS",
+        "X-Provider-Used": chosen_provider,
+        "X-Latency-Ms": f"{latency_ms:.2f}",
+    }
+    return JSONResponse(content=final_resp, headers=headers)
+
+
+@router.post("/embeddings")
+async def create_embeddings(req: EmbeddingsRequest, request: Request):
+    start_time = time.time()
+    req_id = f"emb-{uuid.uuid4().hex[:12]}"
+    app_router = request.app.state.router
+
+    try:
+        emb_response = await app_router.execute_embeddings(model=req.model, inputs=req.input)
+        latency_ms = (time.time() - start_time) * 1000.0
+        headers = {
+            "X-Request-ID": req_id,
+            "X-Provider-Used": "sentinel-fastembed",
+            "X-Latency-Ms": f"{latency_ms:.2f}",
+        }
+        return JSONResponse(content=emb_response, headers=headers)
+    except Exception as e:
+        logger.error(f"Embeddings creation failed: {e}")
+        return make_openai_error(f"Embedding generation failed: {e}", status_code=500)
+
+
+@router.post("/keys")
+async def create_key(req: CreateKeyRequest, request: Request):
+    app_keys = request.app.state.virtual_keys
+    new_k = app_keys.create_key(
+        name=req.name,
+        daily_budget_usd=req.daily_budget_usd or 10.0,
+        monthly_budget_usd=req.monthly_budget_usd or 300.0,
+        rate_limit_rpm=req.rate_limit_rpm or 60,
+    )
+    return JSONResponse(content=new_k)
+
+
+@router.get("/keys")
+async def list_keys(request: Request):
+    app_keys = request.app.state.virtual_keys
+    return JSONResponse(content={"keys": app_keys.list_keys()})
+
+
+@router.post("/cache/warm")
+async def warm_cache(items: List[CacheWarmItem], request: Request):
+    app_cache = request.app.state.cache
+    for item in items:
+        app_cache.store(
+            messages=[{"role": "user", "content": item.prompt}],
+            model=item.model or "gpt-4o-mini",
+            response={
+                "id": f"chatcmpl-warm-{uuid.uuid4().hex[:8]}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": item.model or "gpt-4o-mini",
+                "choices": [{
+                    "index": 0,
+                    "message": {"role": "assistant", "content": item.response},
+                    "finish_reason": "stop",
+                }],
+                "usage": {
+                    "prompt_tokens": len(item.prompt) // 4,
+                    "completion_tokens": len(item.response) // 4,
+                    "total_tokens": (len(item.prompt) + len(item.response)) // 4,
+                },
+            },
+        )
+    return JSONResponse(content={"status": "success", "prewarmed_count": len(items)})
+
+
+@router.get("/evals/export")
+async def export_evals(request: Request, limit: Optional[int] = 100):
+    app_evals = request.app.state.evals
+    return JSONResponse(content={"dataset": app_evals.export_golden_dataset(limit=limit or 100)})

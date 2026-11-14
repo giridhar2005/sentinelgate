@@ -29,6 +29,8 @@ ENV/
 
 # Database files
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 sentinelgate.db

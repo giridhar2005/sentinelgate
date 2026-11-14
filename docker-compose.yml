@@ -1,0 +1,27 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentinelgate
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - SENTINELGATE_CONFIG=/app/config.yaml
+      - SENTINELGATE_DB=/app/data/sentinelgate.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - sentinelgate_data:/app/data
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  sentinelgate_data:
+    driver: local

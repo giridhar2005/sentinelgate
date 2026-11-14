@@ -13,37 +13,11 @@ logger = logging.getLogger("sentinelgate.evals")
 
 
 class EvalsManager:
-    """Telemetry logging, metrics aggregation, and asynchronous 10% shadow evaluation."""
+    """Telemetry logging, performance metrics aggregation, and shadow evaluations."""
 
     def __init__(self, db_path: str = "sentinelgate.db", sample_rate: float = 0.10):
         self.db_path = db_path
         self.sample_rate = sample_rate
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS request_metrics (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT, request_id TEXT NOT NULL,
-                    model TEXT NOT NULL, provider TEXT NOT NULL, latency_ms REAL NOT NULL,
-                    cache_hit INTEGER NOT NULL, prompt_tokens INTEGER NOT NULL,
-                    completion_tokens INTEGER NOT NULL, cost_usd REAL NOT NULL,
-                    cost_saved_usd REAL NOT NULL, timestamp REAL NOT NULL,
-                    ttft_ms REAL DEFAULT 0.0
-                );
-            """)
-            try:
-                conn.execute("ALTER TABLE request_metrics ADD COLUMN ttft_ms REAL DEFAULT 0.0;")
-            except sqlite3.OperationalError:
-                pass
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS shadow_evals (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT, request_id TEXT NOT NULL,
-                    original_model TEXT NOT NULL, shadow_model TEXT NOT NULL,
-                    prompt TEXT NOT NULL, original_response TEXT NOT NULL,
-                    shadow_response TEXT NOT NULL, judge_score INTEGER NOT NULL,
-                    judge_reasoning TEXT NOT NULL, is_win INTEGER NOT NULL,
-                    timestamp REAL NOT NULL
-                );
-            """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_metrics_ts ON request_metrics(timestamp);")
 
     def log_request(
         self,
@@ -58,7 +32,7 @@ class EvalsManager:
         cost_saved_usd: float = 0.0,
         ttft_ms: float = 0.0,
     ):
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             conn.execute(
                 """
                 INSERT INTO request_metrics (
@@ -66,7 +40,29 @@ class EvalsManager:
                     prompt_tokens, completion_tokens, cost_usd, cost_saved_usd, timestamp, ttft_ms
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (request_id, model, provider, round(latency_ms, 2), 1 if cache_hit else 0, prompt_tokens, completion_tokens, round(cost_usd, 6), round(cost_saved_usd, 6), time.time(), round(ttft_ms, 2)),
+                (
+                    request_id,
+                    model,
+                    provider,
+                    round(latency_ms, 2),
+                    1 if cache_hit else 0,
+                    prompt_tokens,
+                    completion_tokens,
+                    round(cost_usd, 6),
+                    round(cost_saved_usd, 6),
+                    time.time(),
+                    round(ttft_ms, 2),
+                ),
+            )
+
+    def log_guardrail_event(self, request_id: str, event_type: str, threat_detail: str, blocked: bool):
+        with sqlite3.connect(self.db_path, timeout=15.0) as conn:
+            conn.execute(
+                """
+                INSERT INTO guardrail_events (request_id, event_type, threat_detail, blocked, timestamp)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (request_id, event_type, threat_detail[:500], 1 if blocked else 0, time.time()),
             )
 
     def should_sample_shadow(self, cache_hit: bool) -> bool:
@@ -105,7 +101,7 @@ class EvalsManager:
             reason = reason_match.group(1).strip() if reason_match else "Quality parity evaluation completed."
             is_win = 1 if score >= 7 else 0
 
-            with sqlite3.connect(self.db_path) as conn:
+            with sqlite3.connect(self.db_path, timeout=15.0) as conn:
                 conn.execute(
                     """
                     INSERT INTO shadow_evals (
@@ -113,29 +109,69 @@ class EvalsManager:
                         shadow_response, judge_score, judge_reasoning, is_win, timestamp
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (request_id, original_model, fallback_model, prompt_str[:1000], original_response_text[:1000], shadow_text[:1000], score, reason[:500], is_win, time.time()),
+                    (
+                        request_id,
+                        original_model,
+                        fallback_model,
+                        prompt_str[:1000],
+                        original_response_text[:1000],
+                        shadow_text[:1000],
+                        score,
+                        reason[:500],
+                        is_win,
+                        time.time(),
+                    ),
                 )
         except Exception as e:
             logger.error(f"Shadow eval error: {e}")
 
     def get_metrics_summary(self) -> Dict[str, Any]:
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             conn.row_factory = sqlite3.Row
-            agg = dict(conn.execute("""
+            agg = dict(
+                conn.execute("""
                 SELECT COUNT(*) as total_requests, SUM(cache_hit) as cache_hits,
                        SUM(cost_usd) as total_cost, SUM(cost_saved_usd) as total_saved,
                        SUM(prompt_tokens) as total_prompt_tokens, SUM(completion_tokens) as total_completion_tokens
                 FROM request_metrics
-            """).fetchone() or {})
+            """).fetchone()
+                or {}
+            )
 
-            latencies = [r[0] for r in conn.execute("SELECT latency_ms FROM request_metrics ORDER BY latency_ms ASC").fetchall()]
+            latencies = [
+                r[0]
+                for r in conn.execute(
+                    "SELECT latency_ms FROM request_metrics ORDER BY latency_ms ASC"
+                ).fetchall()
+            ]
             p50 = float(np.percentile(latencies, 50)) if latencies else 0.0
             p95 = float(np.percentile(latencies, 95)) if latencies else 0.0
-            avg_ttft = float(conn.execute("SELECT AVG(ttft_ms) FROM request_metrics WHERE ttft_ms > 0").fetchone()[0] or 0.0)
+            avg_ttft = float(
+                conn.execute("SELECT AVG(ttft_ms) FROM request_metrics WHERE ttft_ms > 0").fetchone()[0] or 0.0
+            )
 
-            shadow_agg = dict(conn.execute("SELECT COUNT(*) as total_evals, SUM(is_win) as total_wins, AVG(judge_score) as avg_score FROM shadow_evals").fetchone() or {})
-            recent_requests = [dict(r) for r in conn.execute("SELECT request_id, model, provider, latency_ms, cache_hit, prompt_tokens, completion_tokens, cost_usd, timestamp, ttft_ms FROM request_metrics ORDER BY id DESC LIMIT 20").fetchall()]
-            recent_shadows = [dict(r) for r in conn.execute("SELECT request_id, original_model, shadow_model, judge_score, judge_reasoning, is_win, timestamp, prompt, original_response, shadow_response FROM shadow_evals ORDER BY id DESC LIMIT 10").fetchall()]
+            shadow_agg = dict(
+                conn.execute(
+                    "SELECT COUNT(*) as total_evals, SUM(is_win) as total_wins, AVG(judge_score) as avg_score FROM shadow_evals"
+                ).fetchone()
+                or {}
+            )
+
+            recent_requests = [
+                dict(r)
+                for r in conn.execute(
+                    "SELECT request_id, model, provider, latency_ms, cache_hit, prompt_tokens, completion_tokens, cost_usd, timestamp, ttft_ms FROM request_metrics ORDER BY id DESC LIMIT 20"
+                ).fetchall()
+            ]
+
+            recent_shadows = [
+                dict(r)
+                for r in conn.execute(
+                    "SELECT request_id, original_model, shadow_model, judge_score, judge_reasoning, is_win, timestamp, prompt, original_response, shadow_response FROM shadow_evals ORDER BY id DESC LIMIT 10"
+                ).fetchall()
+            ]
+
+            guardrail_count = conn.execute("SELECT COUNT(*) FROM guardrail_events WHERE blocked = 1").fetchone()[0] or 0
 
         total_req = agg.get("total_requests") or 0
         cache_hits = agg.get("cache_hits") or 0
@@ -156,6 +192,7 @@ class EvalsManager:
             "p50_latency_ms": round(p50, 1),
             "p95_latency_ms": round(p95, 1),
             "avg_ttft_ms": round(avg_ttft, 1),
+            "blocked_guardrail_events": guardrail_count,
             "shadow_evals": {
                 "total_evals": total_evals,
                 "total_wins": wins,
@@ -167,17 +204,27 @@ class EvalsManager:
         }
 
     def export_golden_dataset(self, limit: int = 100) -> List[Dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                "SELECT original_model, shadow_model, prompt, original_response, shadow_response, judge_score, judge_reasoning, is_win, timestamp FROM shadow_evals ORDER BY judge_score DESC, id DESC LIMIT ?",
+                """
+                SELECT original_model, shadow_model, prompt, original_response,
+                       shadow_response, judge_score, judge_reasoning, is_win, timestamp
+                FROM shadow_evals
+                ORDER BY judge_score DESC, id DESC LIMIT ?
+                """,
                 (limit,),
             ).fetchall()
         return [
             {
-                "input": r["prompt"], "reference": r["original_response"], "candidate": r["shadow_response"],
-                "score": r["judge_score"], "reasoning": r["judge_reasoning"], "parity_win": bool(r["is_win"]),
-                "models": {"primary": r["original_model"], "shadow": r["shadow_model"]}, "timestamp": r["timestamp"]
+                "input": r["prompt"],
+                "reference": r["original_response"],
+                "candidate": r["shadow_response"],
+                "score": r["judge_score"],
+                "reasoning": r["judge_reasoning"],
+                "parity_win": bool(r["is_win"]),
+                "models": {"primary": r["original_model"], "shadow": r["shadow_model"]},
+                "timestamp": r["timestamp"],
             }
             for r in rows
         ]
