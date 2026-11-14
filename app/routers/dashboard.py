@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 from typing import Optional
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 router = APIRouter(tags=["Observability & Dashboard"])
@@ -169,4 +170,85 @@ async def shadow_replay_estimator(request: Request, payload: ReplayRequest):
                 "total": prompt_tokens + completion_tokens,
             },
         }
+    )
+
+
+@router.get("/api/export/traces.jsonl")
+async def export_traces_jsonl(request: Request, limit: int = 500):
+    """Export captured SQLite traces in OpenAI Fine-Tuning & Evaluation JSONL format."""
+    import sqlite3
+    evals = request.app.state.evals
+    with sqlite3.connect(evals.db_path, timeout=15.0) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT request_id, model, provider, latency_ms, cost_usd, cost_saved_usd,
+                   prompt_snippet, response_snippet, timestamp, status
+            FROM request_metrics ORDER BY id DESC LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    lines = []
+    for r in rows:
+        item = {
+            "messages": [
+                {"role": "user", "content": r["prompt_snippet"] or ""},
+                {"role": "assistant", "content": r["response_snippet"] or ""},
+            ],
+            "metadata": {
+                "request_id": r["request_id"],
+                "model": r["model"],
+                "provider": r["provider"],
+                "latency_ms": r["latency_ms"],
+                "cost_usd": r["cost_usd"],
+                "status": r["status"],
+                "timestamp": r["timestamp"],
+            },
+        }
+        lines.append(json.dumps(item))
+
+    return Response(
+        content="\n".join(lines),
+        media_type="application/x-ndjson",
+        headers={"Content-Disposition": "attachment; filename=sentinelgate_eval_traces.jsonl"},
+    )
+
+
+@router.get("/api/export/traces.csv")
+async def export_traces_csv(request: Request, limit: int = 500):
+    """Export captured SQLite traces as CSV for analytical inspection."""
+    import csv
+    import io
+    import sqlite3
+    evals = request.app.state.evals
+    with sqlite3.connect(evals.db_path, timeout=15.0) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT request_id, timestamp, model, provider, status, latency_ms,
+                   cost_usd, cost_saved_usd, prompt_tokens, completion_tokens, prompt_snippet
+            FROM request_metrics ORDER BY id DESC LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "request_id", "timestamp", "model", "provider", "status",
+        "latency_ms", "cost_usd", "cost_saved_usd", "prompt_tokens",
+        "completion_tokens", "prompt_snippet",
+    ])
+    for r in rows:
+        writer.writerow([
+            r["request_id"], r["timestamp"], r["model"], r["provider"], r["status"],
+            r["latency_ms"], r["cost_usd"], r["cost_saved_usd"], r["prompt_tokens"],
+            r["completion_tokens"], (r["prompt_snippet"] or "").replace("\n", " ")[:120],
+        ])
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=sentinelgate_traces.csv"},
     )

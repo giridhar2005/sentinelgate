@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Connect Tool modal with copy-paste snippets for Cursor/Cline, CLI environments, Python SDK, and Node.js.
   - 1-Click Chaos Outage Injection (`/api/chaos`) simulating HTTP 429/503 primary failures to demonstrate circuit breaker failover.
   - Shadow Model Replay & Unit Economics Drawer (`/api/replay`) calculating projected monthly USD savings at 100k requests/month.
+  - 1-Click Eval Dataset Export (`/api/export/traces.jsonl` & `.csv`) for streaming export of SQLite traces in OpenAI fine-tuning and eval formats.
+- **Animated Visuals & 1-Click Cloud Sandbox:**
+  - Handcrafted `docs/terminal-animated.svg` session with CSS keyframe animation demonstrating live CLI startup and cURL query execution.
+  - Pre-configured `.devcontainer/devcontainer.json` enabling 1-click cloud sandbox testing via GitHub Codespaces with zero local setup.
 - **Systems RFC Documentation & CI Matrix:**
   - 7-section systems RFC in `ARCHITECTURE.md` analyzing in-process SQLite WAL vs. hosted Redis, IPC syscall overhead, memory-mapped pages, and tail latency hedging.
   - GitHub Actions CI workflow testing Python 3.9, 3.10, 3.11, and 3.12 with Ruff linting and Pytest.

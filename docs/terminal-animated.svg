@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 420" width="1000" height="420">
+  <defs>
+    <!-- Obsidian Window Gradient -->
+    <linearGradient id="termBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#121215" />
+      <stop offset="100%" stop-color="#0B0B0E" />
+    </linearGradient>
+
+    <style>
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+      @keyframes fadeStep1 {
+        0%, 15% { opacity: 0; transform: translateY(4px); }
+        20%, 92% { opacity: 1; transform: translateY(0); }
+        98%, 100% { opacity: 0; }
+      }
+      @keyframes fadeStep2 {
+        0%, 35% { opacity: 0; transform: translateY(4px); }
+        40%, 92% { opacity: 1; transform: translateY(0); }
+        98%, 100% { opacity: 0; }
+      }
+      @keyframes fadeStep3 {
+        0%, 55% { opacity: 0; transform: translateY(4px); }
+        60%, 92% { opacity: 1; transform: translateY(0); }
+        98%, 100% { opacity: 0; }
+      }
+      @keyframes promptType {
+        0%, 5% { width: 0; }
+        15%, 92% { width: 230px; }
+        98%, 100% { width: 0; }
+      }
+      .cursor {
+        animation: blink 0.8s infinite;
+      }
+      .step1 {
+        animation: fadeStep1 10s infinite;
+      }
+      .step2 {
+        animation: fadeStep2 10s infinite;
+      }
+      .step3 {
+        animation: fadeStep3 10s infinite;
+      }
+    </style>
+  </defs>
+
+  <!-- Outer Window Container -->
+  <rect x="0.5" y="0.5" width="999" height="419" rx="10" fill="url(#termBg)" stroke="#27272A" stroke-width="1" />
+
+  <!-- Terminal Title Bar -->
+  <rect width="1000" height="38" rx="10" fill="#18181C" />
+  <rect y="28" width="1000" height="10" fill="#18181C" />
+  <line x1="0" y1="38" x2="1000" y2="38" stroke="#27272A" stroke-width="1" />
+
+  <!-- macOS Window Controls -->
+  <circle cx="20" cy="19" r="5" fill="#EF4444" opacity="0.85" />
+  <circle cx="36" cy="19" r="5" fill="#F59E0B" opacity="0.85" />
+  <circle cx="52" cy="19" r="5" fill="#10B981" opacity="0.85" />
+
+  <!-- Window Title -->
+  <text x="500" y="23" text-anchor="middle" font-family="'JetBrains Mono', -apple-system, monospace" font-size="11" font-weight="500" fill="#71717A">
+    sentinelgate-daemon · zsh · 80x24 · port 8000
+  </text>
+
+  <!-- Live Pulse Pill -->
+  <g transform="translate(896, 11)">
+    <rect width="84" height="18" rx="4" fill="#111114" stroke="#27272A" stroke-width="1" />
+    <circle cx="10" cy="9" r="3" fill="#10B981" />
+    <text x="18" y="12.5" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600" fill="#10B981">DEMO LIVE</text>
+  </g>
+
+  <!-- Terminal Content Area -->
+  <g transform="translate(28, 68)" font-family="'JetBrains Mono', monospace" font-size="12" line-height="20">
+
+    <!-- Command 1: Startup -->
+    <g>
+      <text x="0" y="0" fill="#10B981" font-weight="600">$</text>
+      <text x="16" y="0" fill="#F4F4F5" font-weight="600">sentinelgate --port 8000</text>
+    </g>
+
+    <!-- Step 1: Banner Output -->
+    <g class="step1" transform="translate(0, 22)">
+      <text x="0" y="0" fill="#52525B">┌────────────────────────────────────────────────────────────────────────┐</text>
+      <text x="0" y="16" fill="#52525B">│  <tspan fill="#FFFFFF" font-weight="600">SentinelGate v0.3.0</tspan> <tspan fill="#71717A">· Zero-Bloat OpenAI-Compatible LLM Gateway</tspan>          │</text>
+      <text x="0" y="32" fill="#52525B">│  <tspan fill="#71717A">FastAPI · SQLite WAL · FastEmbed ONNX CPU · Zero node_modules</tspan>       │</text>
+      <text x="0" y="48" fill="#52525B">├────────────────────────────────────────────────────────────────────────┤</text>
+      <text x="0" y="64" fill="#52525B">│  <tspan fill="#A1A1AA">Proxy Endpoint :</tspan> <tspan fill="#3B82F6">http://localhost:8000/v1</tspan>                              │</text>
+      <text x="0" y="80" fill="#52525B">│  <tspan fill="#A1A1AA">Developer HUD  :</tspan> <tspan fill="#10B981">http://localhost:8000/dashboard</tspan>                       │</text>
+      <text x="0" y="96" fill="#52525B">│  <tspan fill="#A1A1AA">Auto-Discovery :</tspan> <tspan fill="#F4F4F5">OpenAI, Anthropic, Groq, Ollama (11434)</tspan>             │</text>
+      <text x="0" y="112" fill="#52525B">└────────────────────────────────────────────────────────────────────────┘</text>
+    </g>
+
+    <!-- Command 2: cURL request -->
+    <g class="step2" transform="translate(0, 162)">
+      <text x="0" y="0" fill="#10B981" font-weight="600">$</text>
+      <text x="16" y="0" fill="#F4F4F5">curl http://localhost:8000/v1/chat/completions \</text>
+      <text x="16" y="18" fill="#71717A">    -d '{"model": "<tspan fill="#3B82F6">auto</tspan>", "messages": [{"role": "user", "content": "Write quicksort in TS"}]}'</text>
+    </g>
+
+    <!-- Step 3: Response Headers & Body -->
+    <g class="step3" transform="translate(0, 218)">
+      <text x="0" y="0" fill="#A1A1AA">&lt; <tspan fill="#FFFFFF" font-weight="600">HTTP/1.1 200 OK</tspan></text>
+      <text x="0" y="18" fill="#71717A">&lt; X-Cache: <tspan fill="#10B981" font-weight="600">HIT (cosine: 0.9412)</tspan>  <tspan fill="#52525B">·</tspan>  X-Cost: <tspan fill="#10B981" font-weight="600">$0.000000</tspan></text>
+      <text x="0" y="36" fill="#71717A">&lt; X-Latency: <tspan fill="#10B981" font-weight="600">1.84 ms</tspan>  <tspan fill="#52525B">·</tspan>  X-Auto-Route: <tspan fill="#3B82F6">ollama/llama3</tspan>  <tspan fill="#52525B">·</tspan>  X-Saved-USD: <tspan fill="#10B981">$0.003420</tspan></text>
+      <text x="0" y="54" fill="#71717A">&lt; X-Secrets-Scrubbed: <tspan fill="#8B5CF6">0 (clean)</tspan>  <tspan fill="#52525B">·</tspan>  X-Tokens-Saved: <tspan fill="#10B981">14</tspan></text>
+
+      <!-- Response JSON Box -->
+      <g transform="translate(0, 68)">
+        <rect width="944" height="42" rx="4" fill="#141418" stroke="#1F1F24" stroke-width="1" />
+        <text x="14" y="18" fill="#A1A1AA" font-size="11.5">{"role": "assistant", "content": "function quickSort(arr: number[]): number[] { ... }"}</text>
+        <text x="14" y="33" fill="#52525B" font-size="10.5">finish_reason: "stop" · prompt_tokens: 28 · completion_tokens: 34 · overhead: 1.84ms</text>
+      </g>
+    </g>
+
+  </g>
+</svg>

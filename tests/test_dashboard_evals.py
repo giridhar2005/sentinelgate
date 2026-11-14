@@ -65,3 +65,32 @@ def test_cache_warming_endpoint(test_app):
     assert q_resp.status_code == 200
     assert q_resp.headers.get("X-Cache") == "HIT"
     assert "zero-bloat OpenAI-compatible LLM Gateway" in q_resp.json()["choices"][0]["message"]["content"]
+
+
+def test_export_traces_endpoints(test_app):
+    client, app = test_app
+    evals = app.state.evals
+
+    with sqlite3.connect(evals.db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO request_metrics (
+                request_id, model, provider, latency_ms, cache_hit, prompt_tokens,
+                completion_tokens, cost_usd, cost_saved_usd, timestamp, ttft_ms,
+                status, prompt_snippet, similarity_score, timing_breakdown, response_snippet
+            ) VALUES ('req-exp-1', 'gpt-4o', 'openai', 45.2, 0, 10, 20, 0.0003, 0.0, 1000.0, 30.0,
+                     'UPSTREAM', 'Test export prompt', 0.0, '{}', 'Test export answer')
+            """
+        )
+
+    jsonl_resp = client.get("/api/export/traces.jsonl?limit=5")
+    assert jsonl_resp.status_code == 200
+    assert "application/x-ndjson" in jsonl_resp.headers["content-type"]
+    assert "Test export prompt" in jsonl_resp.text
+    assert "Test export answer" in jsonl_resp.text
+
+    csv_resp = client.get("/api/export/traces.csv?limit=5")
+    assert csv_resp.status_code == 200
+    assert "text/csv" in csv_resp.headers["content-type"]
+    assert "req-exp-1" in csv_resp.text
+    assert "Test export prompt" in csv_resp.text

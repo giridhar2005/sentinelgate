@@ -14,6 +14,7 @@
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml/badge.svg" alt="CodeQL Status"></a>
   <a href="https://github.com/giridhar2005/sentinelgate/releases"><img src="https://img.shields.io/github/v/release/giridhar2005/sentinelgate?style=flat-square&color=emerald" alt="Release"></a>
+  <a href="https://codespaces.new/giridhar2005/sentinelgate"><img src="https://github.com/codespaces/badge.svg" alt="Open in GitHub Codespaces"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a>
   <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57.svg?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite WAL"></a>
@@ -126,6 +127,10 @@ uv run python benchmarks/bench.py
 
 ## Terminal in Action
 
+<p align="center">
+  <img src="docs/terminal-animated.svg" alt="SentinelGate Animated Terminal Session" width="100%" style="border-radius: 8px; border: 1px solid #27272A; margin: 10px 0;">
+</p>
+
 Launch the gateway and test it in under 5 seconds with zero configuration:
 
 ```bash
@@ -210,6 +215,7 @@ SentinelGate includes a single-file, zero-bloat developer console served directl
   - `Auto-Route (Complex)`: Architecture reasoning query ($\to$ routes to Claude 3.5 Sonnet / GPT-4o).
 - **1-Click Chaos Outage Injection (`/api/chaos`):** Flip the Chaos switch to simulate HTTP 429 rate limits or 503 provider outages and observe automatic circuit breaker failover.
 - **Shadow Model Replay & Unit Economics (`/api/replay`):** Replay any captured trace against secondary cheaper models, showing side-by-side completion parity and exact projected monthly savings at 100k requests/month.
+- **1-Click Eval Dataset Export (`/api/export/traces.jsonl` & `.csv`):** Export captured SQLite production traces directly into OpenAI Fine-Tuning and evaluation dataset formats with one click.
 - **Single-Key Developer Navigation:**
 
 | Key | Action | Key | Action |
@@ -223,7 +229,17 @@ SentinelGate includes a single-file, zero-bloat developer console served directl
 
 ## 10-Second Quickstart
 
-### 1. Install & Launch
+### 0. 1-Click Launch via GitHub Codespaces (Zero Local Install)
+
+Test SentinelGate instantly in your browser with zero terminal configuration:
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/giridhar2005/sentinelgate)
+
+GitHub Codespaces spins up an isolated Python 3.11 container, installs SentinelGate in editable mode, launches the proxy with deterministic sandbox mode on port 8000, and forwards the `/dashboard` directly into your browser tab.
+
+---
+
+### 1. Local Install & Launch
 
 ```bash
 # 1-Liner: Clone, install in editable mode, and launch
