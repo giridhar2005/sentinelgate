@@ -50,7 +50,7 @@
   <!-- Subtitle Plain English -->
   <g transform="translate(48, 178)">
     <text x="0" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="16" font-weight="400" fill="#A1A1AA" letter-spacing="-0.2">
-      Zero-bloat OpenAI-compatible LLM gateway <tspan fill="#3F3F46">·</tspan> Local semantic cache <tspan fill="#3F3F46">·</tspan> Pre-flight guardrails <tspan fill="#3F3F46">·</tspan> SQLite state
+      Zero-bloat OpenAI-compatible LLM gateway <tspan fill="#3F3F46">·</tspan> Local semantic cache <tspan fill="#3F3F46">·</tspan> Reversible secret firewall <tspan fill="#3F3F46">·</tspan> SQLite state
     </text>
   </g>
 

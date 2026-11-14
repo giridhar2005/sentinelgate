@@ -80,7 +80,73 @@ Incoming Request
 
 ---
 
-## 4. Circuit Breaker & Partial Stream Failure State Machine
+## 4. Reversible Secret & PII Shield Architecture
+
+Transmitting prompts containing raw credentials (OpenAI keys, AWS access keys, GitHub tokens, database connection URIs) or sensitive PII (SSNs, credit cards, emails) to cloud LLMs creates catastrophic security liabilities. Traditional gateways either ignore secrets or reject requests outright with HTTP 400, disrupting developer workflows in IDEs (Cursor, Cline) and automated CI agents.
+
+SentinelGate implements a dual-mode pre-flight firewall executing in `<0.3ms`:
+
+```
+Outbound Prompt
+      │
+      ▼
+┌─────────────────────────────────┐
+│ Compiled Regex Scanner          │  12 high-entropy credential patterns
+│ Sub-millisecond CPU Tokenizer   │  Zero external network dependencies
+└─────────────┬───────────────────┘
+              │
+      [Secret Detected?]
+      ├── Strict "block" mode   ──► HTTP 400 Bad Request ("secret_leak_detected")
+      └── Default "redact" mode ──► Replace with reversible token (__SG_SECRET_1__)
+                                    Store local ephemeral mapping in request scope
+                                    Forward scrubbed prompt to upstream LLM
+                                          │
+                                          ▼
+                                    Inbound LLM Completion / SSE Chunks
+                                          │
+                                    Restore original secret transparently
+                                          │
+                                          ▼
+                                    Return intact response to Client
+```
+
+### In-Flight Reversible Tokenization
+1. **Outbound Scrubbing:** The gateway scans `messages` using compiled regexes with strict word boundaries. Secrets are extracted into a per-request dictionary `{"__SG_SECRET_OPENAI_KEY_1__": "sk-proj-..."}` and replaced in the outbound payload.
+2. **Streaming Restoration:** For chunked Server-Sent Events (`stream=True`), chunks pass through `SecretRedactor.restore_text()`, restoring any echoed tokens on the fly before flushing to the client socket.
+3. **Telemetry & Auditing:** Scrubbed events increment the gateway's `secrets_scrubbed` counter in SQLite WAL without storing raw secret bytes on disk.
+
+---
+
+## 5. Universal Complexity Cost-Router (`model="auto"`)
+
+Frontier models (Claude 3.5 Sonnet, GPT-4o) charge upwards of $5.00 / $15.00 per million tokens. Routing every request—from short classification and haikus to multi-file architecture questions—to frontier models wastes up to 90% of LLM operational spend.
+
+SentinelGate introduces a deterministic, sub-millisecond prompt complexity classifier (`model="auto"`):
+
+```
+Client passes model="auto"
+            │
+            ▼
+┌────────────────────────────────────────┐
+│ Deterministic Complexity Scorer (<0.2ms)│  Context Length (>450 / >1500 chars)
+│ Multi-dimensional Feature Extraction   │  Code blocks (```, diff, syntax signals)
+└──────────────────┬─────────────────────┘  Reasoning kws (architect, deadlock, raft)
+                   │
+           [Score >= 45 / 100]
+           ├── Yes (Complex) ──► Frontier Model (Claude 3.5 Sonnet / GPT-4o)
+           └── No  (Simple)  ──► Utility Model (Local Ollama $0.00 / Groq / GPT-4o-mini)
+                                 Log exact USD saved vs. frontier baseline
+```
+
+### Prompt Scoring Dimension Weights
+- **Context Depth & Turns:** Prompts $>1,500$ characters add +35 points; $>450$ characters add +15 points; conversations with $\ge 6$ turns add +20 points.
+- **Code Syntax & Diffs:** Markdown code fences (```) or patch headers (`diff --git`) add +30 points.
+- **Reasoning Keywords:** Algorithmic and systems engineering terms (`architect`, `concurrency`, `deadlock`, `distributed`, `system design`, `race condition`) add +35 to +50 points.
+- **Routine Pattern Downweight:** Routine formatting and short utility queries (`capitalize`, `format as json`, `fix spelling`) without code are downweighted by -25 points.
+
+---
+
+## 6. Circuit Breaker & Partial Stream Failure State Machine
 
 Upstream provider outages (HTTP `429 Too Many Requests`, `503 Service Unavailable`, dropped sockets) must be handled gracefully without dropping client connections or blocking the async event loop.
 
@@ -118,7 +184,7 @@ When `hedge=True` or header `X-Hedge: true` is passed:
 
 ---
 
-## 5. Scaling Roadmap & Physical Trade-offs at 10,000 RPS
+## 7. Scaling Roadmap & Physical Trade-offs at 10,000 RPS
 
 Single-node SQLite WAL is not an infinite architecture. Systems engineering requires understanding exact physical boundaries and migration paths.
 
