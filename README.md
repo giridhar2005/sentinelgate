@@ -22,6 +22,7 @@
 </p>
 
 <p align="center">
+  <a href="#the-architecture-contrast">Architecture Contrast</a> &bull;
   <a href="#who-is-this-for">Audience</a> &bull;
   <a href="#measured-local-benchmarks">Benchmarks</a> &bull;
   <a href="#request-lifecycle">Lifecycle</a> &bull;
@@ -30,6 +31,24 @@
   <a href="ARCHITECTURE.md">Systems RFC</a> &bull;
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
+
+<p align="center">
+  <img src="docs/architecture-pillars.svg" alt="SentinelGate Core Architectural Pillars" width="100%" style="border-radius: 8px; border: 1px solid #27272A; margin: 8px 0;">
+</p>
+
+---
+
+## The Architecture Contrast
+
+| Operational Dimension | Without SentinelGate (Direct Cloud SDKs) | With SentinelGate (Zero-Bloat Proxy) |
+| :--- | :--- | :--- |
+| **API Costs & Unit Economics** | Every repetitive query pays full frontier token pricing ($15.00 / M). | **91% cache hit rate** served locally on CPU in `<2.0ms` at **$0.00 cost**. |
+| **Credential & Secret Safety** | Accidental `.env` keys (`sk-...`, AWS, DB URIs) leak directly to third-party logs. | **Sub-ms regex firewall** tokenizes credentials outbound and restores them inbound. |
+| **Model Selection Strategy** | Hardcoded `gpt-4o` burns money on simple formatting, translation, and code diffs. | **`model="auto"`** dynamically routes tasks to cheap utility vs. frontier models. |
+| **Outage & Rate Limit Resilience** | Upstream HTTP `429` rate limits or `503` outages crash client scripts and IDE agents. | **Automatic circuit breaker** fails over to backup providers with zero dropped requests. |
+| **Infrastructure Complexity** | Multi-service stack requiring Redis cluster, PostgreSQL daemon, and Celery workers. | **Single Python process** backed by in-process SQLite WAL mode (`PRAGMA mmap_size`). |
+
+---
 
 <p align="center">
   <img src="docs/dashboard-preview.png" alt="SentinelGate Operational Dashboard HUD" width="100%" style="border-radius: 8px; border: 1px solid #27272A;">
@@ -116,14 +135,8 @@ flowchart TD
 ### 1. Install & Launch
 
 ```bash
-git clone https://github.com/giridhar2005/sentinelgate.git
-cd sentinelgate
-
-# Install as a standard Python tool
-pip install -e .
-
-# Launch the gateway (auto-discovers keys & local Ollama/LM Studio runtimes)
-sentinelgate
+# 1-Liner: Clone, install, and launch
+git clone https://github.com/giridhar2005/sentinelgate.git && cd sentinelgate && pip install -e . && sentinelgate
 ```
 
 Or run directly without installing:
@@ -182,6 +195,17 @@ response = client.chat.completions.create(
 )
 print(response.choices[0].message.content)
 ```
+
+### 3. Interactive Local Playground Walk-Through
+
+Once SentinelGate starts, open **[http://localhost:8000/dashboard](http://localhost:8000/dashboard)**. You can test the entire pipeline directly in the browser with 1 click:
+
+1. **`Send Normal Prompt`:** Sends an uncached query $\rightarrow$ observe standard `UPSTREAM` execution (~47ms).
+2. **`Send Paraphrased Prompt`:** Re-queries semantically equivalent text $\rightarrow$ observe instant `CACHE HIT` in `<2.0ms` at **$0.00 cost** with cosine similarity score.
+3. **`Test Secret Firewall`:** Sends a query containing credentials (`sk-proj-...`, `postgresql://...`) $\rightarrow$ observe the violet `REDACTED` badge with secrets scrubbed outbound and restored inbound.
+4. **`Auto-Route (Simple)`:** Tests `model="auto"` on routine Q&A $\rightarrow$ routes to local Ollama / Groq Llama-3, logging up to 99% USD saved vs. frontier baseline.
+5. **`Auto-Route (Complex)`:** Tests `model="auto"` on distributed architecture design $\rightarrow$ routes to Claude 3.5 Sonnet / GPT-4o with high reasoning depth.
+6. **`Simulate Outage (429)`:** Flips the Chaos switch $\rightarrow$ watch SentinelGate's circuit breaker automatically reroute traffic to secondary providers with zero dropped requests.
 
 ---
 
