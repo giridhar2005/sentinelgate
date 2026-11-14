@@ -32,7 +32,18 @@
   - [x] Comprehensive recruiter-ready `README.md` with Mermaid diagram, quickstart, and benchmark results
 - [x] Verification & Autonomous Loop
   - [x] Run `uv run ruff check . --fix`
-  - [x] Run `uv run pytest` until 100% pass (10/10 tests passed)
+  - [x] Run `uv run pytest` until 100% pass (18/18 tests passed)
   - [x] Run `benchmark.py` and capture output for README
   - [x] Test live server startup and verify `GET /health` and `GET /dashboard` return HTTP 200
-  - [x] Ensure core source code line count is well under 1,500 lines (1,177 lines)
+  - [x] Ensure core source code line count is strictly under 1,500 lines (1,420 lines)
+- [x] Next-Level Enterprise Upgrades
+  - [x] Multi-Tenant Virtual Keys with sliding-window RPM rate limits (`POST /v1/keys`, `GET /v1/keys`)
+  - [x] Adversarial Prompt Injection & Steganography Defense Shield (`InjectionDefense`)
+  - [x] Daily Spend Circuit Breaker to prevent runaway LLM costs
+  - [x] Adaptive Smart Auto-Routing (`model: "auto"`) based on prompt complexity
+  - [x] Zero-Loss Prompt Optimizer (whitespace stripping outside code blocks)
+  - [x] Semantic Cache Pre-Warming endpoint (`POST /v1/cache/warm`)
+  - [x] Provider Circuit Breaker & 30s Cooldown Matrix (`GET /v1/providers/health`)
+  - [x] Time-To-First-Token (TTFT) streaming telemetry
+  - [x] Interactive Side-by-Side Shadow Eval Diff Inspector modal on `/dashboard`
+  - [x] Live HTML5 Canvas Latency Distribution & Throughput visualizer
