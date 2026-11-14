@@ -1,6 +1,7 @@
 """Quickstart showing drop-in OpenAI SDK compatibility with SentinelGate."""
 
 import os
+
 from openai import OpenAI
 
 # SentinelGate exposes standard OpenAI-compatible endpoints at /v1.

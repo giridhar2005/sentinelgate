@@ -1,6 +1,7 @@
 """Tests SentinelGate pre-flight guardrails for leaked secrets and prompt injection."""
 
 import os
+
 import httpx
 
 BASE_URL = os.getenv("SENTINELGATE_BASE_URL", "http://localhost:8000/v1")

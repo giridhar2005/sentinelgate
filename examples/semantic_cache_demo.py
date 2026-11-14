@@ -2,6 +2,7 @@
 
 import os
 import time
+
 import httpx
 
 BASE_URL = os.getenv("SENTINELGATE_BASE_URL", "http://localhost:8000/v1")
