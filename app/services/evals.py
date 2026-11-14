@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 import logging
 import random
 import re
 import sqlite3
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -31,14 +32,21 @@ class EvalsManager:
         cost_usd: float,
         cost_saved_usd: float = 0.0,
         ttft_ms: float = 0.0,
+        status: str = "UPSTREAM",
+        prompt_snippet: str = "",
+        similarity_score: float = 0.0,
+        timing_breakdown: Optional[Dict[str, float]] = None,
+        response_snippet: str = "",
     ):
+        timing_json = json.dumps(timing_breakdown or {})
         with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             conn.execute(
                 """
                 INSERT INTO request_metrics (
                     request_id, model, provider, latency_ms, cache_hit,
-                    prompt_tokens, completion_tokens, cost_usd, cost_saved_usd, timestamp, ttft_ms
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    prompt_tokens, completion_tokens, cost_usd, cost_saved_usd, timestamp, ttft_ms,
+                    status, prompt_snippet, similarity_score, timing_breakdown, response_snippet
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     request_id,
@@ -52,6 +60,11 @@ class EvalsManager:
                     round(cost_saved_usd, 6),
                     time.time(),
                     round(ttft_ms, 2),
+                    status,
+                    prompt_snippet[:300],
+                    round(similarity_score, 4),
+                    timing_json,
+                    response_snippet[:500],
                 ),
             )
 
@@ -160,7 +173,16 @@ class EvalsManager:
             recent_requests = [
                 dict(r)
                 for r in conn.execute(
-                    "SELECT request_id, model, provider, latency_ms, cache_hit, prompt_tokens, completion_tokens, cost_usd, timestamp, ttft_ms FROM request_metrics ORDER BY id DESC LIMIT 20"
+                    """
+                    SELECT request_id, model, provider, latency_ms, cache_hit, prompt_tokens,
+                           completion_tokens, cost_usd, cost_saved_usd, timestamp, ttft_ms,
+                           COALESCE(status, CASE WHEN cache_hit = 1 THEN 'CACHE_HIT' ELSE 'UPSTREAM' END) as status,
+                           COALESCE(prompt_snippet, '') as prompt_snippet,
+                           COALESCE(similarity_score, 0.0) as similarity_score,
+                           COALESCE(timing_breakdown, '{}') as timing_breakdown,
+                           COALESCE(response_snippet, '') as response_snippet
+                    FROM request_metrics ORDER BY id DESC LIMIT 50
+                    """
                 ).fetchall()
             ]
 

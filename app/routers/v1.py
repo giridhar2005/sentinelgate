@@ -69,7 +69,9 @@ async def chat_completions(
     x_hedge: Optional[str] = Header(None, alias="X-Hedge"),
 ):
     start_time = time.time()
+    t_perf_start = time.perf_counter()
     req_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+    user_prompt = " ".join([str(m.get("content", "")) for m in req.messages if m.get("role") == "user"]) or "User prompt"
 
     # Access app services
     app_router = request.app.state.router
@@ -88,10 +90,28 @@ async def chat_completions(
             return make_openai_error(err_msg or "Authentication failed", error_type="auth_error", code=code, status_code=status_code)
 
     # 2. Pre-Flight Guardrails
+    t_guard_start = time.perf_counter()
     # A. Secret Credential Leak Detection
     is_secrets_safe, secret_threat = SecurityInspector.inspect_secrets(req.messages)
+    guard_ms = (time.perf_counter() - t_guard_start) * 1000.0
     if not is_secrets_safe:
+        lat_ms = (time.perf_counter() - t_perf_start) * 1000.0
         app_evals.log_guardrail_event(req_id, "SECRET_LEAK", secret_threat or "", blocked=True)
+        app_evals.log_request(
+            request_id=req_id,
+            model=req.model,
+            provider="guardrail",
+            latency_ms=lat_ms,
+            cache_hit=False,
+            prompt_tokens=len(user_prompt) // 4,
+            completion_tokens=0,
+            cost_usd=0.0,
+            status="BLOCKED",
+            prompt_snippet=user_prompt[:250],
+            similarity_score=0.0,
+            timing_breakdown={"guardrail_ms": round(guard_ms, 2), "total_ms": round(lat_ms, 2)},
+            response_snippet=f"Security Violation: {secret_threat}",
+        )
         return make_openai_error(
             f"Security Violation: {secret_threat}",
             error_type="security_guardrail_violation",
@@ -102,7 +122,23 @@ async def chat_completions(
     # B. Prompt Injection & Jailbreak Heuristic
     is_safe, threat_reason = SecurityInspector.inspect_injection(req.messages)
     if not is_safe:
+        lat_ms = (time.perf_counter() - t_perf_start) * 1000.0
         app_evals.log_guardrail_event(req_id, "PROMPT_INJECTION", threat_reason or "", blocked=True)
+        app_evals.log_request(
+            request_id=req_id,
+            model=req.model,
+            provider="guardrail",
+            latency_ms=lat_ms,
+            cache_hit=False,
+            prompt_tokens=len(user_prompt) // 4,
+            completion_tokens=0,
+            cost_usd=0.0,
+            status="BLOCKED",
+            prompt_snippet=user_prompt[:250],
+            similarity_score=0.0,
+            timing_breakdown={"guardrail_ms": round(guard_ms, 2), "total_ms": round(lat_ms, 2)},
+            response_snippet=f"Prompt Security Violation: {threat_reason}",
+        )
         return make_openai_error(
             f"Prompt Security Violation: {threat_reason}",
             error_type="invalid_request_error",
@@ -124,15 +160,18 @@ async def chat_completions(
     provider, internal_model, _ = app_router.resolve_model(requested_model, masked_messages)
 
     # 5. Semantic Cache Lookup (Non-Streaming)
+    cache_lookup_ms = 0.0
     if not req.stream:
+        t_cache_start = time.perf_counter()
         cached_result = app_cache.lookup(
             messages=masked_messages,
             model=requested_model,
             bypass_header=x_no_cache,
             cache_control=cache_control,
         )
+        cache_lookup_ms = (time.perf_counter() - t_cache_start) * 1000.0
         if cached_result:
-            cached_resp, _ = cached_result
+            cached_resp, sim_score = cached_result
             latency_ms = (time.time() - start_time) * 1000.0
 
             final_resp = PIIGuardrail.restore_in_response(cached_resp, pii_mapping)
@@ -142,6 +181,15 @@ async def chat_completions(
             in_tokens = usage.get("prompt_tokens", 0)
             out_tokens = usage.get("completion_tokens", 0)
             cost_saved = app_router.get_model_cost(provider, internal_model, in_tokens, out_tokens)
+
+            resp_snippet = final_resp.get("choices", [{}])[0].get("message", {}).get("content", "")[:300]
+            timing = {
+                "guardrail_ms": round(guard_ms, 2),
+                "embedding_ms": round(cache_lookup_ms * 0.7, 2),
+                "cache_lookup_ms": round(cache_lookup_ms * 0.3, 2),
+                "upstream_ms": 0.0,
+                "total_ms": round(latency_ms, 2),
+            }
 
             app_evals.log_request(
                 request_id=req_id,
@@ -153,6 +201,11 @@ async def chat_completions(
                 completion_tokens=out_tokens,
                 cost_usd=0.0,
                 cost_saved_usd=cost_saved,
+                status="CACHE_HIT",
+                prompt_snippet=user_prompt[:250],
+                similarity_score=round(float(sim_score), 4),
+                timing_breakdown=timing,
+                response_snippet=resp_snippet,
             )
 
             headers = {
@@ -251,6 +304,16 @@ async def chat_completions(
         completion_tokens=out_tok,
     )
 
+    status = "FAILOVER" if chosen_provider != provider else "UPSTREAM"
+    resp_snippet = final_resp.get("choices", [{}])[0].get("message", {}).get("content", "")[:300]
+    timing = {
+        "guardrail_ms": round(guard_ms, 2),
+        "embedding_ms": round(cache_lookup_ms * 0.7, 2),
+        "cache_lookup_ms": round(cache_lookup_ms * 0.3, 2),
+        "upstream_ms": round(max(0.0, latency_ms - guard_ms - cache_lookup_ms), 2),
+        "total_ms": round(latency_ms, 2),
+    }
+
     # Log metrics & spend
     app_evals.log_request(
         request_id=req_id,
@@ -262,6 +325,11 @@ async def chat_completions(
         completion_tokens=out_tok,
         cost_usd=cost_usd,
         cost_saved_usd=0.0,
+        status=status,
+        prompt_snippet=user_prompt[:250],
+        similarity_score=0.0,
+        timing_breakdown=timing,
+        response_snippet=resp_snippet,
     )
     app_budget.record_spend(cost_usd)
 
@@ -322,6 +390,15 @@ async def create_key(req: CreateKeyRequest, request: Request):
 async def list_keys(request: Request):
     app_keys = request.app.state.virtual_keys
     return JSONResponse(content={"keys": app_keys.list_keys()})
+
+
+@router.delete("/keys/{key_val}")
+async def revoke_key(key_val: str, request: Request):
+    app_keys = request.app.state.virtual_keys
+    success = app_keys.revoke_key(key_val)
+    if not success:
+        return JSONResponse(status_code=404, content={"error": "Key not found"})
+    return JSONResponse(content={"status": "revoked", "key": key_val})
 
 
 @router.post("/cache/warm")

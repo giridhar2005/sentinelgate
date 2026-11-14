@@ -83,6 +83,11 @@ class VirtualKeyManager:
             conn.row_factory = sqlite3.Row
             return [dict(r) for r in conn.execute("SELECT * FROM virtual_keys ORDER BY created_at DESC").fetchall()]
 
+    def revoke_key(self, key_val: str) -> bool:
+        with sqlite3.connect(self.db_path, timeout=15.0) as conn:
+            cursor = conn.execute("UPDATE virtual_keys SET is_active = 0 WHERE key_val = ?", (key_val,))
+            return cursor.rowcount > 0
+
     def verify_and_rate_limit(self, key_val: str) -> Tuple[bool, Optional[str]]:
         now = time.time()
         minute = int(now // 60)

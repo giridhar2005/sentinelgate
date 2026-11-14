@@ -57,10 +57,27 @@ def init_db(db_path: str = "sentinelgate.db"):
                 cost_usd REAL NOT NULL,
                 cost_saved_usd REAL NOT NULL,
                 timestamp REAL NOT NULL,
-                ttft_ms REAL DEFAULT 0.0
+                ttft_ms REAL DEFAULT 0.0,
+                status TEXT DEFAULT 'UPSTREAM',
+                prompt_snippet TEXT DEFAULT '',
+                similarity_score REAL DEFAULT 0.0,
+                timing_breakdown TEXT DEFAULT '{}',
+                response_snippet TEXT DEFAULT ''
             );
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_metrics_ts ON request_metrics(timestamp);")
+
+        cursor.execute("PRAGMA table_info(request_metrics);")
+        rm_cols = {row[1] for row in cursor.fetchall()}
+        for col_name, col_type in [
+            ("status", "TEXT DEFAULT 'UPSTREAM'"),
+            ("prompt_snippet", "TEXT DEFAULT ''"),
+            ("similarity_score", "REAL DEFAULT 0.0"),
+            ("timing_breakdown", "TEXT DEFAULT '{}'"),
+            ("response_snippet", "TEXT DEFAULT ''"),
+        ]:
+            if col_name not in rm_cols:
+                conn.execute(f"ALTER TABLE request_metrics ADD COLUMN {col_name} {col_type};")
 
         # 3. Continuous Shadow Parity Evals Table
         conn.execute("""
