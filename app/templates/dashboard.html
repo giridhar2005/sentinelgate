@@ -90,7 +90,7 @@
           </svg>
         </div>
         <span class="font-semibold text-sm tracking-tight text-white">SentinelGate</span>
-        <span class="text-xs text-zinc-500 font-mono">v0.2.0</span>
+        <span class="text-xs text-zinc-500 font-mono">v0.3.0</span>
       </div>
       <div class="h-4 w-px bg-hairline"></div>
       <div class="flex items-center space-x-2">
@@ -101,6 +101,12 @@
 
     <!-- Right Controls -->
     <div class="flex items-center space-x-3 text-xs">
+      <!-- Keyboard Shortcuts trigger -->
+      <button onclick="openShortcutsModal()" class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight transition text-zinc-400 hover:text-white" title="Keyboard Shortcuts (?)">
+        <span class="text-xs text-zinc-400">Shortcuts</span>
+        <kbd class="px-1 py-0.2 rounded bg-zinc-800 border border-hairline text-[10px] text-zinc-400 font-mono">?</kbd>
+      </button>
+
       <!-- Connect Tool Quick Setup Button -->
       <button onclick="openConnectModal()" class="flex items-center space-x-1.5 px-3 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-hairline hover:border-hairlineLight transition text-zinc-200 font-medium font-sans">
         <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -539,6 +545,62 @@ console.log(completion.choices[0].message.content);</code></pre>
       <button onclick="closeConnectModal()" class="px-3.5 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition">
         Done
       </button>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <div id="shortcuts-modal-backdrop" onclick="closeShortcutsModal()" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 hidden transition-opacity"></div>
+  <div id="shortcuts-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-panel border border-hairline rounded-xl shadow-2xl z-50 hidden flex flex-col overflow-hidden">
+    <div class="p-4 border-b border-hairline flex items-center justify-between bg-canvas">
+      <div class="flex items-center space-x-2">
+        <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-hairline text-[11px] text-zinc-300 font-mono">?</kbd>
+        <h3 class="text-xs font-semibold text-white tracking-wide uppercase">Keyboard Navigation</h3>
+      </div>
+      <button onclick="closeShortcutsModal()" class="text-zinc-400 hover:text-white p-1 rounded hover:bg-panelElevated transition">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="p-4 space-y-2.5 text-xs font-mono">
+      <div class="flex items-center justify-between py-1 border-b border-hairline/60">
+        <span class="text-zinc-300">Toggle shortcuts cheat sheet</span>
+        <kbd class="px-2 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">?</kbd>
+      </div>
+      <div class="flex items-center justify-between py-1 border-b border-hairline/60">
+        <span class="text-zinc-300">Close drawer / modal</span>
+        <kbd class="px-2 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">Esc</kbd>
+      </div>
+      <div class="flex items-center justify-between py-1 border-b border-hairline/60">
+        <span class="text-zinc-300">Refresh metrics &amp; traces</span>
+        <kbd class="px-2 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">r</kbd>
+      </div>
+      <div class="flex items-center justify-between py-1 border-b border-hairline/60">
+        <span class="text-zinc-300">Toggle 2s auto-refresh</span>
+        <kbd class="px-2 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">a</kbd>
+      </div>
+      <div class="flex items-center justify-between py-1 border-b border-hairline/60">
+        <span class="text-zinc-300">Open Connect Tool modal</span>
+        <kbd class="px-2 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">c</kbd>
+      </div>
+      <div class="flex items-center justify-between py-1 border-b border-hairline/60">
+        <span class="text-zinc-300">Toggle Chaos 429 fault</span>
+        <kbd class="px-2 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">f</kbd>
+      </div>
+      <div class="flex items-center justify-between py-1 border-b border-hairline/60">
+        <span class="text-zinc-300">Focus Simulator prompt box</span>
+        <kbd class="px-2 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">p</kbd>
+      </div>
+      <div class="flex items-center justify-between py-1">
+        <span class="text-zinc-300">Run Playground Presets (1-5)</span>
+        <span class="space-x-1">
+          <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">1</kbd>
+          <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">2</kbd>
+          <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">3</kbd>
+          <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">4</kbd>
+          <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-hairline text-zinc-300">5</kbd>
+        </span>
+      </div>
     </div>
   </div>
 
@@ -1248,10 +1310,11 @@ console.log(completion.choices[0].message.content);</code></pre>
           document.getElementById("created-key-val").innerText = data.key;
           document.getElementById("key-created-alert").classList.remove("hidden");
           document.getElementById("new-key-name").value = "";
+          showToast(`Virtual key "${name}" generated`, "success");
           fetchVirtualKeys();
         }
       } catch (err) {
-        alert("Failed to create key: " + err);
+        showToast("Failed to create key: " + err, "error");
       }
     }
 
@@ -1260,17 +1323,113 @@ console.log(completion.choices[0].message.content);</code></pre>
       try {
         const res = await fetch(`/v1/keys/${encodeURIComponent(keyVal)}`, { method: "DELETE" });
         if (res.ok) {
+          showToast(`Revoked key ${keyVal.substring(0, 12)}...`, "info");
           fetchVirtualKeys();
         }
       } catch (err) {
-        alert("Failed to revoke key: " + err);
+        showToast("Failed to revoke key: " + err, "error");
       }
     }
 
     function copyToClipboard(text) {
-      navigator.clipboard.writeText(text);
-      alert("Copied to clipboard: " + text);
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("Copied to clipboard: " + text.substring(0, 24) + (text.length > 24 ? "..." : ""), "success");
+      });
     }
+
+    // Keyboard Shortcuts Modal Control
+    function openShortcutsModal() {
+      document.getElementById("shortcuts-modal-backdrop").classList.remove("hidden");
+      document.getElementById("shortcuts-modal").classList.remove("hidden");
+    }
+
+    function closeShortcutsModal() {
+      document.getElementById("shortcuts-modal-backdrop").classList.add("hidden");
+      document.getElementById("shortcuts-modal").classList.add("hidden");
+    }
+
+    // Global Toast Notification System
+    function showToast(msg, type = "info") {
+      const container = document.getElementById("toast-container");
+      if (!container) return;
+      const toast = document.createElement("div");
+      const isSuccess = type === "success";
+      const isError = type === "error";
+      const borderColor = isSuccess ? "border-emerald-500/40" : (isError ? "border-rose-500/40" : "border-hairline");
+      
+      toast.className = `flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg bg-panel border ${borderColor} shadow-2xl text-xs font-mono text-zinc-200 transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto`;
+      
+      let iconSvg = isSuccess 
+        ? '<svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>'
+        : (isError 
+          ? '<svg class="w-4 h-4 text-rose-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+          : '<svg class="w-4 h-4 text-zinc-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>');
+      
+      toast.innerHTML = `${iconSvg}<span>${msg}</span>`;
+      container.appendChild(toast);
+      
+      requestAnimationFrame(() => {
+        toast.classList.remove("translate-y-2", "opacity-0");
+      });
+      
+      setTimeout(() => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => toast.remove(), 300);
+      }, 2500);
+    }
+
+    // Single-Key Developer Navigation Listeners
+    document.addEventListener("keydown", (e) => {
+      const tag = e.target.tagName.toLowerCase();
+      const isInput = tag === "input" || tag === "textarea" || e.target.isContentEditable;
+      
+      if (e.key === "Escape") {
+        closeDrawer();
+        closeConnectModal();
+        closeShortcutsModal();
+        if (isInput) e.target.blur();
+        return;
+      }
+      
+      if (isInput) return;
+      
+      if (e.key === "?" || (e.shiftKey && e.key === "/")) {
+        const isHidden = document.getElementById("shortcuts-modal").classList.contains("hidden");
+        if (isHidden) openShortcutsModal(); else closeShortcutsModal();
+      } else if (e.key === "r" || e.key === "R") {
+        fetchMetrics();
+        showToast("Telemetry metrics refreshed", "info");
+      } else if (e.key === "a" || e.key === "l") {
+        toggleAutoRefresh();
+      } else if (e.key === "c" || e.key === "C") {
+        openConnectModal();
+      } else if (e.key === "p" || e.key === "P") {
+        const el = document.getElementById("sim-custom-prompt");
+        if (el) {
+          el.focus();
+          e.preventDefault();
+        }
+      } else if (e.key === "f" || e.key === "F") {
+        const toggle = document.getElementById("chaos-toggle");
+        if (toggle) {
+          toggle.checked = !toggle.checked;
+          toggleChaosFault(toggle.checked);
+        }
+      } else if (e.key === "1") {
+        runTestPreset('normal');
+      } else if (e.key === "2") {
+        runTestPreset('paraphrased');
+      } else if (e.key === "3") {
+        runTestPreset('secret');
+      } else if (e.key === "4") {
+        runTestPreset('auto-simple');
+      } else if (e.key === "5") {
+        runTestPreset('auto-complex');
+      }
+    });
   </script>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 </body>
 </html>

@@ -58,7 +58,7 @@ def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None)
     app = FastAPI(
         title="SentinelGate",
         description="Zero-bloat, production-grade OpenAI-compatible LLM Gateway with semantic caching and failover.",
-        version="0.2.0",
+        version="0.3.0",
         lifespan=lifespan,
     )
 

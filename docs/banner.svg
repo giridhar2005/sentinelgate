@@ -12,10 +12,16 @@
     </pattern>
 
     <!-- Subtle radial glow behind logo -->
-    <radialGradient id="centerGlow" cx="50%" cy="40%" r="50%">
-      <stop offset="0%" stop-color="#27272A" stop-opacity="0.4" />
+    <radialGradient id="centerGlow" cx="40%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#27272A" stop-opacity="0.35" />
       <stop offset="100%" stop-color="#09090B" stop-opacity="0" />
     </radialGradient>
+
+    <!-- Code card background -->
+    <linearGradient id="codeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#121215" />
+      <stop offset="100%" stop-color="#0B0B0D" />
+    </linearGradient>
   </defs>
 
   <!-- Background Canvas -->
@@ -26,50 +32,92 @@
   <!-- Outer Hairline Border -->
   <rect x="0.5" y="0.5" width="1199" height="259" fill="none" stroke="#27272A" stroke-width="1" />
 
-  <!-- Top Terminal Accent Bar -->
-  <g transform="translate(48, 36)">
-    <!-- Terminal prompt badge -->
-    <rect x="0" y="0" width="144" height="26" rx="4" fill="#18181B" stroke="#27272A" stroke-width="1" />
-    <circle cx="16" cy="13" r="3.5" fill="#10B981" />
-    <text x="28" y="17" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="600" fill="#A1A1AA" letter-spacing="0.5">OPENAI / V1 PROXY</text>
-  </g>
-
-  <!-- Main Brand Title & Icon -->
-  <g transform="translate(48, 92)">
-    <!-- Minimal Shield Monogram -->
-    <g transform="translate(0, 4)">
-      <rect x="0" y="0" width="46" height="46" rx="8" fill="#18181B" stroke="#27272A" stroke-width="1.5" />
-      <path d="M 23 10 L 13 14.5 V 23.5 C 13 29.5 17.5 35 23 36.5 C 28.5 35 33 29.5 33 23.5 V 14.5 Z" fill="none" stroke="#F4F4F5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-      <path d="M 19 23.5 L 22 26.5 L 27.5 20.5" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- LEFT COLUMN: Identity & Spec Badges -->
+  <g transform="translate(48, 32)">
+    <!-- Top Terminal Accent Bar -->
+    <g>
+      <rect x="0" y="0" width="156" height="24" rx="4" fill="#18181B" stroke="#27272A" stroke-width="1" />
+      <circle cx="14" cy="12" r="3" fill="#10B981" />
+      <text x="26" y="16" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="600" fill="#A1A1AA" letter-spacing="0.6">OPENAI / V1 GATEWAY</text>
     </g>
 
-    <!-- Title Typography -->
-    <text x="64" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="44" font-weight="700" fill="#FFFFFF" letter-spacing="-1">SentinelGate</text>
+    <!-- Main Brand Title & Monogram -->
+    <g transform="translate(0, 40)">
+      <g transform="translate(0, 2)">
+        <rect x="0" y="0" width="44" height="44" rx="8" fill="#18181B" stroke="#27272A" stroke-width="1.5" />
+        <path d="M 22 9 L 12 13.5 V 22.5 C 12 28.5 16.5 34 22 35.5 C 27.5 34 32 28.5 32 22.5 V 13.5 Z" fill="none" stroke="#F4F4F5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M 18 22.5 L 21 25.5 L 26.5 19.5" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+      <text x="58" y="34" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="40" font-weight="700" fill="#FFFFFF" letter-spacing="-1">SentinelGate</text>
+    </g>
+
+    <!-- Subtitle Plain English -->
+    <g transform="translate(0, 114)">
+      <text x="0" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="14.5" font-weight="400" fill="#A1A1AA" letter-spacing="-0.2">
+        Zero-bloat OpenAI proxy with local semantic vector caching,
+      </text>
+      <text x="0" y="20" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="14.5" font-weight="400" fill="#A1A1AA" letter-spacing="-0.2">
+        <tspan fill="#3B82F6" font-weight="500">model="auto"</tspan> cost arbitrage, reversible secret firewall, and SQLite state.
+      </text>
+    </g>
+
+    <!-- Bottom Pills / Architectural Specs -->
+    <g transform="translate(0, 162)">
+      <!-- Pill 1: fastembed -->
+      <rect x="0" y="0" width="126" height="22" rx="4" fill="#111113" stroke="#27272A" stroke-width="1" />
+      <text x="10" y="15" font-family="'JetBrains Mono', monospace" font-size="10.5" fill="#71717A">fastembed ONNX</text>
+
+      <!-- Pill 2: SQLite WAL -->
+      <rect x="134" y="0" width="120" height="22" rx="4" fill="#111113" stroke="#27272A" stroke-width="1" />
+      <text x="144" y="15" font-family="'JetBrains Mono', monospace" font-size="10.5" fill="#71717A">SQLite WAL Mode</text>
+
+      <!-- Pill 3: Cache Hit Latency -->
+      <rect x="262" y="0" width="124" height="22" rx="4" fill="#111113" stroke="#27272A" stroke-width="1" />
+      <text x="272" y="15" font-family="'JetBrains Mono', monospace" font-size="10.5" font-weight="600" fill="#10B981">&lt;2.0ms Cache Hit</text>
+
+      <!-- Pill 4: Zero Node -->
+      <rect x="394" y="0" width="134" height="22" rx="4" fill="#111113" stroke="#27272A" stroke-width="1" />
+      <text x="404" y="15" font-family="'JetBrains Mono', monospace" font-size="10.5" fill="#71717A">Zero node_modules</text>
+    </g>
   </g>
 
-  <!-- Subtitle Plain English -->
-  <g transform="translate(48, 178)">
-    <text x="0" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="16" font-weight="400" fill="#A1A1AA" letter-spacing="-0.2">
-      Zero-bloat OpenAI-compatible LLM gateway <tspan fill="#3F3F46">·</tspan> Local semantic cache <tspan fill="#3F3F46">·</tspan> Reversible secret firewall <tspan fill="#3F3F46">·</tspan> SQLite state
-    </text>
-  </g>
+  <!-- RIGHT COLUMN: Interactive Terminal Proof Card -->
+  <g transform="translate(630, 26)">
+    <!-- Terminal Container Card -->
+    <rect width="522" height="208" rx="8" fill="url(#codeGrad)" stroke="#27272A" stroke-width="1" />
 
-  <!-- Bottom Pills / Architectural Specs -->
-  <g transform="translate(48, 208)">
-    <!-- Pill 1: fastembed -->
-    <rect x="0" y="0" width="138" height="24" rx="4" fill="#111113" stroke="#27272A" stroke-width="1" />
-    <text x="12" y="16" font-family="'JetBrains Mono', monospace" font-size="11" fill="#71717A">fastembed ONNX</text>
+    <!-- Terminal Header Bar -->
+    <rect width="522" height="32" rx="8" fill="#16161A" />
+    <rect y="24" width="522" height="8" fill="#16161A" />
+    <line x1="0" y1="32" x2="522" y2="32" stroke="#27272A" stroke-width="1" />
 
-    <!-- Pill 2: SQLite WAL -->
-    <rect x="148" y="0" width="128" height="24" rx="4" fill="#111113" stroke="#27272A" stroke-width="1" />
-    <text x="160" y="16" font-family="'JetBrains Mono', monospace" font-size="11" fill="#71717A">SQLite WAL Mode</text>
+    <!-- macOS Window Dots -->
+    <circle cx="16" cy="16" r="4" fill="#EF4444" opacity="0.8" />
+    <circle cx="28" cy="16" r="4" fill="#F59E0B" opacity="0.8" />
+    <circle cx="40" cy="16" r="4" fill="#10B981" opacity="0.8" />
 
-    <!-- Pill 3: Sub-5ms Caching -->
-    <rect x="286" y="0" width="136" height="24" rx="4" fill="#111113" stroke="#27272A" stroke-width="1" />
-    <text x="298" y="16" font-family="'JetBrains Mono', monospace" font-size="11" fill="#10B981">~5ms Cache Hit</text>
+    <text x="60" y="20" font-family="'JetBrains Mono', monospace" font-size="11" fill="#71717A">POST /v1/chat/completions</text>
+    <rect x="424" y="8" width="86" height="16" rx="3" fill="#18181B" stroke="#27272A" stroke-width="1" />
+    <text x="432" y="20" font-family="'JetBrains Mono', monospace" font-size="9.5" font-weight="600" fill="#10B981">200 OK · 1.8ms</text>
 
-    <!-- Pill 4: Zero Node.js -->
-    <rect x="432" y="0" width="144" height="24" rx="4" fill="#111113" stroke="#27272A" stroke-width="1" />
-    <text x="444" y="16" font-family="'JetBrains Mono', monospace" font-size="11" fill="#71717A">Zero node_modules</text>
+    <!-- Terminal Body / HTTP Trace -->
+    <g transform="translate(16, 48)" font-family="'JetBrains Mono', monospace" font-size="11" line-height="16">
+      <!-- Request line -->
+      <text x="0" y="12" fill="#71717A">&gt; curl http://localhost:8000/v1/chat/completions \</text>
+      <text x="0" y="28" fill="#52525B">    -d '{"model": "<tspan fill="#3B82F6">auto</tspan>", "messages": [{"role": "user", ...}]}'</text>
+
+      <!-- Divider -->
+      <line x1="0" y1="38" x2="490" y2="38" stroke="#1F1F23" stroke-width="1" />
+
+      <!-- Response Headers with Semantic Accents -->
+      <text x="0" y="56" fill="#A1A1AA">&lt; X-Cache: <tspan fill="#10B981" font-weight="600">HIT (cosine: 0.9412)</tspan>  <tspan fill="#52525B">·</tspan>  X-Cost: <tspan fill="#10B981" font-weight="600">$0.000000</tspan></text>
+      <text x="0" y="74" fill="#A1A1AA">&lt; X-Latency: <tspan fill="#10B981" font-weight="600">1.84 ms</tspan>  <tspan fill="#52525B">·</tspan>  X-Auto-Route: <tspan fill="#3B82F6">ollama/llama3</tspan></text>
+      <text x="0" y="92" fill="#A1A1AA">&lt; X-Saved-USD: <tspan fill="#10B981" font-weight="600">$0.003420</tspan>  <tspan fill="#52525B">·</tspan>  X-Secrets-Scrubbed: <tspan fill="#8B5CF6">0 (clean)</tspan></text>
+
+      <!-- Response Preview snippet -->
+      <rect x="0" y="106" width="490" height="34" rx="4" fill="#0A0A0C" stroke="#1F1F23" stroke-width="1" />
+      <text x="10" y="122" fill="#71717A" font-size="10">{"role": "assistant", "content": "Fast, local, zero-bloat AI gateway."}</text>
+      <text x="10" y="134" fill="#52525B" font-size="9.5">finish_reason: "stop" · prompt_tokens: 38 · completion_tokens: 14</text>
+    </g>
   </g>
 </svg>
