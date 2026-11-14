@@ -25,9 +25,14 @@ class EvalsManager:
                     model TEXT NOT NULL, provider TEXT NOT NULL, latency_ms REAL NOT NULL,
                     cache_hit INTEGER NOT NULL, prompt_tokens INTEGER NOT NULL,
                     completion_tokens INTEGER NOT NULL, cost_usd REAL NOT NULL,
-                    cost_saved_usd REAL NOT NULL, timestamp REAL NOT NULL
+                    cost_saved_usd REAL NOT NULL, timestamp REAL NOT NULL,
+                    ttft_ms REAL DEFAULT 0.0
                 );
             """)
+            try:
+                conn.execute("ALTER TABLE request_metrics ADD COLUMN ttft_ms REAL DEFAULT 0.0;")
+            except sqlite3.OperationalError:
+                pass
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS shadow_evals (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, request_id TEXT NOT NULL,
@@ -51,16 +56,17 @@ class EvalsManager:
         completion_tokens: int,
         cost_usd: float,
         cost_saved_usd: float = 0.0,
+        ttft_ms: float = 0.0,
     ):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
                 INSERT INTO request_metrics (
                     request_id, model, provider, latency_ms, cache_hit,
-                    prompt_tokens, completion_tokens, cost_usd, cost_saved_usd, timestamp
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    prompt_tokens, completion_tokens, cost_usd, cost_saved_usd, timestamp, ttft_ms
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (request_id, model, provider, round(latency_ms, 2), 1 if cache_hit else 0, prompt_tokens, completion_tokens, round(cost_usd, 6), round(cost_saved_usd, 6), time.time()),
+                (request_id, model, provider, round(latency_ms, 2), 1 if cache_hit else 0, prompt_tokens, completion_tokens, round(cost_usd, 6), round(cost_saved_usd, 6), time.time(), round(ttft_ms, 2)),
             )
 
     def should_sample_shadow(self, cache_hit: bool) -> bool:
@@ -125,10 +131,11 @@ class EvalsManager:
             latencies = [r[0] for r in conn.execute("SELECT latency_ms FROM request_metrics ORDER BY latency_ms ASC").fetchall()]
             p50 = float(np.percentile(latencies, 50)) if latencies else 0.0
             p95 = float(np.percentile(latencies, 95)) if latencies else 0.0
+            avg_ttft = float(conn.execute("SELECT AVG(ttft_ms) FROM request_metrics WHERE ttft_ms > 0").fetchone()[0] or 0.0)
 
             shadow_agg = dict(conn.execute("SELECT COUNT(*) as total_evals, SUM(is_win) as total_wins, AVG(judge_score) as avg_score FROM shadow_evals").fetchone() or {})
-            recent_requests = [dict(r) for r in conn.execute("SELECT request_id, model, provider, latency_ms, cache_hit, prompt_tokens, completion_tokens, cost_usd, timestamp FROM request_metrics ORDER BY id DESC LIMIT 20").fetchall()]
-            recent_shadows = [dict(r) for r in conn.execute("SELECT request_id, original_model, shadow_model, judge_score, judge_reasoning, is_win, timestamp FROM shadow_evals ORDER BY id DESC LIMIT 10").fetchall()]
+            recent_requests = [dict(r) for r in conn.execute("SELECT request_id, model, provider, latency_ms, cache_hit, prompt_tokens, completion_tokens, cost_usd, timestamp, ttft_ms FROM request_metrics ORDER BY id DESC LIMIT 20").fetchall()]
+            recent_shadows = [dict(r) for r in conn.execute("SELECT request_id, original_model, shadow_model, judge_score, judge_reasoning, is_win, timestamp, prompt, original_response, shadow_response FROM shadow_evals ORDER BY id DESC LIMIT 10").fetchall()]
 
         total_req = agg.get("total_requests") or 0
         cache_hits = agg.get("cache_hits") or 0
@@ -148,6 +155,7 @@ class EvalsManager:
             "total_completion_tokens": agg.get("total_completion_tokens") or 0,
             "p50_latency_ms": round(p50, 1),
             "p95_latency_ms": round(p95, 1),
+            "avg_ttft_ms": round(avg_ttft, 1),
             "shadow_evals": {
                 "total_evals": total_evals,
                 "total_wins": wins,

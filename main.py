@@ -186,25 +186,29 @@ async def chat_completions(
     # 4. Handle SSE Streaming Response
     if req.stream:
         async def event_generator():
+            first_chunk = True
             try:
                 async for chunk in upstream_res:
+                    if first_chunk:
+                        ttft = (time.time() - start_time) * 1000.0
+                        evals.log_request(
+                            request_id=req_id,
+                            model=requested_model,
+                            provider=chosen_provider,
+                            latency_ms=ttft,
+                            cache_hit=False,
+                            prompt_tokens=0,
+                            completion_tokens=0,
+                            cost_usd=0.0,
+                            ttft_ms=ttft,
+                        )
+                        first_chunk = False
                     if pii_mapping:
                         chunk = PIIGuardrail.restore_text(chunk, pii_mapping)
                     yield chunk
             except Exception as stream_err:
                 logger.error(f"Streaming error: {stream_err}")
 
-        # Stream latency logging (first chunk estimate)
-        evals.log_request(
-            request_id=req_id,
-            model=requested_model,
-            provider=chosen_provider,
-            latency_ms=(time.time() - start_time) * 1000.0,
-            cache_hit=False,
-            prompt_tokens=0,
-            completion_tokens=0,
-            cost_usd=0.0,
-        )
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     # 5. Non-streaming Post-Processing
@@ -327,6 +331,11 @@ async def warm_cache(items: List[CacheWarmItem]):
     return JSONResponse(content={"status": "success", "prewarmed_count": len(items)})
 
 
+@app.get("/v1/providers/health")
+async def provider_health():
+    return JSONResponse(content={"providers": router.get_provider_statuses()})
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 async def serve_dashboard():
     dashboard_file = "dashboard.html"
@@ -349,6 +358,7 @@ async def get_metrics():
         "is_allowed": spent_today < limit,
         "request_count_today": req_cnt_today,
     }
+    summary["providers"] = router.get_provider_statuses()
     return JSONResponse(content=summary)
 
 

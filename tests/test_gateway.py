@@ -59,7 +59,7 @@ def test_env():
     # Patch global instances in main
     main.router = ProviderRouter(config_path=cfg_path)
     main.cache = SemanticCache(db_path=db_path, similarity_threshold=0.90)
-    main.evals = EvalsManager(db_path=db_path)
+    main.evals = EvalsManager(db_path=db_path, sample_rate=0.0)
     main.budget = BudgetManager(db_path=db_path, daily_limit_usd=10.0)
     main.virtual_keys = VirtualKeyManager(db_path=db_path)
 
@@ -605,6 +605,89 @@ def test_cache_warming_endpoint(test_env):
     assert query_resp.status_code == 200
     assert query_resp.json().get("sentinel_cache_hit") is True
     assert "Python is a high-level interpreted programming language." in query_resp.json()["choices"][0]["message"]["content"]
+
+
+@respx.mock
+def test_provider_circuit_breaker_cooldown(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    # OpenAI fails with 429 on all keys
+    openai_route = respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(429, json={"error": "Rate limit reached"})
+    )
+    # Groq fallback succeeds
+    groq_route = respx.post("https://api.groq.com/openai/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-groq-cb",
+                "object": "chat.completion",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Groq responder"}}],
+            },
+        )
+    )
+
+    # Request 1: Fails on OpenAI (tries 2 keys), trips circuit breaker, then succeeds on Groq
+    r1 = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "First req"}]},
+    )
+    assert r1.status_code == 200
+    assert openai_route.call_count == 2
+    assert groq_route.call_count == 1
+
+    # Verify /v1/providers/health reports OpenAI in cooldown
+    health_resp = client.get("/v1/providers/health")
+    assert health_resp.status_code == 200
+    providers_st = health_resp.json()["providers"]
+    assert providers_st["openai"]["status"] == "cooldown"
+    assert providers_st["openai"]["cooldown_remaining_sec"] > 0
+    assert providers_st["groq"]["status"] == "healthy"
+
+    # Request 2: Because OpenAI is in active cooldown, router skips OpenAI immediately!
+    r2 = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Second req"}]},
+    )
+    assert r2.status_code == 200
+    # openai_route call_count MUST still be 2 (zero overhead/skipped completely)
+    assert openai_route.call_count == 2
+    assert groq_route.call_count == 2
+
+
+@respx.mock
+def test_streaming_ttft_metric_capture(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    sse_data = (
+        'data: {"id":"chatcmpl-ttft","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hi"}}]}\n\n'
+        'data: {"id":"chatcmpl-ttft","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" there!"}}]}\n\n'
+        'data: [DONE]\n\n'
+    )
+    respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(200, text=sse_data, headers={"content-type": "text/event-stream"})
+    )
+
+    res = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "gpt-4o-mini", "stream": True, "messages": [{"role": "user", "content": "Stream me"}]},
+    )
+    assert res.status_code == 200
+    content = res.text
+    assert "Hi" in content
+
+    # Check metrics
+    m_res = client.get("/api/metrics")
+    assert m_res.status_code == 200
+    m_data = m_res.json()
+    assert "avg_ttft_ms" in m_data
+    assert "providers" in m_data
+
 
 
 

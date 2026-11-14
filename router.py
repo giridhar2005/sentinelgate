@@ -26,6 +26,9 @@ class ProviderRouter:
         self.config = self._load_config()
         self.providers: Dict[str, Any] = self.config.get("providers", {})
         self.key_indices: Dict[str, int] = {p: 0 for p in self.providers}
+        self.provider_status: Dict[str, Dict[str, Any]] = {
+            p: {"failures": 0, "cooldown_until": 0.0} for p in self.providers
+        }
         self.client: Optional[httpx.AsyncClient] = None
 
     def _expand_env_vars(self, val: Any) -> Any:
@@ -162,6 +165,35 @@ class ProviderRouter:
         out_rate = m_cfg.get("output_cost_per_m", 0.0) / 1_000_000.0
         return round((in_tok * in_rate) + (out_tok * out_rate), 6)
 
+    def is_provider_available(self, provider: str) -> bool:
+        return time.time() >= self.provider_status.get(provider, {}).get("cooldown_until", 0.0)
+
+    def record_provider_failure(self, provider: str, status_code: int = 500):
+        st = self.provider_status.setdefault(provider, {"failures": 0, "cooldown_until": 0.0})
+        st["failures"] += 1
+        num_keys = max(1, len(self.providers.get(provider, {}).get("api_keys", [])))
+        if st["failures"] >= num_keys:
+            st["cooldown_until"] = time.time() + 30.0
+            logger.warning(f"Provider '{provider}' tripped circuit breaker for 30s (HTTP {status_code}).")
+
+    def record_provider_success(self, provider: str):
+        if provider in self.provider_status:
+            self.provider_status[provider] = {"failures": 0, "cooldown_until": 0.0}
+
+    def get_provider_statuses(self) -> Dict[str, Any]:
+        now = time.time()
+        res = {}
+        for p, data in self.provider_status.items():
+            cd = max(0.0, data.get("cooldown_until", 0.0) - now)
+            keys = [k for k in self.providers.get(p, {}).get("api_keys", []) if k and not k.startswith("${")]
+            res[p] = {
+                "status": "healthy" if cd == 0.0 else "cooldown",
+                "failures": data.get("failures", 0),
+                "cooldown_remaining_sec": round(cd, 1),
+                "keys_count": len(keys),
+            }
+        return res
+
     def _build_gemini_payload(self, req: Dict[str, Any]) -> Dict[str, Any]:
         contents = []
         system_instruction = None
@@ -232,10 +264,12 @@ class ProviderRouter:
         provider, model, fallbacks = self.resolve_model(requested_model, request_data.get("messages"))
 
         candidates_queue = [(provider, model)] + [self.resolve_model(fb)[:2] for fb in fallbacks]
+        active_candidates = [c for c in candidates_queue if self.is_provider_available(c[0])]
+        run_queue = active_candidates if active_candidates else candidates_queue
         client = await self.get_client()
 
         last_error = None
-        for p, m in candidates_queue:
+        for p, m in run_queue:
             p_data = self.providers.get(p, {})
             p_type = p_data.get("type", "openai")
             base_url = p_data.get("base_url", "").rstrip("/")
@@ -260,13 +294,13 @@ class ProviderRouter:
 
                 try:
                     if stream:
-                        # Return an SSE generator
                         gen = self._stream_response(client, p_type, url, headers, payload, m)
-                        # Probe the first chunk or stream directly
+                        self.record_provider_success(p)
                         return gen, p, m
                     else:
                         resp = await client.post(url, headers=headers, json=payload, timeout=60.0)
                         if resp.status_code in (429, 503):
+                            self.record_provider_failure(p, resp.status_code)
                             logger.warning(
                                 f"Provider {p} returned HTTP {resp.status_code}. Rotating/failing over."
                             )
@@ -274,6 +308,7 @@ class ProviderRouter:
                             continue
 
                         resp.raise_for_status()
+                        self.record_provider_success(p)
                         res_json = resp.json()
                         if p_type == "gemini":
                             res_json = self._convert_gemini_to_openai(res_json, m)
@@ -281,11 +316,13 @@ class ProviderRouter:
 
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code in (429, 503):
+                        self.record_provider_failure(p, e.response.status_code)
                         logger.warning(f"Provider {p} returned {e.response.status_code}. Retrying...")
                         last_error = str(e)
                         continue
                     raise e
                 except (httpx.ConnectError, httpx.TimeoutException) as e:
+                    self.record_provider_failure(p, 503)
                     logger.warning(f"Connection error contacting {p}: {e}")
                     last_error = str(e)
                     break

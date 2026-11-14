@@ -56,6 +56,37 @@
     .badge-win { background: rgba(16, 185, 129, 0.2); color: #34d399; }
     .badge-loss { background: rgba(239, 68, 68, 0.2); color: #f87171; }
     .badge-budget { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .badge-cooldown { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+
+    /* Provider Matrix Grid */
+    .provider-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px; margin-bottom: 24px;
+    }
+    .provider-card {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .provider-name { font-weight: 600; font-size: 14px; color: #fff; text-transform: capitalize; }
+    .provider-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Modal for Shadow Diff */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+    }
+    .modal-box {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 14px; width: 100%; max-width: 900px; max-height: 85vh;
+      overflow-y: auto; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+    .diff-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+    @media (max-width: 768px) { .diff-columns { grid-template-columns: 1fr; } }
+    .diff-panel { background: #090d16; border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+    .diff-title { font-weight: 600; font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+    .diff-content { font-size: 13px; color: #e2e8f0; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, monospace; line-height: 1.4; max-height: 280px; overflow-y: auto; }
 
     /* Spend Meter */
     .budget-banner {
@@ -214,6 +245,14 @@
     <span class="badge badge-budget" id="budget-badge">Daily Cap: $10.00</span>
   </div>
 
+  <!-- Live Provider Health Status Matrix -->
+  <div class="provider-grid" id="providers-container">
+    <div class="provider-card"><div><div class="provider-name">OpenAI</div><div class="provider-meta">Checking status...</div></div><span class="badge badge-live">HEALTHY</span></div>
+    <div class="provider-card"><div><div class="provider-name">Groq</div><div class="provider-meta">Checking status...</div></div><span class="badge badge-live">HEALTHY</span></div>
+    <div class="provider-card"><div><div class="provider-name">Gemini</div><div class="provider-meta">Checking status...</div></div><span class="badge badge-live">HEALTHY</span></div>
+    <div class="provider-card"><div><div class="provider-name">Ollama</div><div class="provider-meta">Checking status...</div></div><span class="badge badge-live">STANDBY</span></div>
+  </div>
+
   <!-- Primary Stats Grid -->
   <div class="stats-grid">
     <div class="card">
@@ -234,12 +273,46 @@
     <div class="card">
       <div class="card-title">Latency (P50 / P95)</div>
       <div class="card-value" id="val-latency">0 / 0 <span style="font-size:14px;">ms</span></div>
-      <div class="card-sub">Local FastEmbed ONNX</div>
+      <div class="card-sub" id="val-ttft">Avg TTFT: 0ms &bull; Local FastEmbed</div>
     </div>
     <div class="card">
       <div class="card-title">Shadow Parity Win Rate</div>
       <div class="card-value" id="val-shadow-win">0.0%</div>
       <div class="card-sub" id="val-shadow-score">Avg Score: 0/10</div>
+    </div>
+  </div>
+
+  <!-- Shadow Eval Diff Inspector Modal -->
+  <div class="modal-overlay" id="shadowModal" onclick="closeShadowModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <div style="font-weight: 700; font-size: 16px;">🔍 Shadow Eval Diff Inspector</div>
+          <div style="font-size: 12px; color: var(--text-muted);" id="modal-subtitle">Quality Parity Comparison</div>
+        </div>
+        <button class="btn-refresh" onclick="closeShadowModal()">✕ Close</button>
+      </div>
+      <div style="background:#090d16; border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:14px;">
+        <div class="diff-title">User Prompt</div>
+        <div id="modal-prompt" style="font-size:13px; color:#cbd5e1; white-space:pre-wrap;"></div>
+      </div>
+      <div class="diff-columns">
+        <div class="diff-panel">
+          <div class="diff-title" id="modal-orig-title">Reference (Primary)</div>
+          <div class="diff-content" id="modal-orig-content"></div>
+        </div>
+        <div class="diff-panel">
+          <div class="diff-title" id="modal-shadow-title">Candidate (Shadow)</div>
+          <div class="diff-content" id="modal-shadow-content"></div>
+        </div>
+      </div>
+      <div style="margin-top:14px; background:#090d16; border:1px solid var(--border); border-radius:8px; padding:12px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <span style="font-size:12px; color:var(--text-muted);">Judge Parity Score: </span>
+          <strong id="modal-judge-score" style="font-size:14px; color:#fff;"></strong>
+        </div>
+        <div id="modal-judge-reason" style="font-size:12px; color:#94a3b8; font-style:italic;"></div>
+      </div>
     </div>
   </div>
 
@@ -370,6 +443,26 @@
 
   <script>
     let latencyHistory = [];
+    let currentShadowEvals = [];
+
+    function openShadowModal(index) {
+      const se = currentShadowEvals[index];
+      if (!se) return;
+      document.getElementById('modal-subtitle').textContent = `${se.original_model} vs ${se.shadow_model} &bull; Parity Evaluation`;
+      document.getElementById('modal-prompt').textContent = se.prompt || 'No prompt recorded';
+      document.getElementById('modal-orig-title').textContent = `Reference (${se.original_model})`;
+      document.getElementById('modal-orig-content').textContent = se.original_response || 'No content';
+      document.getElementById('modal-shadow-title').textContent = `Candidate (${se.shadow_model})`;
+      document.getElementById('modal-shadow-content').textContent = se.shadow_response || 'No content';
+      document.getElementById('modal-judge-score').textContent = `${se.judge_score}/10 (${se.is_win ? 'PARITY WIN' : 'DEGRADATION'})`;
+      document.getElementById('modal-judge-reason').textContent = `"${se.judge_reasoning || 'No reasoning'}"`;
+      document.getElementById('shadowModal').style.display = 'flex';
+    }
+
+    function closeShadowModal(e) {
+      if (e && e.target && e.target.id !== 'shadowModal' && !e.target.classList.contains('btn-refresh')) return;
+      document.getElementById('shadowModal').style.display = 'none';
+    }
 
     function renderLatencyChart(history) {
       const canvas = document.getElementById('latencyChart');
@@ -435,6 +528,25 @@
         if (!res.ok) return;
         const data = await res.json();
 
+        // Render Provider Health Matrix
+        if (data.providers) {
+          const pContainer = document.getElementById('providers-container');
+          pContainer.innerHTML = Object.entries(data.providers).map(([p, info]) => {
+            const isHealthy = info.status === 'healthy';
+            const badgeCls = isHealthy ? 'badge-live' : 'badge-cooldown';
+            const statusText = isHealthy ? 'HEALTHY' : `COOLDOWN (${info.cooldown_remaining_sec}s)`;
+            return `
+              <div class="provider-card">
+                <div>
+                  <div class="provider-name">${p}</div>
+                  <div class="provider-meta">${info.keys_count} key(s) &bull; ${info.failures} err(s)</div>
+                </div>
+                <span class="badge ${badgeCls}">${statusText}</span>
+              </div>
+            `;
+          }).join('');
+        }
+
         // Spend Budget
         if (data.budget) {
           const b = data.budget;
@@ -459,6 +571,7 @@
         document.getElementById('val-cost-spent').textContent = `Cost: $${(data.total_cost_usd || 0).toFixed(4)}`;
 
         document.getElementById('val-latency').innerHTML = `${Math.round(data.p50_latency_ms || 0)} / ${Math.round(data.p95_latency_ms || 0)} <span style="font-size:14px;">ms</span>`;
+        document.getElementById('val-ttft').innerHTML = `Avg TTFT: ${Math.round(data.avg_ttft_ms || 0)}ms &bull; Local FastEmbed`;
 
         const shadow = data.shadow_evals || {};
         document.getElementById('val-shadow-win').textContent = `${(shadow.win_rate || 0).toFixed(1)}%`;
@@ -494,14 +607,16 @@
 
         // Render Shadow Evals
         const shadowBox = document.getElementById('shadow-container');
-        if (data.recent_shadow_evals && data.recent_shadow_evals.length > 0) {
-          shadowBox.innerHTML = data.recent_shadow_evals.map(se => `
-            <div class="shadow-item">
+        currentShadowEvals = data.recent_shadow_evals || [];
+        if (currentShadowEvals.length > 0) {
+          shadowBox.innerHTML = currentShadowEvals.map((se, idx) => `
+            <div class="shadow-item" style="cursor:pointer;" onclick="openShadowModal(${idx})">
               <div class="shadow-header">
                 <div><strong>${se.original_model}</strong> &rarr; <span style="color:#818cf8;">${se.shadow_model}</span></div>
                 <span class="badge ${se.is_win ? 'badge-win' : 'badge-loss'}">${se.is_win ? 'PARITY WIN' : 'LOSS'} (${se.judge_score}/10)</span>
               </div>
               <div class="shadow-reason">${se.judge_reasoning || 'Evaluated'}</div>
+              <div style="font-size:11px; color:#818cf8; margin-top:6px;">Click to inspect prompt &amp; side-by-side diff &rarr;</div>
             </div>
           `).join('');
         }
