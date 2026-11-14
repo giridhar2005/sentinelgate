@@ -3,7 +3,11 @@
 </p>
 
 <p align="center">
-  A zero-bloat, OpenAI-compatible LLM Gateway with in-process semantic caching, pre-flight security guardrails, automatic provider failover, and shadow unit economics—backed strictly by SQLite (WAL mode) and FastEmbed.
+  <strong>One local gateway for all your AI tools. Cut API bills up to 70% with semantic caching and smart auto-routing (<code>model="auto"</code>), and scrub secrets before prompts leave your machine.</strong>
+</p>
+
+<p align="center">
+  A zero-bloat, OpenAI-compatible LLM Gateway with in-process semantic caching, automatic provider failover, reversible secret redaction, and sub-millisecond cost routing—backed strictly by SQLite (WAL mode) and FastEmbed. Zero Redis. Zero PostgreSQL. Zero node_modules.
 </p>
 
 <p align="center">
@@ -20,14 +24,93 @@
 
 ---
 
+## Who Is This For?
+
+- **Cursor, Cline & VS Code Users:** Drop SentinelGate in front of your editor. Stop burning API credits on repetitive prompt completions and prevent accidental leaks of local `.env` keys.
+- **Indie Hackers & Startups:** Slash cloud LLM costs without running Redis or PostgreSQL clusters. One lightweight background process routes queries dynamically and saves hundreds of dollars every month.
+- **Local + Cloud Hybrid Developers:** Combine local Ollama / LM Studio models with cloud frontier APIs (Claude Sonnet, GPT-4o). Let `model="auto"` handle simple queries locally at $0.00 cost while preserving frontier intelligence for complex reasoning.
+- **Privacy-Conscious Teams:** Intercept and scrub credentials, database URIs, API keys, and sensitive PII with reversible redaction tokens before any prompt ever hits external networks.
+
+---
+
 ## Technical Highlights
 
 - **Zero External Infrastructure:** No Redis, Celery, PostgreSQL, or sidecar daemons. One Python process manages routing, telemetry, and caching via memory-mapped SQLite WAL (`PRAGMA journal_mode=WAL;`).
-- **Zero-Key Sandbox Mode (`DEMO_MODE=true`):** Boots out of the box with zero required cloud API keys. Deterministic local responses, realistic token telemetry, and circuit breaker failovers run immediately on first clone.
+- **1-Command CLI & Auto-Discovery (`sentinelgate`):** Automatically scans environment variables for provider keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`) and probes local runtimes (Ollama on `11434`, LM Studio on `1234`).
+- **Zero-Key Sandbox Mode:** Boots out of the box with zero required cloud API keys. Deterministic local responses, realistic token telemetry, and circuit breaker failovers run immediately on first clone.
+- **Universal Smart Cost-Router (`model="auto"`):** Evaluates prompt complexity in `<0.2ms`. Automatically routes simple queries to fast/cheap backends (local Ollama, Groq, GPT-4o-mini) and complex system design tasks to frontier models (Claude 3.5 Sonnet, GPT-4o).
+- **Reversible Secret & PII Shield:** Sub-millisecond pre-flight firewall intercepts API keys (`sk-...`, AWS, GitHub), database URIs, JWTs, and PII. In `redact` mode, secrets are replaced with reversible tokens in transit and restored on return without breaking application code.
 - **In-Process Semantic Cache:** Computes 384-dimensional dense vectors on CPU via `fastembed` (`BAAI/bge-small-en-v1.5`) in `<3.5ms`. Identical or paraphrased prompts (cosine similarity $\ge 0.92$) return in `<2.0ms` at **$0.00 cost**.
 - **Shadow Model Replay & Unit Economics (`/api/replay`):** Replay live requests against secondary models (e.g. GPT-4o $\rightarrow$ Groq Llama-3.1-8b) to inspect side-by-side completion parity and calculate projected monthly USD savings at 100k requests/month.
 - **1-Click Chaos Fault Injection (`/api/chaos`):** Top-bar toggle simulates primary provider outages (HTTP 429 Rate Limit / 503 Unavailable) to verify automatic circuit-breaker failover with zero dropped requests.
-- **Pre-Flight Guardrails:** Sub-millisecond compiled regex checks intercept leaked credentials (`sk-...`, AWS keys, JWTs), SSNs, credit cards, and prompt injection attempts before prompts leave your network.
+
+---
+
+## 10-Second Quickstart
+
+### 1. Install & Launch
+
+```bash
+git clone https://github.com/giridhar2005/sentinelgate.git
+cd sentinelgate
+
+# Install as a standard Python tool
+pip install -e .
+
+# Launch the gateway
+sentinelgate
+```
+
+Or run directly without installing:
+```bash
+python -m sentinelgate
+# or with uv
+uv run python -m sentinelgate
+```
+
+SentinelGate will print an auto-discovery summary table and start listening:
+- **Proxy Endpoint:** `http://localhost:8000/v1`
+- **Dashboard HUD:** `http://localhost:8000/dashboard`
+- **Health Check:** `http://localhost:8000/health`
+
+### 2. Connect Your Tools in 5 Seconds
+
+Click the **"Connect Tool"** button on the `/dashboard` HUD for instant configuration snippets, or use standard setups:
+
+#### Cursor / Cline / VS Code
+Set OpenAI Base URL to:
+```
+http://localhost:8000/v1
+```
+Set Model Name to `auto` (or `gpt-4o-mini`, `claude-3-5-sonnet-20241022`).
+
+#### Terminal / CLI Environment
+```bash
+export OPENAI_BASE_URL="http://localhost:8000/v1"
+export OPENAI_API_KEY="sk-sentinelgate-local"
+
+# Any CLI tool (aider, llm, fabric, curl) now routes through SentinelGate
+curl $OPENAI_BASE_URL/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "auto", "messages": [{"role": "user", "content": "Write a haiku about trees."}]}'
+```
+
+#### Official Python SDK
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="sk-sentinelgate-local"  # Any key in sandbox mode, or your virtual key
+)
+
+# Pass model="auto" for automatic cost-optimized routing
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Explain raft consensus in 2 sentences."}]
+)
+print(response.choices[0].message.content)
+```
 
 ---
 
@@ -219,7 +302,7 @@ uv run python examples/guardrail_block_test.py
 
 ## Test Suite & Code Quality
 
-The repository includes 32 tests covering streaming SSE, cache TTL, failover routing, sandbox execution, chaos injection, and secret redaction:
+The repository includes 36 tests covering streaming SSE, semantic cache TTL, automatic failover routing, sandbox execution, chaos injection, reversible secret redaction, and `model="auto"` complexity scoring:
 
 ```bash
 uv run pytest -v
