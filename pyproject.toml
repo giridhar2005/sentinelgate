@@ -18,6 +18,12 @@ dependencies = [
     "pytest-asyncio>=1.2.0",
 ]
 
+[project.scripts]
+sentinelgate = "sentinelgate.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["app*", "sentinelgate*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py39"

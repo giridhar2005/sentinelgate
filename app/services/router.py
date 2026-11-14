@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -34,6 +35,63 @@ class ProviderRouter:
         self.chaos_enabled: bool = False
         self.chaos_target_provider: str = "openai"
         self.chaos_status_code: int = 429
+        self.discovery_info: Dict[str, Any] = {}
+        self.last_routing_metadata: Dict[str, Any] = {}
+
+    def apply_discovery(self, discovery_info: Dict[str, Any]):
+        """Incorporate discovered local runtimes and environment keys into routing inventory."""
+        self.discovery_info = discovery_info
+        local = discovery_info.get("local", {})
+
+        # Ollama local models
+        ollama = local.get("ollama", {})
+        if ollama.get("active") and "ollama" not in self.providers:
+            self.providers["ollama"] = {
+                "type": "ollama",
+                "base_url": ollama.get("url", "http://127.0.0.1:11434") + "/v1",
+                "api_keys": ["ollama-local"],
+                "models": {
+                    "llama3": {"input_cost_per_m": 0.0, "output_cost_per_m": 0.0, "fallbacks": ["groq/llama-3.1-8b-instant"]},
+                    "mistral": {"input_cost_per_m": 0.0, "output_cost_per_m": 0.0, "fallbacks": ["groq/llama-3.1-8b-instant"]},
+                },
+            }
+
+        # LM Studio local server
+        lmstudio = local.get("lmstudio", {})
+        if lmstudio.get("active") and "lmstudio" not in self.providers:
+            self.providers["lmstudio"] = {
+                "type": "openai_compatible",
+                "base_url": lmstudio.get("url", "http://127.0.0.1:1234") + "/v1",
+                "api_keys": ["lmstudio-local"],
+                "models": {
+                    "local-model": {"input_cost_per_m": 0.0, "output_cost_per_m": 0.0, "fallbacks": ["groq/llama-3.1-8b-instant"]},
+                },
+            }
+
+        # OpenRouter cloud
+        openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        if openrouter_key and "openrouter" not in self.providers:
+            self.providers["openrouter"] = {
+                "type": "openai_compatible",
+                "base_url": "https://openrouter.ai/api/v1",
+                "api_keys": [openrouter_key],
+                "models": {
+                    "auto": {"input_cost_per_m": 0.50, "output_cost_per_m": 1.50, "fallbacks": []},
+                },
+            }
+
+    def _is_provider_ready(self, provider: str) -> bool:
+        if self.is_sandbox_mode():
+            return True
+        if provider in ("ollama", "lmstudio"):
+            local_info = self.discovery_info.get("local", {}).get(provider, {})
+            return bool(local_info.get("active"))
+        p_cfg = self.providers.get(provider)
+        if not p_cfg:
+            return False
+        keys = getattr(p_cfg, "api_keys", []) if hasattr(p_cfg, "api_keys") else (p_cfg.get("api_keys", []) if isinstance(p_cfg, dict) else [])
+        clean = [k for k in keys if k and not str(k).startswith("${")]
+        return len(clean) > 0
 
     def has_live_keys(self) -> bool:
         """Check if any provider has non-placeholder cloud API keys configured."""
@@ -114,17 +172,80 @@ class ProviderRouter:
                 })
         return models
 
-    def classify_complexity(self, messages: List[Dict[str, Any]]) -> str:
-        full_text = " ".join([m.get("content", "") for m in messages if isinstance(m.get("content"), str)])
+    def score_complexity(self, messages: List[Dict[str, Any]]) -> Tuple[int, str, Dict[str, Any]]:
+        """Fast sub-millisecond deterministic prompt complexity evaluator."""
+        full_text = " ".join([str(m.get("content", "")) for m in messages if isinstance(m.get("content"), str)])
         lower_text = full_text.lower()
+        total_chars = len(full_text)
+        num_turns = len(messages)
+
+        score = 0
+        factors = []
+
+        # 1. Length & context depth
+        if total_chars > 1500:
+            score += 35
+            factors.append(f"large_context ({total_chars} chars)")
+        elif total_chars > 450:
+            score += 15
+            factors.append(f"moderate_context ({total_chars} chars)")
+
+        if num_turns >= 6:
+            score += 20
+            factors.append(f"multi_turn ({num_turns} messages)")
+
+        # 2. Code blocks, syntax & diffs
+        code_signals = ["```", "diff --git", "def ", "class ", "function ", "import ", "select ", "from ", "curl ", "dockerfile"]
+        code_hits = sum(1 for s in code_signals if s in lower_text)
+        if "```" in full_text or "diff --git" in lower_text:
+            score += 30
+            factors.append("code_blocks")
+        elif code_hits >= 2:
+            score += 15
+            factors.append("code_syntax")
+
+        # 3. High-complexity reasoning keywords
         complex_keywords = [
-            "architect", "analyze", "step by step", "step-by-step", "derive",
-            "refactor", "proof", "implement", "benchmark", "evaluate", "debug",
-            "optimize", "tradeoffs", "design", "algorithm",
+            "architect", "architecture", "derive", "mathematical", "proof", "refactor",
+            "optimize", "tradeoff", "trade-off", "benchmark", "concurrency", "distributed",
+            "system design", "memory leak", "race condition", "deadlock", "algorithm",
+            "debug", "traceback", "stack trace", "why does", "explain step by step",
+            "step-by-step", "security vulnerability", "audit"
         ]
-        if "```" in full_text or any(kw in lower_text for kw in complex_keywords) or len(full_text) > 350 or len(messages) >= 4:
-            return "complex"
-        return "simple"
+        matched_kws = [kw for kw in complex_keywords if kw in lower_text]
+        if len(matched_kws) >= 3:
+            score += 50
+            factors.append(f"reasoning_keywords ({', '.join(matched_kws[:3])})")
+        elif len(matched_kws) >= 2:
+            score += 35
+            factors.append(f"reasoning_keywords ({', '.join(matched_kws[:2])})")
+        elif len(matched_kws) == 1:
+            score += 20
+            factors.append(f"reasoning_keyword ({matched_kws[0]})")
+
+        # 4. Routine / simple query pattern downweight
+        simple_words = {"hello", "hi", "hey", "ping", "test", "capitalize", "convert"}
+        simple_phrases = ["summarize", "format as json", "fix spelling", "what is"]
+        words = set(re.findall(r"\b\w+\b", lower_text))
+        is_routine = any(w in words for w in simple_words) or any(p in lower_text for p in simple_phrases)
+        if is_routine and total_chars < 300 and not code_hits and len(matched_kws) == 0:
+            score = max(0, score - 25)
+            factors.append("routine_query")
+
+        final_score = min(100, max(0, score))
+        classification = "complex" if final_score >= 45 else "simple"
+        meta = {
+            "score": final_score,
+            "classification": classification,
+            "factors": factors,
+            "length_chars": total_chars,
+            "num_messages": num_turns,
+        }
+        return final_score, classification, meta
+
+    def classify_complexity(self, messages: List[Dict[str, Any]]) -> str:
+        _, classification, _ = self.score_complexity(messages)
+        return classification
 
     def resolve_model(
         self,
@@ -132,11 +253,35 @@ class ProviderRouter:
         messages: Optional[List[Dict[str, Any]]] = None,
     ) -> Tuple[str, str, List[str]]:
         if model_name == "auto" and messages:
-            complexity = self.classify_complexity(messages)
-            if complexity == "simple":
+            score, classification, meta = self.score_complexity(messages)
+            self.last_routing_metadata = {
+                "model": "auto",
+                "score": score,
+                "classification": classification,
+                "meta": meta,
+            }
+            if classification == "simple":
+                # Route to cheapest/fastest available model
+                if self._is_provider_ready("ollama"):
+                    return "ollama", "llama3", ["groq/llama-3.1-8b-instant", "gemini/gemini-1.5-flash", "openai/gpt-4o-mini"]
+                if self._is_provider_ready("groq"):
+                    return "groq", "llama-3.1-8b-instant", ["gemini/gemini-1.5-flash", "openai/gpt-4o-mini"]
+                if self._is_provider_ready("gemini"):
+                    return "gemini", "gemini-1.5-flash", ["openai/gpt-4o-mini", "groq/llama-3.1-8b-instant"]
+                if self._is_provider_ready("openai"):
+                    return "openai", "gpt-4o-mini", ["groq/llama-3.1-8b-instant", "gemini/gemini-1.5-flash"]
                 return "groq", "llama-3.1-8b-instant", ["openai/gpt-4o-mini", "gemini/gemini-1.5-flash"]
             else:
-                return "groq", "llama-3.3-70b-versatile", ["openai/gpt-4o", "gemini/gemini-1.5-pro"]
+                # Route to frontier model for complex reasoning/coding
+                if self._is_provider_ready("anthropic"):
+                    return "anthropic", "claude-3-5-sonnet-20241022", ["openai/gpt-4o", "gemini/gemini-1.5-pro"]
+                if self._is_provider_ready("openai"):
+                    return "openai", "gpt-4o", ["groq/llama-3.3-70b-versatile", "gemini/gemini-1.5-pro"]
+                if self._is_provider_ready("groq"):
+                    return "groq", "llama-3.3-70b-versatile", ["openai/gpt-4o", "gemini/gemini-1.5-pro"]
+                if self._is_provider_ready("gemini"):
+                    return "gemini", "gemini-1.5-pro", ["openai/gpt-4o", "anthropic/claude-3-5-sonnet-20241022"]
+                return "openai", "gpt-4o", ["groq/llama-3.3-70b-versatile", "anthropic/claude-3-5-sonnet-20241022"]
 
         if "/" in model_name:
             p, m = model_name.split("/", 1)
