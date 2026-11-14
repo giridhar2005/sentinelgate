@@ -10,7 +10,7 @@ logger = logging.getLogger("sentinelgate.guardrails")
 
 # Secret & Credential Leak Patterns
 SECRET_PATTERNS = [
-    re.compile(r"sk-[a-zA-Z0-9]{20,}", re.IGNORECASE),                         # OpenAI / Standard API key
+    re.compile(r"sk-[a-zA-Z0-9_-]{20,}", re.IGNORECASE),                         # OpenAI / Standard API key
     re.compile(r"sk-ant-[a-zA-Z0-9_-]{20,}", re.IGNORECASE),                   # Anthropic API key
     re.compile(r"AKIA[0-9A-Z]{16}", re.IGNORECASE),                            # AWS Access Key
     re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}", re.IGNORECASE),# JWT token
@@ -33,7 +33,7 @@ INJECTION_PATTERNS = [
 
 EMAIL_REGEX = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
 PHONE_REGEX = re.compile(r"(?:\+?\d{1,3}[-. ]?)?\(?\d{3}\)?[-. ]?\d{3}[-. ]?\d{4}\b")
-API_KEY_REGEX = re.compile(r"\b(?:sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|AKIA[0-9A-Z]{16})\b")
+API_KEY_REGEX = re.compile(r"\b(?:sk-[a-zA-Z0-9_-]{20,}|ghp_[a-zA-Z0-9]{36}|AKIA[0-9A-Z]{16})\b")
 
 
 class PIIGuardrail:

@@ -31,6 +31,38 @@ class ProviderRouter:
         self.key_indices: Dict[str, int] = {p: 0 for p in self.providers}
         self.circuit_breaker = ProviderCircuitBreaker(failure_threshold=2, cooldown_seconds=30.0)
         self.client: Optional[httpx.AsyncClient] = None
+        self.chaos_enabled: bool = False
+        self.chaos_target_provider: str = "openai"
+        self.chaos_status_code: int = 429
+
+    def has_live_keys(self) -> bool:
+        """Check if any provider has non-placeholder cloud API keys configured."""
+        for p, p_cfg in self.providers.items():
+            if p == "ollama":
+                continue
+            keys = getattr(p_cfg, "api_keys", []) if hasattr(p_cfg, "api_keys") else (p_cfg.get("api_keys", []) if isinstance(p_cfg, dict) else [])
+            clean = [k for k in keys if k and not str(k).startswith("${") and str(k).strip() != ""]
+            if clean:
+                return True
+        return False
+
+    def is_sandbox_mode(self) -> bool:
+        """Determines if the gateway should run in zero-key deterministic sandbox mode."""
+        demo_env = os.getenv("DEMO_MODE")
+        if demo_env is not None:
+            return demo_env.strip().lower() in ("true", "1", "yes")
+        return not self.has_live_keys()
+
+    def set_chaos(self, enabled: bool, target_provider: str = "openai", status_code: int = 429):
+        """Toggle chaos fault injection on a target provider."""
+        self.chaos_enabled = enabled
+        self.chaos_target_provider = target_provider
+        self.chaos_status_code = status_code
+        if not enabled:
+            self.circuit_breaker.record_success(target_provider)
+        logger.info(
+            f"Chaos fault injection: enabled={enabled}, target={target_provider}, status_code={status_code}"
+        )
 
     def _load_config(self) -> AppConfig:
         path = os.getenv("SENTINELGATE_CONFIG", self.config_path)
@@ -142,12 +174,29 @@ class ProviderRouter:
         self.key_indices[provider_name] = (idx + 1) % len(clean_keys)
         return chosen_key
 
-    def get_model_cost(self, provider: str, model: str, in_tok: int, out_tok: int) -> float:
+    def get_model_pricing(self, provider: str, model: str) -> Tuple[float, float]:
+        """Return (input_cost_per_m, output_cost_per_m) for a given provider and model."""
         p_cfg = self.providers.get(provider)
         models = getattr(p_cfg, "models", {}) if hasattr(p_cfg, "models") else (p_cfg.get("models", {}) if isinstance(p_cfg, dict) else {})
         m_cfg = models.get(model, {})
         in_rate = getattr(m_cfg, "input_cost_per_m", 0.0) if hasattr(m_cfg, "input_cost_per_m") else m_cfg.get("input_cost_per_m", 0.0)
         out_rate = getattr(m_cfg, "output_cost_per_m", 0.0) if hasattr(m_cfg, "output_cost_per_m") else m_cfg.get("output_cost_per_m", 0.0)
+        if in_rate == 0.0 and out_rate == 0.0:
+            defaults = {
+                "gpt-4o": (5.0, 15.0),
+                "gpt-4o-mini": (0.15, 0.60),
+                "claude-3-5-sonnet-20241022": (3.0, 15.0),
+                "claude-3-5-haiku-20241022": (0.80, 4.0),
+                "llama-3.3-70b-versatile": (0.59, 0.79),
+                "llama-3.1-8b-instant": (0.05, 0.08),
+                "gemini-1.5-flash": (0.075, 0.30),
+                "gemini-1.5-pro": (3.50, 10.50),
+            }
+            return defaults.get(model, (0.15, 0.60))
+        return float(in_rate), float(out_rate)
+
+    def get_model_cost(self, provider: str, model: str, in_tok: int, out_tok: int) -> float:
+        in_rate, out_rate = self.get_model_pricing(provider, model)
         return round(((in_tok * in_rate) + (out_tok * out_rate)) / 1_000_000.0, 6)
 
     def is_provider_available(self, provider: str) -> bool:
@@ -163,6 +212,104 @@ class ProviderRouter:
         return self.circuit_breaker.get_statuses(self.providers)
 
     # ------------------ PROTOCOL ADAPTERS ------------------
+
+    def _generate_sandbox_response(
+        self,
+        model: str,
+        provider: str,
+        messages: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Generate a deterministic, realistic LLM completion for zero-key sandbox evaluation."""
+        user_content = ""
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                user_content = str(m.get("content", ""))
+                break
+        if not user_content:
+            user_content = "Default prompt"
+
+        lower = user_content.lower()
+        if "raft" in lower:
+            text = (
+                "Raft is a leader-based consensus algorithm designed for distributed state machine replication. "
+                "It manages log replication, leader elections, and joint-consensus cluster membership changes "
+                "with provable formal safety invariants and predictable state transitions."
+            )
+        elif "quick sort" in lower or "quicksort" in lower:
+            text = (
+                "QuickSort is an in-place, divide-and-conquer sorting algorithm with average-case time complexity "
+                "of O(N log N). It selects a pivot, partitions elements into sub-arrays according to the pivot, "
+                "and recursively sorts each sub-array with O(log N) stack overhead."
+            )
+        elif "binary search" in lower:
+            text = (
+                "Binary search operates on sorted arrays by repeatedly halving the search interval. "
+                "Comparing the target with the median index element achieves logarithmic O(log N) runtime "
+                "with O(1) auxiliary space complexity."
+            )
+        elif "hello" in lower or "hi" in lower:
+            text = (
+                "Hello! SentinelGate is active in deterministic zero-key sandbox mode with low-latency local "
+                "inference simulation, semantic caching, and full OpenAI REST compatibility."
+            )
+        else:
+            snippet = user_content[:70].strip()
+            text = (
+                f"SentinelGate Sandbox [{provider}/{model}]: Verified response for prompt '{snippet}'. "
+                "Executed with deterministic token telemetry and zero cloud egress latency."
+            )
+
+        prompt_tokens = max(1, sum(len(str(m.get("content", ""))) // 4 for m in messages))
+        completion_tokens = max(1, len(text) // 4)
+
+        return {
+            "id": f"chatcmpl-sandbox-{uuid.uuid4().hex[:12]}",
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": text},
+                "finish_reason": "stop",
+            }],
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+            },
+        }
+
+    async def _stream_sandbox_response(
+        self,
+        model: str,
+        messages: List[Dict[str, Any]],
+    ) -> AsyncGenerator[str, None]:
+        """Stream a deterministic response token by token via SSE."""
+        res = self._generate_sandbox_response(model, "sandbox", messages)
+        text = res["choices"][0]["message"]["content"]
+        req_id = f"chatcmpl-sandbox-{uuid.uuid4().hex[:12]}"
+        words = text.split(" ")
+        for i, word in enumerate(words):
+            token = word + (" " if i < len(words) - 1 else "")
+            chunk = {
+                "id": req_id,
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": model,
+                "choices": [{"index": 0, "delta": {"content": token}, "finish_reason": None}],
+            }
+            yield f"data: {json.dumps(chunk)}\n\n"
+            await asyncio.sleep(0.015)
+
+        done_chunk = {
+            "id": req_id,
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "model": model,
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        }
+        yield f"data: {json.dumps(done_chunk)}\n\n"
+        yield "data: [DONE]\n\n"
 
     def _build_gemini_payload(self, req: Dict[str, Any]) -> Dict[str, Any]:
         contents = []
@@ -290,6 +437,26 @@ class ProviderRouter:
 
         last_error = None
         for p, m in run_queue:
+            if self.chaos_enabled and p == self.chaos_target_provider:
+                logger.warning(
+                    f"[CHAOS FAULT INJECTION] Injected HTTP {self.chaos_status_code} failure on provider '{p}'"
+                )
+                self.record_provider_failure(p, self.chaos_status_code)
+                last_error = f"Chaos fault injection: simulated HTTP {self.chaos_status_code} on {p}"
+                continue
+
+            if self.is_sandbox_mode():
+                # Zero-key sandbox simulation
+                await asyncio.sleep(0.015)
+                if stream:
+                    gen = self._stream_sandbox_response(m, request_data.get("messages", []))
+                    self.record_provider_success(p)
+                    return gen, p, m
+                else:
+                    res_json = self._generate_sandbox_response(m, p, request_data.get("messages", []))
+                    self.record_provider_success(p)
+                    return res_json, p, m
+
             p_cfg = self.providers.get(p)
             p_type = getattr(p_cfg, "type", "openai") if hasattr(p_cfg, "type") else (p_cfg.get("type", "openai") if isinstance(p_cfg, dict) else "openai")
             base_url = (getattr(p_cfg, "base_url", "") if hasattr(p_cfg, "base_url") else (p_cfg.get("base_url", "") if isinstance(p_cfg, dict) else "")).rstrip("/")

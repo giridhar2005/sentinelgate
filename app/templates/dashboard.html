@@ -96,6 +96,16 @@
 
     <!-- Right Controls -->
     <div class="flex items-center space-x-3 text-xs">
+      <!-- Chaos Fault Injection Switch -->
+      <div class="flex items-center space-x-2 px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight transition">
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="chaos-toggle" onchange="toggleChaosFault(this.checked)" class="sr-only peer">
+          <div class="w-7 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
+        </label>
+        <span id="chaos-status-text" class="font-mono text-zinc-400 select-none">Simulate Outage (429)</span>
+        <span id="chaos-pulse-badge" class="hidden px-1.5 py-0.2 rounded text-[10px] font-mono font-medium badge-failover uppercase">429 Active</span>
+      </div>
+
       <!-- Live Toggle -->
       <button id="toggle-live" onclick="toggleAutoRefresh()" class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight transition text-zinc-300">
         <span id="live-indicator" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -443,6 +453,72 @@
         <div id="draw-response" class="bg-canvas p-3 rounded border border-hairline text-zinc-300 whitespace-pre-wrap max-h-48 overflow-y-auto"></div>
       </div>
 
+      <!-- Shadow Model Replay & Cost-Savings Estimator -->
+      <div class="pt-3 border-t border-hairline space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="text-zinc-400 uppercase tracking-wider text-[11px] font-semibold font-sans">Shadow Model Replay</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono badge-upstream">Unit Economics</span>
+          </div>
+          <span class="text-[11px] text-zinc-500 font-mono">100k req/mo ROI</span>
+        </div>
+
+        <div class="bg-canvas p-3 rounded border border-hairline space-y-3">
+          <div class="flex items-center space-x-2">
+            <label class="text-xs text-zinc-400 font-sans">Candidate:</label>
+            <select id="replay-candidate-model" class="flex-1 bg-panelElevated border border-hairline rounded px-2 py-1 text-xs font-mono text-zinc-200 focus:outline-none focus:border-hairlineLight">
+              <option value="groq/llama-3.1-8b-instant" selected>Groq Llama-3.1-8b ($0.05 / $0.08)</option>
+              <option value="groq/llama-3.3-70b-versatile">Groq Llama-3.3-70b ($0.59 / $0.79)</option>
+              <option value="gemini/gemini-1.5-flash">Gemini 1.5 Flash ($0.075 / $0.30)</option>
+              <option value="openai/gpt-4o-mini">OpenAI GPT-4o-mini ($0.15 / $0.60)</option>
+            </select>
+          </div>
+
+          <button id="btn-replay-exec" onclick="executeShadowReplay()" class="w-full py-2 px-3 rounded bg-zinc-800 hover:bg-zinc-700 border border-hairline text-zinc-200 text-xs font-medium font-sans flex items-center justify-center space-x-2 transition">
+            <svg id="replay-spinner" class="hidden animate-spin -ml-1 mr-2 h-3.5 w-3.5 text-zinc-300" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>Replay on Cheaper Model</span>
+          </button>
+
+          <!-- Replay Output and Monthly Savings Card -->
+          <div id="replay-results-card" class="hidden space-y-2.5 pt-2 border-t border-hairline">
+            <div class="p-2.5 rounded bg-emerald-950/30 border border-emerald-800/40 space-y-1">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-emerald-300 font-medium font-sans">Projected Monthly Savings (100k req/mo):</span>
+                <span id="replay-savings-pct" class="font-mono text-emerald-400 font-bold text-xs">+98.1%</span>
+              </div>
+              <div class="flex items-baseline space-x-2">
+                <span id="replay-monthly-savings" class="font-mono text-xl text-emerald-400 font-bold">$235.50</span>
+                <span class="text-xs text-zinc-400 font-sans">/ month saved</span>
+              </div>
+              <div class="text-[11px] text-zinc-400 font-mono">
+                Projected spend: <span id="replay-orig-monthly" class="line-through text-zinc-500">$240.00</span> → <span id="replay-cand-monthly" class="text-emerald-300 font-bold">$4.50</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+              <div class="p-2 rounded bg-panelElevated border border-hairline space-y-0.5">
+                <span class="text-zinc-500 text-[10px] block font-sans">Execution Speed Diff</span>
+                <div class="text-zinc-200 font-semibold" id="replay-latency-diff">-418.0 ms</div>
+                <span class="text-[10px] text-zinc-400" id="replay-cand-latency">Replay: 64.0ms</span>
+              </div>
+              <div class="p-2 rounded bg-panelElevated border border-hairline space-y-0.5">
+                <span class="text-zinc-500 text-[10px] block font-sans">Cost Per Request</span>
+                <div class="text-emerald-400 font-semibold" id="replay-cost-diff">-$0.002355</div>
+                <span class="text-[10px] text-zinc-400" id="replay-cand-cost">Replay: $0.000045</span>
+              </div>
+            </div>
+
+            <div>
+              <span class="text-zinc-500 text-[10px] uppercase font-sans font-semibold block mb-1">Replay Candidate Response</span>
+              <div id="replay-output-text" class="bg-panelElevated p-2.5 rounded border border-hairline text-zinc-300 text-xs font-mono whitespace-pre-wrap max-h-36 overflow-y-auto"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Drawer Footer -->
@@ -464,6 +540,19 @@
       fetchMetrics();
       fetchVirtualKeys();
       startAutoRefresh();
+
+      if (window.location.search.includes("preview=true")) {
+        setTimeout(async () => {
+          if (cachedTraces.length > 0) {
+            // Find a request with status FAILOVER or UPSTREAM
+            const targetIdx = cachedTraces.findIndex(t => t.status === "FAILOVER" || t.status === "UPSTREAM");
+            openTraceDrawer(targetIdx >= 0 ? targetIdx : 0);
+            setTimeout(() => {
+              executeShadowReplay();
+            }, 400);
+          }
+        }, 800);
+      }
     });
 
     function toggleAutoRefresh() {
@@ -541,6 +630,24 @@
             </div>
           `;
         }).join("");
+      }
+
+      // Chaos Status Sync
+      if (data.chaos) {
+        const toggle = document.getElementById("chaos-toggle");
+        const pulse = document.getElementById("chaos-pulse-badge");
+        const text = document.getElementById("chaos-status-text");
+        if (toggle && pulse && text) {
+          if (data.chaos.enabled) {
+            toggle.checked = true;
+            pulse.classList.remove("hidden");
+            text.className = "font-mono text-amber-400 font-semibold select-none";
+          } else {
+            toggle.checked = false;
+            pulse.classList.add("hidden");
+            text.className = "font-mono text-zinc-400 select-none";
+          }
+        }
       }
 
       // Traces Table
@@ -628,8 +735,95 @@
       document.getElementById("draw-prompt").innerText = t.prompt_snippet || "User request prompt";
       document.getElementById("draw-response").innerText = t.response_snippet || "Response payload returned from gateway.";
 
+      // Reset & store for Shadow Replay
+      window.currentSelectedTrace = t;
+      const replayCard = document.getElementById("replay-results-card");
+      if (replayCard) replayCard.classList.add("hidden");
+
       document.getElementById("drawer-backdrop").classList.remove("hidden");
       document.getElementById("trace-drawer").classList.remove("translate-x-full");
+    }
+
+    async function toggleChaosFault(checked) {
+      try {
+        const res = await fetch("/api/chaos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: checked, target_provider: "openai", status_code: 429 })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const pulse = document.getElementById("chaos-pulse-badge");
+          const text = document.getElementById("chaos-status-text");
+          if (data.enabled) {
+            pulse.classList.remove("hidden");
+            text.className = "font-mono text-amber-400 font-semibold select-none";
+          } else {
+            pulse.classList.add("hidden");
+            text.className = "font-mono text-zinc-400 select-none";
+          }
+          fetchMetrics();
+        }
+      } catch (err) {
+        console.error("Failed to toggle chaos fault:", err);
+      }
+    }
+
+    async function executeShadowReplay() {
+      const t = window.currentSelectedTrace;
+      if (!t) return;
+      const prompt = t.prompt_snippet || "";
+      if (!prompt) return;
+
+      const candModel = document.getElementById("replay-candidate-model").value;
+      const btn = document.getElementById("btn-replay-exec");
+      const spinner = document.getElementById("replay-spinner");
+      const resultsCard = document.getElementById("replay-results-card");
+
+      btn.disabled = true;
+      spinner.classList.remove("hidden");
+
+      try {
+        const payload = {
+          prompt: prompt,
+          original_model: t.model || "gpt-4o",
+          candidate_model: candModel,
+          original_latency_ms: t.latency_ms || 320.0,
+          original_cost_usd: t.cost_usd || 0.002,
+          original_response: t.response_snippet || ""
+        };
+
+        const res = await fetch("/api/replay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById("replay-monthly-savings").innerText = `$${data.projected_monthly_savings_100k.toFixed(2)}`;
+          document.getElementById("replay-savings-pct").innerText = `+${data.savings_percent}%`;
+          document.getElementById("replay-orig-monthly").innerText = `$${data.projected_orig_monthly_usd.toFixed(2)}`;
+          document.getElementById("replay-cand-monthly").innerText = `$${data.projected_cand_monthly_usd.toFixed(2)}`;
+
+          const latDiff = data.latency_diff_ms;
+          const latSign = latDiff > 0 ? "+" : "";
+          document.getElementById("replay-latency-diff").innerText = `${latSign}${latDiff.toFixed(1)} ms`;
+          document.getElementById("replay-cand-latency").innerText = `Replay: ${data.candidate_latency_ms.toFixed(1)}ms`;
+
+          const costDiff = data.cost_saved_per_req;
+          document.getElementById("replay-cost-diff").innerText = `-$${costDiff.toFixed(6)}`;
+          document.getElementById("replay-cand-cost").innerText = `Replay: $${data.candidate_cost_per_req.toFixed(6)}`;
+
+          document.getElementById("replay-output-text").innerText = data.candidate_response || "Candidate output received.";
+          resultsCard.classList.remove("hidden");
+        }
+      } catch (err) {
+        console.error("Shadow replay failed:", err);
+      } finally {
+        btn.disabled = false;
+        spinner.classList.add("hidden");
+      }
     }
 
     function closeDrawer() {
