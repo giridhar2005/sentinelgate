@@ -1,0 +1,118 @@
+# SentinelGate Configuration
+# Copy this file to config.yaml and adjust your keys and thresholds.
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+
+cache:
+  # Local semantic caching using fastembed (BAAI/bge-small-en-v1.5)
+  enabled: true
+  # Cosine similarity cutoff (0.0 to 1.0). 0.92 works well for matching paraphrased queries.
+  similarity_threshold: 0.92
+  # TTL for cached entries in seconds (default: 1 hour)
+  ttl_seconds: 3600
+  db_path: "sentinelgate.db"
+
+guardrails:
+  # Mask emails and phone numbers before sending to upstream providers
+  pii_masking: true
+  # Block prompts containing raw API keys, SSNs, or credit cards with HTTP 400
+  block_secrets: true
+  # Block jailbreak attempts and system prompt exfiltration probes with HTTP 400
+  prompt_injection_block: true
+  # Retries if an LLM returns malformed JSON when json_object mode was requested
+  max_repair_attempts: 1
+  # Strip duplicate whitespace and newlines outside code fences
+  prompt_optimization: true
+  # Prune filler conversational turns in multi-turn chats
+  context_compaction: true
+
+budget:
+  # Halt upstream calls with HTTP 429 when the daily limit is reached
+  enabled: true
+  daily_limit_usd: 10.0
+
+evals:
+  # Fraction of requests sampled for background parity evaluation (0.0 to 1.0)
+  enabled: true
+  sample_rate: 0.10
+  cheaper_fallback_model: "groq/llama-3.1-8b-instant"
+  judge_model: "gemini/gemini-1.5-flash"
+
+# Upstream model providers and fallback chains
+providers:
+  openai:
+    type: "openai"
+    base_url: "https://api.openai.com/v1"
+    api_keys:
+      - "${OPENAI_API_KEY}"
+    models:
+      gpt-4o:
+        input_cost_per_m: 5.0
+        output_cost_per_m: 15.0
+        fallbacks: ["groq/llama-3.3-70b-versatile", "anthropic/claude-3-5-sonnet-20241022"]
+      gpt-4o-mini:
+        input_cost_per_m: 0.15
+        output_cost_per_m: 0.60
+        fallbacks: ["groq/llama-3.1-8b-instant", "gemini/gemini-1.5-flash", "ollama/llama3"]
+      text-embedding-3-small:
+        input_cost_per_m: 0.02
+        output_cost_per_m: 0.0
+        fallbacks: []
+
+  anthropic:
+    type: "anthropic"
+    base_url: "https://api.anthropic.com/v1"
+    api_keys:
+      - "${ANTHROPIC_API_KEY}"
+    models:
+      claude-3-5-sonnet-20241022:
+        input_cost_per_m: 3.0
+        output_cost_per_m: 15.0
+        fallbacks: ["openai/gpt-4o"]
+      claude-3-5-haiku-20241022:
+        input_cost_per_m: 0.80
+        output_cost_per_m: 4.0
+        fallbacks: ["openai/gpt-4o-mini", "groq/llama-3.1-8b-instant"]
+
+  groq:
+    type: "openai_compatible"
+    base_url: "https://api.groq.com/openai/v1"
+    api_keys:
+      - "${GROQ_API_KEY}"
+    models:
+      llama-3.3-70b-versatile:
+        input_cost_per_m: 0.59
+        output_cost_per_m: 0.79
+        fallbacks: ["gemini/gemini-1.5-flash"]
+      llama-3.1-8b-instant:
+        input_cost_per_m: 0.05
+        output_cost_per_m: 0.08
+        fallbacks: ["ollama/llama3"]
+
+  gemini:
+    type: "gemini"
+    base_url: "https://generativelanguage.googleapis.com/v1beta"
+    api_keys:
+      - "${GEMINI_API_KEY}"
+    models:
+      gemini-1.5-flash:
+        input_cost_per_m: 0.075
+        output_cost_per_m: 0.30
+        fallbacks: ["groq/llama-3.1-8b-instant"]
+      gemini-1.5-pro:
+        input_cost_per_m: 3.50
+        output_cost_per_m: 10.50
+        fallbacks: ["openai/gpt-4o"]
+
+  ollama:
+    type: "ollama"
+    base_url: "http://localhost:11434/v1"
+    api_keys:
+      - "ollama-local"
+    models:
+      llama3:
+        input_cost_per_m: 0.0
+        output_cost_per_m: 0.0
+        fallbacks: []
