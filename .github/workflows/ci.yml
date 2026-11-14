@@ -1,16 +1,19 @@
-name: SentinelGate CI
+name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    name: Lint & Offline Tests
+  lint:
+    name: Lint & Style (Ruff)
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -27,8 +30,38 @@ jobs:
       - name: Install Dependencies
         run: uv sync
 
-      - name: Code Quality & Linting (Ruff)
+      - name: Run Ruff Lint Checks
         run: uv run ruff check .
 
-      - name: Run Offline Test Suite (Pytest)
+  test:
+    name: Test Suite (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install Dependencies & CLI Package
+        run: |
+          uv sync
+          uv pip install -e .
+
+      - name: Verify CLI Entrypoint
+        run: |
+          uv run sentinelgate --help
+          uv run python -m sentinelgate --help
+
+      - name: Run Pytest Offline Suite
         run: uv run pytest -v
