@@ -3,7 +3,7 @@
 > **Zero-Bloat, Enterprise OpenAI-Compatible LLM Gateway in Pure Python**  
 > Direct provider REST streaming, sub-15ms local semantic caching, spend circuit breaker, multi-tenant virtual keys, prompt injection defense, adaptive auto-routing, 1-shot JSON self-repair, and continuous shadow parity evaluation. Core source code is strictly under **1,400 lines** with zero heavyweight orchestration frameworks.
 
-[![CI](https://github.com/sentinelgate/sentinelgate/actions/workflows/ci.yml/badge.svg)](https://github.com/sentinelgate/sentinelgate/actions)
+[![CI](https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml/badge.svg)](https://github.com/giridhar2005/sentinelgate/actions)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Built with uv](https://img.shields.io/badge/built%20with-uv-purple.svg)](https://github.com/astral-sh/uv)
@@ -119,7 +119,7 @@ Benchmark executed with `uv run python benchmark.py` across **100 simulated requ
 Ensure `uv` is installed ([docs.astral.sh/uv](https://docs.astral.sh/uv/)):
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/sentinelgate.git
+git clone https://github.com/giridhar2005/sentinelgate.git
 cd sentinelgate
 
 # Install dependencies using uv
