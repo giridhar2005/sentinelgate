@@ -36,7 +36,7 @@
 
     <!-- Step 1: Secret Shield -->
     <g transform="translate(0, 0)">
-      <rect width="204" height="186" rx="8" fill="url(#stepGrad)" stroke="#27272A" stroke-width="1" />
+      <rect width="206" height="186" rx="8" fill="url(#stepGrad)" stroke="#27272A" stroke-width="1" />
       <rect x="14" y="14" width="28" height="28" rx="6" fill="#18181B" stroke="#27272A" stroke-width="1" />
       <text x="21" y="32" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#8B5CF6">01</text>
       <text x="50" y="26" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" fill="#8B5CF6">CREDENTIAL SHIELD</text>
@@ -44,21 +44,23 @@
 
       <text x="14" y="68" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Reversible Tokens</text>
       <text x="14" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="11" fill="#A1A1AA">
-        Intercepts sk-..., AWS, JWT, and DB URIs. Replaces with __SG_SECRET_X__.
+        <tspan x="14" dy="0">Intercepts sk-..., AWS,</tspan>
+        <tspan x="14" dy="16">JWT, and DB URIs.</tspan>
+        <tspan x="14" dy="16">Replaces with __SG_SECRET_X__.</tspan>
       </text>
 
-      <line x1="14" y1="142" x2="190" y2="142" stroke="#27272A" stroke-width="1" />
+      <line x1="14" y1="142" x2="192" y2="142" stroke="#27272A" stroke-width="1" />
       <text x="14" y="164" font-family="'JetBrains Mono', monospace" font-size="10" fill="#8B5CF6">ZERO LEAKS</text>
-      <text x="190" y="164" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#52525B">outbound</text>
+      <text x="192" y="164" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#52525B">outbound</text>
     </g>
 
     <!-- Connector Arrow 1 -->
-    <path d="M 212 93 L 220 93" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" />
-    <polygon points="220,90 226,93 220,96" fill="#71717A" />
+    <path d="M 213 93 L 221 93" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" />
+    <polygon points="221,90 227,93 221,96" fill="#71717A" />
 
     <!-- Step 2: Tenant Limiter -->
-    <g transform="translate(226, 0)">
-      <rect width="204" height="186" rx="8" fill="url(#stepGrad)" stroke="#27272A" stroke-width="1" />
+    <g transform="translate(227, 0)">
+      <rect width="206" height="186" rx="8" fill="url(#stepGrad)" stroke="#27272A" stroke-width="1" />
       <rect x="14" y="14" width="28" height="28" rx="6" fill="#18181B" stroke="#27272A" stroke-width="1" />
       <text x="21" y="32" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#71717A">02</text>
       <text x="50" y="26" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" fill="#A1A1AA">TENANT BUDGET</text>
@@ -66,21 +68,23 @@
 
       <text x="14" y="68" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Memory-Mapped Limiter</text>
       <text x="14" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="11" fill="#A1A1AA">
-        Token-bucket RPM &amp; monthly spend ceiling validated directly in SQLite pages.
+        <tspan x="14" dy="0">Token-bucket RPM and</tspan>
+        <tspan x="14" dy="16">monthly spend ceilings</tspan>
+        <tspan x="14" dy="16">validated in SQLite pages.</tspan>
       </text>
 
-      <line x1="14" y1="142" x2="190" y2="142" stroke="#27272A" stroke-width="1" />
+      <line x1="14" y1="142" x2="192" y2="142" stroke="#27272A" stroke-width="1" />
       <text x="14" y="164" font-family="'JetBrains Mono', monospace" font-size="10" fill="#10B981">ACID MMAP</text>
-      <text x="190" y="164" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#52525B">zero IPC</text>
+      <text x="192" y="164" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#52525B">zero IPC</text>
     </g>
 
     <!-- Connector Arrow 2 -->
-    <path d="M 438 93 L 446 93" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" />
-    <polygon points="446,90 452,93 446,96" fill="#71717A" />
+    <path d="M 440 93 L 448 93" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" />
+    <polygon points="448,90 454,93 448,96" fill="#71717A" />
 
     <!-- Step 3: Vector Cache -->
-    <g transform="translate(452, 0)">
-      <rect width="204" height="186" rx="8" fill="url(#stepGrad)" stroke="#27272A" stroke-width="1" />
+    <g transform="translate(454, 0)">
+      <rect width="206" height="186" rx="8" fill="url(#stepGrad)" stroke="#27272A" stroke-width="1" />
       <rect x="14" y="14" width="28" height="28" rx="6" fill="#18181B" stroke="#27272A" stroke-width="1" />
       <text x="21" y="32" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#10B981">03</text>
       <text x="50" y="26" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" fill="#10B981">VECTOR CACHE</text>
@@ -88,21 +92,23 @@
 
       <text x="14" y="68" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">FastEmbed ONNX CPU</text>
       <text x="14" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="11" fill="#A1A1AA">
-        Computes 384-dim dense vector. Cosine sim ≥ 0.92 returns cached result instantly.
+        <tspan x="14" dy="0">Dense 384-dim embedding.</tspan>
+        <tspan x="14" dy="16">Cosine sim ≥ 0.92 returns</tspan>
+        <tspan x="14" dy="16">cached result instantly.</tspan>
       </text>
 
-      <line x1="14" y1="142" x2="190" y2="142" stroke="#27272A" stroke-width="1" />
+      <line x1="14" y1="142" x2="192" y2="142" stroke="#27272A" stroke-width="1" />
       <text x="14" y="164" font-family="'JetBrains Mono', monospace" font-size="10" fill="#10B981">$0.00 COST</text>
-      <text x="190" y="164" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#52525B">cache hit</text>
+      <text x="192" y="164" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#52525B">cache hit</text>
     </g>
 
     <!-- Connector Arrow 3 -->
-    <path d="M 664 93 L 672 93" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" />
-    <polygon points="672,90 678,93 672,96" fill="#71717A" />
+    <path d="M 667 93 L 675 93" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" />
+    <polygon points="675,90 681,93 675,96" fill="#71717A" />
 
     <!-- Step 4: Cost Router -->
-    <g transform="translate(678, 0)">
-      <rect width="204" height="186" rx="8" fill="url(#stepGrad)" stroke="#27272A" stroke-width="1" />
+    <g transform="translate(681, 0)">
+      <rect width="206" height="186" rx="8" fill="url(#stepGrad)" stroke="#27272A" stroke-width="1" />
       <rect x="14" y="14" width="28" height="28" rx="6" fill="#18181B" stroke="#27272A" stroke-width="1" />
       <text x="21" y="32" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#3B82F6">04</text>
       <text x="50" y="26" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" fill="#3B82F6">COST ROUTER</text>
@@ -110,21 +116,23 @@
 
       <text x="14" y="68" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">model="auto" Arbitrage</text>
       <text x="14" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="11" fill="#A1A1AA">
-        Scores prompt complexity. Simple queries to Ollama/Groq, complex to Claude/GPT-4o.
+        <tspan x="14" dy="0">Scores prompt complexity.</tspan>
+        <tspan x="14" dy="16">Simple to Ollama/Groq,</tspan>
+        <tspan x="14" dy="16">complex to Claude/GPT-4o.</tspan>
       </text>
 
-      <line x1="14" y1="142" x2="190" y2="142" stroke="#27272A" stroke-width="1" />
+      <line x1="14" y1="142" x2="192" y2="142" stroke="#27272A" stroke-width="1" />
       <text x="14" y="164" font-family="'JetBrains Mono', monospace" font-size="10" fill="#3B82F6">UP TO 99%</text>
-      <text x="190" y="164" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#52525B">arbitraged</text>
+      <text x="192" y="164" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#52525B">arbitraged</text>
     </g>
 
     <!-- Connector Arrow 4 -->
-    <path d="M 890 93 L 898 93" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" />
-    <polygon points="898,90 904,93 898,96" fill="#71717A" />
+    <path d="M 894 93 L 902 93" stroke="#3F3F46" stroke-width="2" stroke-linecap="round" />
+    <polygon points="902,90 908,93 902,96" fill="#71717A" />
 
     <!-- Step 5: Failover & Rehydrate -->
-    <g transform="translate(904, 0)">
-      <rect width="200" height="186" rx="8" fill="url(#stepGrad)" stroke="#27272A" stroke-width="1" />
+    <g transform="translate(908, 0)">
+      <rect width="196" height="186" rx="8" fill="url(#stepGrad)" stroke="#27272A" stroke-width="1" />
       <rect x="14" y="14" width="28" height="28" rx="6" fill="#18181B" stroke="#27272A" stroke-width="1" />
       <text x="21" y="32" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#F59E0B">05</text>
       <text x="50" y="26" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" fill="#F59E0B">STREAM &amp; RESTORE</text>
@@ -132,12 +140,14 @@
 
       <text x="14" y="68" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Circuit Failover</text>
       <text x="14" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="11" fill="#A1A1AA">
-        Automatic retry on 429/503. Hydrates __SG_SECRET_X__ back into live stream.
+        <tspan x="14" dy="0">Automatic failover on 429.</tspan>
+        <tspan x="14" dy="16">Rehydrates credentials into</tspan>
+        <tspan x="14" dy="16">live SSE response stream.</tspan>
       </text>
 
-      <line x1="14" y1="142" x2="186" y2="142" stroke="#27272A" stroke-width="1" />
+      <line x1="14" y1="142" x2="182" y2="142" stroke="#27272A" stroke-width="1" />
       <text x="14" y="164" font-family="'JetBrains Mono', monospace" font-size="10" fill="#F59E0B">ZERO-DROP</text>
-      <text x="186" y="164" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#52525B">SSE stream</text>
+      <text x="182" y="164" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#52525B">SSE stream</text>
     </g>
 
   </g>

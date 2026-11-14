@@ -14,13 +14,15 @@
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml/badge.svg" alt="CodeQL Status"></a>
   <a href="https://github.com/giridhar2005/sentinelgate/releases"><img src="https://img.shields.io/github/v/release/giridhar2005/sentinelgate?style=flat-square&color=emerald" alt="Release"></a>
-  <a href="https://codespaces.new/giridhar2005/sentinelgate"><img src="https://github.com/codespaces/badge.svg" alt="Open in GitHub Codespaces"></a>
+  <a href="ARCHITECTURE.md"><img src="https://img.shields.io/badge/RFC-Architecture_Doc-orange.svg?style=flat-square" alt="Architecture RFC"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT License"></a>
+</p>
+
+<p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a>
   <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57.svg?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite WAL"></a>
   <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
-  <a href="ARCHITECTURE.md"><img src="https://img.shields.io/badge/RFC-Architecture_Doc-orange.svg?style=flat-square" alt="Architecture RFC"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT License"></a>
 </p>
 
 <p align="center">
@@ -60,40 +62,6 @@ Every request hitting `POST /v1/chat/completions` undergoes a deterministic, sub
 <p align="center">
   <img src="docs/request-flow.svg" alt="SentinelGate Request Lifecycle Flow" width="100%" style="border-radius: 8px; border: 1px solid #27272A; margin: 12px 0;">
 </p>
-
-```
-[Client Request: OpenAI SDK / Cursor / cURL]
-   │
-   ├── T + 0.1ms ── [1. Credential Shield]
-   │                 Compiled regex tokenizes sk-..., AWS, JWT, and DB connection URIs
-   │                 into reversible placeholders (__SG_SECRET_1__). Outbound leak prevented.
-   │
-   ├── T + 0.3ms ── [2. Tenant Budget & Limiter]
-   │                 Token-bucket rate limits (RPM) and monthly spend ceilings validated
-   │                 in SQLite via memory-mapped pages (<0.08ms execution).
-   │
-   ├── T + 1.8ms ── [3. In-Process Dense Vector Match]
-   │                 FastEmbed (BAAI/bge-small-en-v1.5) ONNX engine computes 384-dim vector.
-   │                 Evaluates cosine similarity against SQLite memory cache.
-   │                 ├── Hit (>= 0.92) ──> Return cached response (<2.0ms, $0.00 cost) ──┐
-   │                 └── Miss (< 0.92) ──┐                                                │
-   │                                     │                                                │
-   ├── T + 2.1ms ── [4. Cost Router Arbitrage]                                            │
-   │                 model="auto" complexity classifier analyzes token length and syntax. │
-   │                 ├── Simple ──> Cheap Utility (Local Ollama / Groq / GPT-4o-mini)     │
-   │                 └── Complex ─> Frontier Reasoning (Claude 3.5 Sonnet / GPT-4o)       │
-   │                                     │                                                │
-   ├── Upstream ─── [5. Circuit Breaker & Failover]                                       │
-   │                 Executes HTTP call. If primary trips 429/503, automatic failover     │
-   │                 reroutes to backup provider with zero dropped streaming frames.      │
-   │                                     │                                                │
-   └── Return ───── [6. Inbound Secret Rehydration]                                       │
-                     Hydrates __SG_SECRET_1__ tokens back to original credentials.        │
-                     Telemetry headers injected (X-Cache, X-Saved-USD, X-Latency).        │
-                     │                                                                    │
-                     ▼                                                                    ▼
-[Client Response Stream: 200 OK] ◄────────────────────────────────────────────────────────┘
-```
 
 ---
 
@@ -470,7 +438,7 @@ SQLite in Write-Ahead Logging (WAL) mode guarantees ACID compliance. Committed t
 
 ## Test Suite & Code Quality
 
-The repository includes 36 tests covering streaming SSE, semantic cache TTL, automatic failover routing, sandbox execution, chaos injection, reversible secret redaction, and `model="auto"` complexity scoring:
+The repository includes 37 tests covering streaming SSE, semantic cache TTL, automatic failover routing, sandbox execution, chaos injection, reversible secret redaction, and `model="auto"` complexity scoring:
 
 ```bash
 make test
@@ -487,11 +455,21 @@ Open for Founding AI Infrastructure, Staff Systems, and Developer Tools Engineer
 
 ---
 
-## Star History
+## Stargazers & Community
+
+If SentinelGate saves you money on LLM API bills, prevents credential leaks, or simplifies your AI infrastructure, please consider starring the repository:
 
 <p align="center">
-  <a href="https://star-history.com/#giridhar2005/sentinelgate&Date">
-    <img src="https://api.star-history.com/svg?repos=giridhar2005/sentinelgate&type=Date&theme=dark" alt="SentinelGate Star History" width="760">
+  <a href="https://github.com/giridhar2005/sentinelgate/stargazers">
+    <img src="https://img.shields.io/github/stars/giridhar2005/sentinelgate?style=for-the-badge&color=10B981&labelColor=18181B&logo=github" alt="GitHub Stars">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/giridhar2005/sentinelgate/network/members">
+    <img src="https://img.shields.io/github/forks/giridhar2005/sentinelgate?style=for-the-badge&color=3B82F6&labelColor=18181B&logo=github" alt="GitHub Forks">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/giridhar2005/sentinelgate/issues">
+    <img src="https://img.shields.io/github/issues/giridhar2005/sentinelgate?style=for-the-badge&color=F59E0B&labelColor=18181B&logo=github" alt="Open Issues">
   </a>
 </p>
 
