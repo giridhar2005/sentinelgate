@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Architecture & Systems RFC
+    url: https://github.com/giridhar2005/sentinelgate/blob/main/ARCHITECTURE.md
+    about: Read the in-depth technical design, IPC latency math, and concurrency boundaries.
+  - name: GitHub Releases & Changelog
+    url: https://github.com/giridhar2005/sentinelgate/releases
+    about: Review release notes and tag downloads.

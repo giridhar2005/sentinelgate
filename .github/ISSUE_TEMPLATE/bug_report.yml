@@ -1,0 +1,90 @@
+name: Bug Report
+description: Report a reproducible issue or unexpected gateway behavior
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an issue with SentinelGate. Please check existing issues before filing.
+
+  - type: input
+    id: version
+    attributes:
+      label: SentinelGate Version
+      description: What version or commit hash are you running? (Run `sentinelgate --version` or check `/dashboard` header)
+      placeholder: "v0.3.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Execution Environment
+      description: How are you running SentinelGate?
+      options:
+        - "Local CLI (`sentinelgate` / `python -m sentinelgate`)"
+        - "Local Uvicorn (`uv run uvicorn main:app`)"
+        - "Docker Container (`docker run` / `docker-compose`)"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - "macOS (Apple Silicon)"
+        - "macOS (Intel)"
+        - "Linux (Ubuntu / Debian / Alpine)"
+        - "Windows (WSL2)"
+        - "Windows (Native)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: upstream_provider
+    attributes:
+      label: Upstream Provider Involved
+      options:
+        - "Zero-Key Sandbox Mode (Local)"
+        - "OpenAI"
+        - "Anthropic"
+        - "Groq"
+        - "Google Gemini"
+        - "Local Ollama (11434)"
+        - "Local LM Studio (1234)"
+        - "Other / Custom"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug. Include request payload and headers if relevant.
+      placeholder: "Sending a streaming chat completion with model='auto' fails when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal Reproduction Steps
+      description: Exact commands, curl payloads, or Python SDK scripts to reproduce the problem.
+      placeholder: |
+        1. Start gateway with `sentinelgate --port 8000`
+        2. Execute `curl http://localhost:8000/v1/chat/completions ...`
+        3. Observe response status code
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Terminal & Gateway Logs
+      description: Relevant output from the gateway console or SQLite trace table.
+      render: shell
+    validations:
+      required: false

@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use SentinelGate in your research or production systems, please cite it as below."
+title: "SentinelGate: Zero-Bloat, OpenAI-Compatible LLM Gateway with In-Process Semantic Caching"
+abstract: "A high-throughput, zero-bloat OpenAI-compatible LLM Gateway featuring in-process semantic caching via FastEmbed ONNX, automatic circuit breaker failovers, reversible secret redaction, and sub-millisecond complexity cost routing, backed strictly by SQLite WAL mode."
+version: 0.3.0
+date-released: 2026-11-14
+authors:
+  - family-names: "G"
+    given-names: "Giridhar"
+    alias: "giridhar2005"
+repository-code: "https://github.com/giridhar2005/sentinelgate"
+url: "https://github.com/giridhar2005/sentinelgate"
+keywords:
+  - "llm-gateway"
+  - "fastapi"
+  - "sqlite-wal"
+  - "semantic-caching"
+  - "fastembed"
+  - "ai-infrastructure"
+license: "MIT"
