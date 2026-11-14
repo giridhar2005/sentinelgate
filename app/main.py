@@ -13,6 +13,7 @@ from app.core.database import init_db
 from app.routers import dashboard, health, v1
 from app.services.budget import BudgetManager, VirtualKeyManager
 from app.services.cache import SemanticCache
+from app.services.discovery import ProviderDiscovery, print_startup_banner
 from app.services.evals import EvalsManager
 from app.services.router import ProviderRouter
 
@@ -42,6 +43,13 @@ def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None)
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
         logger.info("Initializing SentinelGate Gateway engine...")
+        try:
+            discovery_info = await ProviderDiscovery.discover()
+            gateway_router.apply_discovery(discovery_info)
+            app.state.discovery_info = discovery_info
+            print_startup_banner(discovery_info, host=config.server.host, port=config.server.port)
+        except Exception as e:
+            logger.warning(f"Provider auto-discovery error: {e}")
         await gateway_router.get_client()
         yield
         logger.info("Gracefully terminating SentinelGate client pool...")

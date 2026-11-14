@@ -15,9 +15,102 @@ SECRET_PATTERNS = [
     re.compile(r"AKIA[0-9A-Z]{16}", re.IGNORECASE),                            # AWS Access Key
     re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}", re.IGNORECASE),# JWT token
     re.compile(r"gh[pousr]_[a-zA-Z0-9]{36}", re.IGNORECASE),                   # GitHub Token
+    re.compile(r"(?:postgres(?:ql)?|mongodb(?:\+srv)?|mysql|redis):\/\/[^\s\"'>]+", re.IGNORECASE), # Database URIs
     re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),                                      # SSN
     re.compile(r"\b(?:\d{4}[ -]?){3}\d{4}\b"),                                 # Credit Card
 ]
+
+# Comprehensive Secret & PII Redaction Rules for Safe Local/Cloud Relay
+SECRET_REDACTION_RULES = [
+    ("KEY_OPENAI", re.compile(r"\b(?:sk-[a-zA-Z0-9_-]{20,})\b", re.IGNORECASE)),
+    ("KEY_ANTHROPIC", re.compile(r"\b(?:sk-ant-[a-zA-Z0-9_-]{20,})\b", re.IGNORECASE)),
+    ("KEY_AWS", re.compile(r"\b(?:AKIA[0-9A-Z]{16})\b")),
+    ("KEY_GITHUB", re.compile(r"\b(?:gh[pousr]_[a-zA-Z0-9]{36})\b")),
+    ("DB_URI", re.compile(r"\b(?:postgres(?:ql)?|mongodb(?:\+srv)?|mysql|redis):\/\/[^\s\"'`<>]+", re.IGNORECASE)),
+    ("JWT", re.compile(r"\beyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]+\b")),
+    ("SSN", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
+    ("CREDIT_CARD", re.compile(r"\b(?:\d{4}[ -]?){3}\d{4}\b")),
+    ("EMAIL", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")),
+]
+
+
+class SecretRedactor:
+    """Reversible Secret & Credential Redaction Firewall.
+
+    Scrubs API keys, DB URIs, JWTs, and PII from prompts before they leave localhost,
+    and seamlessly restores them in returned LLM responses/streams.
+    """
+
+    @classmethod
+    def redact_text(
+        cls,
+        text: str,
+        mapping: Dict[str, str],
+        reverse_mapping: Dict[str, str],
+    ) -> Tuple[str, int]:
+        if not text or not isinstance(text, str):
+            return text, 0
+
+        scrubbed = 0
+        for tag, pattern in SECRET_REDACTION_RULES:
+            def _replace(m):
+                nonlocal scrubbed
+                val = m.group(0)
+                if val in reverse_mapping:
+                    return reverse_mapping[val]
+                scrubbed += 1
+                idx = len(mapping) + 1
+                token = f"__SG_SECRET_{tag}_{idx}__"
+                mapping[token] = val
+                reverse_mapping[val] = token
+                return token
+
+            text = pattern.sub(_replace, text)
+        return text, scrubbed
+
+    @classmethod
+    def redact_messages(
+        cls, messages: List[Dict[str, Any]]
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, str], int]:
+        mapping: Dict[str, str] = {}
+        reverse_mapping: Dict[str, str] = {}
+        total_scrubbed = 0
+        sanitized = []
+        for m in messages:
+            new_m = copy.deepcopy(m)
+            content = new_m.get("content")
+            if isinstance(content, str):
+                new_content, count = cls.redact_text(content, mapping, reverse_mapping)
+                new_m["content"] = new_content
+                total_scrubbed += count
+            sanitized.append(new_m)
+        return sanitized, mapping, total_scrubbed
+
+    @classmethod
+    def restore_text(cls, text: str, mapping: Dict[str, str]) -> str:
+        if not text or not mapping or not isinstance(text, str):
+            return text
+        for token, original in mapping.items():
+            if token in text:
+                text = text.replace(token, original)
+        return text
+
+    @classmethod
+    def restore_in_response(
+        cls, response_data: Dict[str, Any], mapping: Dict[str, str]
+    ) -> Dict[str, Any]:
+        if not mapping or not isinstance(response_data, dict):
+            return response_data
+        resp = copy.deepcopy(response_data)
+        choices = resp.get("choices", [])
+        for c in choices:
+            msg = c.get("message")
+            if msg and isinstance(msg.get("content"), str):
+                msg["content"] = cls.restore_text(msg["content"], mapping)
+            delta = c.get("delta")
+            if delta and isinstance(delta.get("content"), str):
+                delta["content"] = cls.restore_text(delta["content"], mapping)
+        return resp
 
 # Prompt Injection & Jailbreak Override Patterns
 INJECTION_PATTERNS = [

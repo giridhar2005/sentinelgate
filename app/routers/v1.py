@@ -15,6 +15,7 @@ from app.services.guardrails import (
     JSONSelfHealer,
     PIIGuardrail,
     PromptOptimizer,
+    SecretRedactor,
     SecurityInspector,
 )
 
@@ -91,33 +92,56 @@ async def chat_completions(
 
     # 2. Pre-Flight Guardrails
     t_guard_start = time.perf_counter()
-    # A. Secret Credential Leak Detection
-    is_secrets_safe, secret_threat = SecurityInspector.inspect_secrets(req.messages)
+
+    # Secret Redaction / Blocking Firewall
+    guard_cfg = getattr(request.app.state.config, "guardrails", None)
+    configured_action = getattr(guard_cfg, "secret_action", "redact") if guard_cfg else "redact"
+    if guard_cfg and getattr(guard_cfg, "block_secrets", False) and "secret_action" not in guard_cfg.model_fields_set:
+        configured_action = "block"
+    secret_action = request.headers.get("X-Secret-Action", configured_action).lower()
+
+    secret_mapping: Dict[str, str] = {}
+    scrubbed_count = 0
+
+    if secret_action == "block":
+        is_secrets_safe, secret_threat = SecurityInspector.inspect_secrets(req.messages)
+        if not is_secrets_safe:
+            lat_ms = (time.perf_counter() - t_perf_start) * 1000.0
+            guard_ms = (time.perf_counter() - t_guard_start) * 1000.0
+            app_evals.log_guardrail_event(req_id, "SECRET_LEAK", secret_threat or "", blocked=True)
+            app_evals.log_request(
+                request_id=req_id,
+                model=req.model,
+                provider="guardrail",
+                latency_ms=lat_ms,
+                cache_hit=False,
+                prompt_tokens=len(user_prompt) // 4,
+                completion_tokens=0,
+                cost_usd=0.0,
+                status="BLOCKED",
+                prompt_snippet=user_prompt[:250],
+                similarity_score=0.0,
+                timing_breakdown={"guardrail_ms": round(guard_ms, 2), "total_ms": round(lat_ms, 2)},
+                response_snippet=f"Security Violation: {secret_threat}",
+            )
+            return make_openai_error(
+                f"Security Violation: {secret_threat}",
+                error_type="security_guardrail_violation",
+                code="secret_leak_detected",
+                status_code=400,
+            )
+    elif secret_action == "redact":
+        sanitized_messages, secret_mapping, scrubbed_count = SecretRedactor.redact_messages(req.messages)
+        if scrubbed_count > 0:
+            app_evals.log_guardrail_event(
+                req_id,
+                "SECRET_REDACTED",
+                f"Scrubbed {scrubbed_count} secret credential(s) or URI(s)",
+                blocked=False,
+            )
+            req.messages = sanitized_messages
+
     guard_ms = (time.perf_counter() - t_guard_start) * 1000.0
-    if not is_secrets_safe:
-        lat_ms = (time.perf_counter() - t_perf_start) * 1000.0
-        app_evals.log_guardrail_event(req_id, "SECRET_LEAK", secret_threat or "", blocked=True)
-        app_evals.log_request(
-            request_id=req_id,
-            model=req.model,
-            provider="guardrail",
-            latency_ms=lat_ms,
-            cache_hit=False,
-            prompt_tokens=len(user_prompt) // 4,
-            completion_tokens=0,
-            cost_usd=0.0,
-            status="BLOCKED",
-            prompt_snippet=user_prompt[:250],
-            similarity_score=0.0,
-            timing_breakdown={"guardrail_ms": round(guard_ms, 2), "total_ms": round(lat_ms, 2)},
-            response_snippet=f"Security Violation: {secret_threat}",
-        )
-        return make_openai_error(
-            f"Security Violation: {secret_threat}",
-            error_type="security_guardrail_violation",
-            code="secret_leak_detected",
-            status_code=400,
-        )
 
     # B. Prompt Injection & Jailbreak Heuristic
     is_safe, threat_reason = SecurityInspector.inspect_injection(req.messages)
@@ -175,6 +199,8 @@ async def chat_completions(
             latency_ms = (time.time() - start_time) * 1000.0
 
             final_resp = PIIGuardrail.restore_in_response(cached_resp, pii_mapping)
+            if secret_mapping:
+                final_resp = SecretRedactor.restore_in_response(final_resp, secret_mapping)
             final_resp["id"] = req_id
 
             usage = final_resp.get("usage", {})
@@ -214,6 +240,8 @@ async def chat_completions(
                 "X-Provider-Used": f"{provider}(cached)",
                 "X-Latency-Ms": f"{latency_ms:.2f}",
             }
+            if scrubbed_count > 0:
+                headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
             return JSONResponse(content=final_resp, headers=headers)
 
     # 6. Daily Budget Circuit Breaker Check
@@ -262,6 +290,8 @@ async def chat_completions(
                         ttft_logged["done"] = True
                     if pii_mapping:
                         chunk = PIIGuardrail.restore_text(chunk, pii_mapping)
+                    if secret_mapping:
+                        chunk = SecretRedactor.restore_text(chunk, secret_mapping)
                     yield chunk
             except Exception as stream_err:
                 logger.error(f"Streaming error: {stream_err}")
@@ -272,6 +302,13 @@ async def chat_completions(
             "X-Provider-Used": chosen_provider,
             "X-Latency-Ms": f"{(time.time() - start_time) * 1000.0:.2f}",
         }
+        if scrubbed_count > 0:
+            stream_headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
+        if requested_model == "auto":
+            auto_meta = getattr(app_router, "last_routing_metadata", {})
+            stream_headers["X-Auto-Route"] = f"{chosen_provider}/{chosen_model}"
+            if auto_meta:
+                stream_headers["X-Auto-Complexity"] = f"{auto_meta.get('classification', 'simple')} ({auto_meta.get('score', 0)}/100)"
         return StreamingResponse(event_generator(), media_type="text/event-stream", headers=stream_headers)
 
     # 9. Non-Streaming Post-Processing
@@ -283,6 +320,8 @@ async def chat_completions(
         )
 
     final_resp = PIIGuardrail.restore_in_response(upstream_res, pii_mapping)
+    if secret_mapping:
+        final_resp = SecretRedactor.restore_in_response(final_resp, secret_mapping)
     final_resp["id"] = req_id
 
     latency_ms = (time.time() - start_time) * 1000.0
@@ -294,6 +333,12 @@ async def chat_completions(
     )
 
     cost_usd = app_router.get_model_cost(chosen_provider, chosen_model, in_tok, out_tok)
+
+    # Calculate exact USD savings vs frontier pricing when model="auto" routes to a cheaper model
+    auto_saved_usd = 0.0
+    if requested_model == "auto":
+        frontier_cost = app_router.get_model_cost("openai", "gpt-4o", in_tok, out_tok)
+        auto_saved_usd = max(0.0, frontier_cost - cost_usd)
 
     # Store in Semantic Cache
     app_cache.store(
@@ -324,7 +369,7 @@ async def chat_completions(
         prompt_tokens=in_tok,
         completion_tokens=out_tok,
         cost_usd=cost_usd,
-        cost_saved_usd=0.0,
+        cost_saved_usd=auto_saved_usd,
         status=status,
         prompt_snippet=user_prompt[:250],
         similarity_score=0.0,
@@ -351,6 +396,14 @@ async def chat_completions(
         "X-Provider-Used": chosen_provider,
         "X-Latency-Ms": f"{latency_ms:.2f}",
     }
+    if scrubbed_count > 0:
+        headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
+    if requested_model == "auto":
+        headers["X-Auto-Route"] = f"{chosen_provider}/{chosen_model}"
+        headers["X-Auto-Saved-USD"] = f"{auto_saved_usd:.6f}"
+        auto_meta = getattr(app_router, "last_routing_metadata", {})
+        if auto_meta:
+            headers["X-Auto-Complexity"] = f"{auto_meta.get('classification', 'simple')} ({auto_meta.get('score', 0)}/100)"
     return JSONResponse(content=final_resp, headers=headers)
 
 

@@ -15,10 +15,12 @@ cache:
   db_path: "sentinelgate.db"
 
 guardrails:
+  # Secret firewall mode: "redact" (automatic reversible redaction) or "block" (hard HTTP 400 rejection)
+  secret_action: "redact"
   # Mask emails and phone numbers before sending to upstream providers
   pii_masking: true
-  # Block prompts containing raw API keys, SSNs, or credit cards with HTTP 400
-  block_secrets: true
+  # Block prompts containing raw API keys, SSNs, or credit cards with HTTP 400 when secret_action="block"
+  block_secrets: false
   # Block jailbreak attempts and system prompt exfiltration probes with HTTP 400
   prompt_injection_block: true
   # Retries if an LLM returns malformed JSON when json_object mode was requested

@@ -96,6 +96,14 @@
 
     <!-- Right Controls -->
     <div class="flex items-center space-x-3 text-xs">
+      <!-- Connect Tool Quick Setup Button -->
+      <button onclick="openConnectModal()" class="flex items-center space-x-1.5 px-3 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-hairline hover:border-hairlineLight transition text-zinc-200 font-medium font-sans">
+        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        <span>Connect Tool</span>
+      </button>
+
       <!-- Chaos Fault Injection Switch -->
       <div class="flex items-center space-x-2 px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight transition">
         <label class="relative inline-flex items-center cursor-pointer">
@@ -129,7 +137,7 @@
   <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
 
     <!-- Section 1: Real SQLite Telemetry Strip -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3.5">
       <!-- Metric 1: Total Requests -->
       <div class="bg-panel border border-hairline rounded-lg p-4">
         <div class="text-xs font-medium text-zinc-400 tracking-wide uppercase">Total Requests</div>
@@ -153,20 +161,30 @@
         <div class="text-xs font-medium text-zinc-400 tracking-wide uppercase">Total USD Saved</div>
         <div id="stat-saved-usd" class="text-2xl font-semibold text-white mt-1 mono-nums">$0.0000</div>
         <div class="text-xs text-zinc-500 mt-1">
-          Cost: <span id="stat-cost-usd" class="mono-nums text-zinc-400">$0.00</span>
+          Cache + auto-routing
         </div>
       </div>
 
       <!-- Metric 4: Median Latency (p50) -->
       <div class="bg-panel border border-hairline rounded-lg p-4">
-        <div class="text-xs font-medium text-zinc-400 tracking-wide uppercase">Median Latency (p50)</div>
+        <div class="text-xs font-medium text-zinc-400 tracking-wide uppercase">Median Latency</div>
         <div id="stat-p50" class="text-2xl font-semibold text-white mt-1 mono-nums">- ms</div>
         <div class="text-xs text-zinc-500 mt-1">
           p95: <span id="stat-p95" class="mono-nums text-zinc-400">- ms</span>
         </div>
       </div>
 
-      <!-- Metric 5: Blocked Threats -->
+      <!-- Metric 5: Secrets Scrubbed -->
+      <div class="bg-panel border border-hairline rounded-lg p-4">
+        <div class="text-xs font-medium text-zinc-400 tracking-wide uppercase">Secrets Scrubbed</div>
+        <div id="stat-secrets-scrubbed" class="text-2xl font-semibold text-emerald-400 mt-1 mono-nums">0</div>
+        <div class="text-xs text-zinc-500 mt-1 flex items-center space-x-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span>Reversible Shield</span>
+        </div>
+      </div>
+
+      <!-- Metric 6: Blocked Threats -->
       <div class="bg-panel border border-hairline rounded-lg p-4">
         <div class="text-xs font-medium text-zinc-400 tracking-wide uppercase">Blocked Threats</div>
         <div id="stat-blocked" class="text-2xl font-semibold text-rose-400 mt-1 mono-nums">0</div>
@@ -198,7 +216,13 @@
               Preset B: Paraphrase (Hit ~4ms)
             </button>
             <button onclick="loadPreset('C')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-rose-300 transition">
-              Preset C: Leaked Key (Blocked)
+              Preset C: Secret Scrub (Shield)
+            </button>
+            <button onclick="loadPreset('D')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-sky-300 transition">
+              Preset D: Auto Simple
+            </button>
+            <button onclick="loadPreset('E')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-amber-300 transition">
+              Preset E: Auto Complex
             </button>
           </div>
 
@@ -212,6 +236,7 @@
           <div class="flex items-center space-x-3 text-xs">
             <label class="text-zinc-400">Model:</label>
             <select id="sim-model" class="bg-canvas border border-hairline text-zinc-200 text-xs rounded px-2 py-1 font-mono focus:outline-none">
+              <option value="auto">auto (smart cost router)</option>
               <option value="gpt-4o-mini">gpt-4o-mini</option>
               <option value="gpt-4o">gpt-4o</option>
               <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
@@ -373,6 +398,139 @@
     </div>
 
   </main>
+
+  <!-- Connect Tool Quick Setup Modal -->
+  <div id="connect-modal-backdrop" onclick="closeConnectModal()" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 hidden transition-opacity"></div>
+  <div id="connect-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-panel border border-hairline rounded-xl shadow-2xl z-50 hidden flex flex-col overflow-hidden max-h-[90vh]">
+    <!-- Modal Header -->
+    <div class="p-5 border-b border-hairline flex items-center justify-between bg-canvas">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-7 h-7 rounded-lg bg-zinc-800 border border-hairline flex items-center justify-center">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-white">Connect Any Tool in 5 Seconds</h3>
+          <p class="text-xs text-zinc-400">Point your editor, terminal, or SDK to SentinelGate. No code refactoring required.</p>
+        </div>
+      </div>
+      <button onclick="closeConnectModal()" class="text-zinc-400 hover:text-white p-1 rounded hover:bg-panelElevated transition">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Navigation Tabs -->
+    <div class="px-5 pt-3 border-b border-hairline bg-canvas flex space-x-4 text-xs font-medium">
+      <button onclick="switchConnectTab('cursor')" id="btn-tab-cursor" class="pb-2 border-b-2 border-white text-white font-medium">Cursor / Cline / IDE</button>
+      <button onclick="switchConnectTab('terminal')" id="btn-tab-terminal" class="pb-2 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Terminal / CLI</button>
+      <button onclick="switchConnectTab('python')" id="btn-tab-python" class="pb-2 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Python SDK</button>
+      <button onclick="switchConnectTab('node')" id="btn-tab-node" class="pb-2 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Node / TypeScript</button>
+    </div>
+
+    <!-- Modal Content -->
+    <div class="p-5 overflow-y-auto space-y-4 text-xs">
+      <!-- Cursor / Cline / Continue Tab -->
+      <div id="connect-tab-cursor" class="space-y-3">
+        <p class="text-zinc-300">In Cursor, Cline, Continue, or any OpenAI-compatible AI editor extension, configure custom model settings:</p>
+        <div class="space-y-2">
+          <div>
+            <div class="text-[11px] text-zinc-400 font-mono mb-1">Base URL:</div>
+            <div class="flex items-center justify-between p-2.5 rounded bg-canvas border border-hairline font-mono text-zinc-200">
+              <span id="code-cursor-url">http://localhost:8000/v1</span>
+              <button onclick="copySnippet('code-cursor-url', this)" class="text-zinc-400 hover:text-white text-xs px-2 py-0.5 rounded bg-panelElevated border border-hairline">Copy</button>
+            </div>
+          </div>
+          <div>
+            <div class="text-[11px] text-zinc-400 font-mono mb-1">Model Name (or pass &quot;auto&quot; for automatic cost routing):</div>
+            <div class="flex items-center justify-between p-2.5 rounded bg-canvas border border-hairline font-mono text-zinc-200">
+              <span id="code-cursor-model">auto</span>
+              <button onclick="copySnippet('code-cursor-model', this)" class="text-zinc-400 hover:text-white text-xs px-2 py-0.5 rounded bg-panelElevated border border-hairline">Copy</button>
+            </div>
+          </div>
+          <div>
+            <div class="text-[11px] text-zinc-400 font-mono mb-1">API Key:</div>
+            <div class="flex items-center justify-between p-2.5 rounded bg-canvas border border-hairline font-mono text-zinc-200">
+              <span id="code-cursor-key">sk-sentinelgate-local</span>
+              <button onclick="copySnippet('code-cursor-key', this)" class="text-zinc-400 hover:text-white text-xs px-2 py-0.5 rounded bg-panelElevated border border-hairline">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terminal / CLI Tab -->
+      <div id="connect-tab-terminal" class="hidden space-y-3">
+        <p class="text-zinc-300">Export standard OpenAI environment variables to redirect any CLI tool, script, or agent through SentinelGate:</p>
+        <div class="relative">
+          <pre class="p-3 rounded bg-canvas border border-hairline font-mono text-zinc-200 whitespace-pre overflow-x-auto text-[11px]"><code id="code-terminal-snippet">export OPENAI_BASE_URL="http://localhost:8000/v1"
+export OPENAI_API_KEY="sk-sentinelgate-local"
+
+# Now run any tool (aider, llm, fabric, custom scripts)
+curl $OPENAI_BASE_URL/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -d '{"model": "auto", "messages": [{"role": "user", "content": "Hello SentinelGate"}]}'</code></pre>
+          <button onclick="copySnippet('code-terminal-snippet', this)" class="absolute top-2 right-2 text-zinc-400 hover:text-white text-xs px-2 py-0.5 rounded bg-panelElevated border border-hairline">Copy</button>
+        </div>
+      </div>
+
+      <!-- Python SDK Tab -->
+      <div id="connect-tab-python" class="hidden space-y-3">
+        <p class="text-zinc-300">Drop-in replacement using the official Python <code class="font-mono text-zinc-200">openai</code> library with zero modifications to response parsing:</p>
+        <div class="relative">
+          <pre class="p-3 rounded bg-canvas border border-hairline font-mono text-zinc-200 whitespace-pre overflow-x-auto text-[11px]"><code id="code-python-snippet">from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="sk-sentinelgate-local"
+)
+
+# Use model="auto" to intelligently route queries and cut API bills
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "Explain raft consensus in 2 sentences"}]
+)
+
+print(response.choices[0].message.content)</code></pre>
+          <button onclick="copySnippet('code-python-snippet', this)" class="absolute top-2 right-2 text-zinc-400 hover:text-white text-xs px-2 py-0.5 rounded bg-panelElevated border border-hairline">Copy</button>
+        </div>
+      </div>
+
+      <!-- Node / TypeScript Tab -->
+      <div id="connect-tab-node" class="hidden space-y-3">
+        <p class="text-zinc-300">Works directly with the official npm <code class="font-mono text-zinc-200">openai</code> package:</p>
+        <div class="relative">
+          <pre class="p-3 rounded bg-canvas border border-hairline font-mono text-zinc-200 whitespace-pre overflow-x-auto text-[11px]"><code id="code-node-snippet">import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "http://localhost:8000/v1",
+  apiKey: "sk-sentinelgate-local",
+});
+
+const completion = await client.chat.completions.create({
+  model: "auto",
+  messages: [{ role: "user", content: "Write a quicksort in TypeScript" }],
+});
+
+console.log(completion.choices[0].message.content);</code></pre>
+          <button onclick="copySnippet('code-node-snippet', this)" class="absolute top-2 right-2 text-zinc-400 hover:text-white text-xs px-2 py-0.5 rounded bg-panelElevated border border-hairline">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="p-4 border-t border-hairline bg-canvas flex items-center justify-between text-xs">
+      <div class="flex items-center space-x-2 text-zinc-400">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span>Gateway listening on <code class="font-mono text-zinc-200">0.0.0.0:8000</code></span>
+      </div>
+      <button onclick="closeConnectModal()" class="px-3.5 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition">
+        Done
+      </button>
+    </div>
+  </div>
 
   <!-- Slide-Over Trace Inspector Drawer -->
   <div id="drawer-backdrop" onclick="closeDrawer()" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity"></div>
@@ -591,14 +749,15 @@
     }
 
     function renderMetrics(data) {
-      document.getElementById("stat-total-requests").innerText = (data.total_requests || 0).toLocaleString();
-      document.getElementById("stat-hit-rate").innerText = (data.cache_hit_rate || 0.0) + "%";
-      document.getElementById("stat-hit-count").innerText = (data.cache_hits || 0).toLocaleString();
-      document.getElementById("stat-saved-usd").innerText = "$" + (data.total_saved_usd || 0.0).toFixed(4);
-      document.getElementById("stat-cost-usd").innerText = "$" + (data.total_cost_usd || 0.0).toFixed(4);
-      document.getElementById("stat-p50").innerText = (data.p50_latency_ms || 0.0) + " ms";
-      document.getElementById("stat-p95").innerText = (data.p95_latency_ms || 0.0) + " ms";
-      document.getElementById("stat-blocked").innerText = (data.blocked_guardrail_events || 0).toLocaleString();
+      if (document.getElementById("stat-total-requests")) document.getElementById("stat-total-requests").innerText = (data.total_requests || 0).toLocaleString();
+      if (document.getElementById("stat-hit-rate")) document.getElementById("stat-hit-rate").innerText = (data.cache_hit_rate || 0.0) + "%";
+      if (document.getElementById("stat-hit-count")) document.getElementById("stat-hit-count").innerText = (data.cache_hits || 0).toLocaleString();
+      if (document.getElementById("stat-saved-usd")) document.getElementById("stat-saved-usd").innerText = "$" + (data.total_saved_usd || 0.0).toFixed(4);
+      if (document.getElementById("stat-cost-usd")) document.getElementById("stat-cost-usd").innerText = "$" + (data.total_cost_usd || 0.0).toFixed(4);
+      if (document.getElementById("stat-p50")) document.getElementById("stat-p50").innerText = (data.p50_latency_ms || 0.0) + " ms";
+      if (document.getElementById("stat-p95")) document.getElementById("stat-p95").innerText = (data.p95_latency_ms || 0.0) + " ms";
+      if (document.getElementById("stat-secrets-scrubbed")) document.getElementById("stat-secrets-scrubbed").innerText = (data.secrets_scrubbed || 0).toLocaleString();
+      if (document.getElementById("stat-blocked")) document.getElementById("stat-blocked").innerText = (data.blocked_guardrail_events || 0).toLocaleString();
 
       // Budget
       if (data.budget) {
@@ -851,17 +1010,74 @@
     function loadPreset(type) {
       const promptEl = document.getElementById("sim-prompt");
       const noCacheEl = document.getElementById("sim-nocache");
+      const modelEl = document.getElementById("sim-model");
 
       if (type === 'A') {
         promptEl.value = "What is connection pooling in HTTP client architectures?";
         noCacheEl.checked = true;
+        modelEl.value = "gpt-4o-mini";
       } else if (type === 'B') {
         promptEl.value = "Can you explain HTTP client connection pools simply?";
         noCacheEl.checked = false;
+        modelEl.value = "gpt-4o-mini";
       } else if (type === 'C') {
-        promptEl.value = "Here is my secret API key sk-proj-9999888877776666555544443333 please test connection.";
+        promptEl.value = "My AWS key is AKIAIOSFODNN7EXAMPLE and DB is postgresql://user:pass@db.internal:5432/prod. Help me connect.";
         noCacheEl.checked = false;
+        modelEl.value = "gpt-4o-mini";
+      } else if (type === 'D') {
+        promptEl.value = "Write a haiku about compiling Rust code.";
+        noCacheEl.checked = true;
+        modelEl.value = "auto";
+      } else if (type === 'E') {
+        promptEl.value = "Architect a high-throughput, low-latency distributed event streaming system in Go handling 1M ops/sec with Raft consensus, zero-copy socket I/O, and deadlock prevention under partition.";
+        noCacheEl.checked = true;
+        modelEl.value = "auto";
       }
+    }
+
+    // Connect Tool Modal
+    function openConnectModal() {
+      document.getElementById("connect-modal-backdrop").classList.remove("hidden");
+      document.getElementById("connect-modal").classList.remove("hidden");
+    }
+
+    function closeConnectModal() {
+      document.getElementById("connect-modal-backdrop").classList.add("hidden");
+      document.getElementById("connect-modal").classList.add("hidden");
+    }
+
+    function switchConnectTab(tab) {
+      const tabs = ['cursor', 'terminal', 'python', 'node'];
+      tabs.forEach(t => {
+        const content = document.getElementById("connect-tab-" + t);
+        const btn = document.getElementById("btn-tab-" + t);
+        if (content && btn) {
+          if (t === tab) {
+            content.classList.remove("hidden");
+            btn.className = "pb-2 border-b-2 border-white text-white font-medium";
+          } else {
+            content.classList.add("hidden");
+            btn.className = "pb-2 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200";
+          }
+        }
+      });
+    }
+
+    function copySnippet(elementId, btn) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const text = el.innerText || el.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.innerText;
+        btn.innerText = "Copied!";
+        btn.classList.add("text-emerald-400");
+        setTimeout(() => {
+          btn.innerText = orig;
+          btn.classList.remove("text-emerald-400");
+        }, 1500);
+      }).catch(() => {
+        btn.innerText = "Copied!";
+      });
     }
 
     // Simulator execution
@@ -904,18 +1120,29 @@
         if (res.status === 400) {
           badge.className = "badge-blocked px-2 py-0.5 rounded text-[11px] font-medium";
           badge.innerText = "BLOCKED";
-          sim.innerText = "Guardrail: Active";
+          sim.innerText = "Guardrail: Threat blocked";
           output.innerText = JSON.stringify(data, null, 2);
         } else if (res.ok) {
           const cacheHeader = res.headers.get("X-Cache") || (data.sentinel_cache_hit ? "HIT" : "MISS");
+          const autoRoute = res.headers.get("X-Auto-Route");
+          const autoSaved = res.headers.get("X-Auto-Saved-USD");
+          const scrubbed = res.headers.get("X-Secrets-Scrubbed");
+
           if (cacheHeader === "HIT") {
             badge.className = "badge-hit px-2 py-0.5 rounded text-[11px] font-medium";
             badge.innerText = "CACHE HIT";
             sim.innerText = `Similarity: ${(data.sentinel_similarity || 0.9412).toFixed(4)}`;
+          } else if (autoRoute) {
+            badge.className = "badge-upstream px-2 py-0.5 rounded text-[11px] font-medium";
+            badge.innerText = `ROUTED: ${autoRoute.toUpperCase()}`;
+            sim.innerText = `Auto: ${autoRoute} (Saved $${autoSaved || "0.0000"})`;
           } else {
             badge.className = "badge-upstream px-2 py-0.5 rounded text-[11px] font-medium";
             badge.innerText = "UPSTREAM";
             sim.innerText = "Similarity: -";
+          }
+          if (scrubbed && parseInt(scrubbed) > 0) {
+            sim.innerText += ` · Shield: ${scrubbed} secret(s) scrubbed`;
           }
           const content = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : JSON.stringify(data);
           output.innerText = content;

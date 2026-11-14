@@ -22,7 +22,8 @@ class CacheConfig(BaseModel):
 
 class GuardrailsConfig(BaseModel):
     pii_masking: bool = True
-    block_secrets: bool = True
+    block_secrets: bool = False
+    secret_action: str = "redact"  # "redact" (default for safe daily usage), "block", or "off"
     prompt_injection_block: bool = True
     max_repair_attempts: int = 1
     prompt_optimization: bool = True

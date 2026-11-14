@@ -194,6 +194,7 @@ class EvalsManager:
             ]
 
             guardrail_count = conn.execute("SELECT COUNT(*) FROM guardrail_events WHERE blocked = 1").fetchone()[0] or 0
+            scrubbed_count = conn.execute("SELECT COUNT(*) FROM guardrail_events WHERE event_type = 'SECRET_REDACTED'").fetchone()[0] or 0
 
         total_req = agg.get("total_requests") or 0
         cache_hits = agg.get("cache_hits") or 0
@@ -215,6 +216,7 @@ class EvalsManager:
             "p95_latency_ms": round(p95, 1),
             "avg_ttft_ms": round(avg_ttft, 1),
             "blocked_guardrail_events": guardrail_count,
+            "secrets_scrubbed": scrubbed_count,
             "shadow_evals": {
                 "total_evals": total_evals,
                 "total_wins": wins,

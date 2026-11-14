@@ -9,8 +9,9 @@ cache:
   db_path: "sentinelgate.db"
 
 guardrails:
+  secret_action: "redact"
   pii_masking: true
-  block_secrets: true
+  block_secrets: false
   prompt_injection_block: true
   max_repair_attempts: 1
   prompt_optimization: true
