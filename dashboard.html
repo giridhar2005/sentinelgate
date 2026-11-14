@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SentinelGate | LLM Gateway Observability</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #121826;
+      --border: #1e293b;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.25);
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.2);
+      --warning: #f59e0b;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-live { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-hit { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+    .badge-miss { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); }
+    .badge-win { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .badge-loss { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .card:hover { border-color: #334155; }
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .card-value {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      color: #fff;
+    }
+    .card-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .card-value.highlight-green { color: var(--success); text-shadow: 0 0 16px var(--success-glow); }
+    .card-value.highlight-indigo { color: #818cf8; text-shadow: 0 0 16px var(--accent-glow); }
+    .content-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 900px) {
+      .content-grid { grid-template-columns: 1fr; }
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    th {
+      padding: 12px 16px;
+      background: #0f1523;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: #cbd5e1;
+    }
+    tr:last-child td { border-bottom: none; }
+    .shadow-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .shadow-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .shadow-reason {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    .btn-refresh {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .btn-refresh:hover { background: #334155; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="brand-icon">SG</div>
+      <div>
+        <h1>SentinelGate Observability</h1>
+        <div style="font-size: 12px; color: var(--text-muted);">Zero-Bloat AI Gateway &amp; Telemetry</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span class="badge badge-live">&#x25CF; Live Gateway</span>
+      <button class="btn-refresh" onclick="fetchMetrics()">Refresh</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="card">
+      <div class="card-title">Total Requests</div>
+      <div class="card-value" id="val-total-requests">0</div>
+      <div class="card-sub" id="val-total-tokens">0 tokens processed</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Cache Hit Rate</div>
+      <div class="card-value highlight-indigo" id="val-cache-rate">0.0%</div>
+      <div class="card-sub" id="val-cache-hits">0 cached hits</div>
+    </div>
+    <div class="card">
+      <div class="card-title">USD Saved</div>
+      <div class="card-value highlight-green" id="val-usd-saved">$0.0000</div>
+      <div class="card-sub" id="val-cost-spent">Cost: $0.0000</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Latency (P50 / P95)</div>
+      <div class="card-value" id="val-latency">0 / 0 <span style="font-size:14px;">ms</span></div>
+      <div class="card-sub">Fast local ONNX caching</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Shadow Parity Win Rate</div>
+      <div class="card-value" id="val-shadow-win">0.0%</div>
+      <div class="card-sub" id="val-shadow-score">Avg Score: 0/10</div>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    <div>
+      <div class="section-title">
+        <span>Recent Traffic Logs</span>
+        <span style="font-size: 12px; color: var(--text-muted);">Last 20 Requests</span>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID / Model</th>
+              <th>Provider</th>
+              <th>Status</th>
+              <th>Latency</th>
+              <th>Tokens</th>
+              <th>Cost</th>
+            </tr>
+          </thead>
+          <tbody id="table-logs">
+            <tr><td colspan="6" style="text-align:center; padding:24px; color: var(--text-muted);">No requests recorded yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">
+        <span>10% Shadow Evals</span>
+        <span style="font-size: 12px; color: var(--text-muted);" id="eval-count-tag">0 Evals</span>
+      </div>
+      <div id="shadow-container">
+        <div style="text-align: center; padding: 24px; color: var(--text-muted); background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border);">
+          No shadow replays yet. Uncached requests sample 10% automatically.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function fetchMetrics() {
+      try {
+        const res = await fetch('/api/metrics');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        document.getElementById('val-total-requests').textContent = Number(data.total_requests || 0).toLocaleString();
+        const totalTokens = (data.total_prompt_tokens || 0) + (data.total_completion_tokens || 0);
+        document.getElementById('val-total-tokens').textContent = `${Number(totalTokens).toLocaleString()} tokens processed`;
+
+        document.getElementById('val-cache-rate').textContent = `${(data.cache_hit_rate || 0).toFixed(1)}%`;
+        document.getElementById('val-cache-hits').textContent = `${data.cache_hits || 0} cached hits`;
+
+        document.getElementById('val-usd-saved').textContent = `$${(data.total_saved_usd || 0).toFixed(4)}`;
+        document.getElementById('val-cost-spent').textContent = `Cost: $${(data.total_cost_usd || 0).toFixed(4)}`;
+
+        document.getElementById('val-latency').innerHTML = `${Math.round(data.p50_latency_ms || 0)} / ${Math.round(data.p95_latency_ms || 0)} <span style="font-size:14px;">ms</span>`;
+
+        const shadow = data.shadow_evals || {};
+        document.getElementById('val-shadow-win').textContent = `${(shadow.win_rate || 0).toFixed(1)}%`;
+        document.getElementById('val-shadow-score').textContent = `Avg Score: ${(shadow.avg_score || 0).toFixed(1)}/10 (${shadow.total_evals || 0} evals)`;
+        document.getElementById('eval-count-tag').textContent = `${shadow.total_evals || 0} Evals`;
+
+        // Render Recent Logs
+        const tbody = document.getElementById('table-logs');
+        if (data.recent_requests && data.recent_requests.length > 0) {
+          tbody.innerHTML = data.recent_requests.map(r => `
+            <tr>
+              <td>
+                <div style="font-weight: 600; color: #fff;">${r.model}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">${r.request_id}</div>
+              </td>
+              <td>${r.provider}</td>
+              <td>
+                ${r.cache_hit ? '<span class="badge badge-hit">CACHE HIT</span>' : '<span class="badge badge-miss">UPSTREAM</span>'}
+              </td>
+              <td>${Math.round(r.latency_ms)}ms</td>
+              <td>${(r.prompt_tokens || 0) + (r.completion_tokens || 0)}</td>
+              <td>$${(r.cost_usd || 0).toFixed(4)}</td>
+            </tr>
+          `).join('');
+        }
+
+        // Render Shadow Evals
+        const shadowBox = document.getElementById('shadow-container');
+        if (data.recent_shadow_evals && data.recent_shadow_evals.length > 0) {
+          shadowBox.innerHTML = data.recent_shadow_evals.map(se => `
+            <div class="shadow-item">
+              <div class="shadow-header">
+                <div><strong>${se.original_model}</strong> &rarr; <span style="color:#818cf8;">${se.shadow_model}</span></div>
+                <span class="badge ${se.is_win ? 'badge-win' : 'badge-loss'}">${se.is_win ? 'PARITY WIN' : 'LOSS'} (${se.judge_score}/10)</span>
+              </div>
+              <div class="shadow-reason">${se.judge_reasoning || 'Evaluated'}</div>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Metrics fetch error:', err);
+      }
+    }
+
+    fetchMetrics();
+    setInterval(fetchMetrics, 3000);
+  </script>
+</body>
+</html>

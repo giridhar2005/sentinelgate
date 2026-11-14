@@ -1,0 +1,84 @@
+server:
+  host: "0.0.0.0"
+  port: 8000
+
+cache:
+  enabled: true
+  similarity_threshold: 0.92
+  ttl_seconds: 3600
+  db_path: "sentinelgate.db"
+
+guardrails:
+  pii_masking: true
+  json_self_healing: true
+  max_repair_attempts: 1
+
+evals:
+  enabled: true
+  sample_rate: 0.10
+  cheaper_fallback_model: "groq/llama-3.1-8b-instant"
+  judge_model: "gemini/gemini-1.5-flash"
+
+providers:
+  openai:
+    type: "openai"
+    base_url: "https://api.openai.com/v1"
+    api_keys:
+      - "${OPENAI_API_KEY}"
+      - "${OPENAI_API_KEY_BACKUP}"
+    models:
+      gpt-4o:
+        input_cost_per_m: 5.0
+        output_cost_per_m: 15.0
+        fallbacks: ["groq/llama-3.3-70b-versatile", "gemini/gemini-1.5-pro"]
+      gpt-4o-mini:
+        input_cost_per_m: 0.15
+        output_cost_per_m: 0.60
+        fallbacks: ["groq/llama-3.1-8b-instant", "gemini/gemini-1.5-flash", "ollama/llama3"]
+
+  groq:
+    type: "openai_compatible"
+    base_url: "https://api.groq.com/openai/v1"
+    api_keys:
+      - "${GROQ_API_KEY}"
+      - "${GROQ_API_KEY_BACKUP}"
+    models:
+      llama-3.3-70b-versatile:
+        input_cost_per_m: 0.59
+        output_cost_per_m: 0.79
+        fallbacks: ["gemini/gemini-1.5-flash", "openai/gpt-4o-mini"]
+      llama-3.1-8b-instant:
+        input_cost_per_m: 0.05
+        output_cost_per_m: 0.08
+        fallbacks: ["gemini/gemini-1.5-flash", "ollama/llama3"]
+
+  gemini:
+    type: "gemini"
+    base_url: "https://generativelanguage.googleapis.com/v1beta"
+    api_keys:
+      - "${GEMINI_API_KEY}"
+      - "${GEMINI_API_KEY_BACKUP}"
+    models:
+      gemini-1.5-flash:
+        input_cost_per_m: 0.075
+        output_cost_per_m: 0.30
+        fallbacks: ["groq/llama-3.1-8b-instant", "ollama/llama3"]
+      gemini-1.5-pro:
+        input_cost_per_m: 3.50
+        output_cost_per_m: 10.50
+        fallbacks: ["openai/gpt-4o", "groq/llama-3.3-70b-versatile"]
+
+  ollama:
+    type: "ollama"
+    base_url: "http://localhost:11434/v1"
+    api_keys:
+      - "ollama-local"
+    models:
+      llama3:
+        input_cost_per_m: 0.0
+        output_cost_per_m: 0.0
+        fallbacks: []
+      mistral:
+        input_cost_per_m: 0.0
+        output_cost_per_m: 0.0
+        fallbacks: []

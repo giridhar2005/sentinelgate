@@ -1,0 +1,38 @@
+# SentinelGate Build Task List
+
+- [x] Project Setup & Environment
+  - [x] Initialize project with `uv init`
+  - [x] Add allowed dependencies (`fastapi`, `uvicorn`, `httpx`, `pydantic`, `pyyaml`, `numpy`, `fastembed`, `pytest`, `respx`, `ruff`)
+  - [x] Configure `pyproject.toml`
+- [x] Module 1: Core Proxy & Failover (`config.yaml`, `.env.example`, `router.py`, `main.py`)
+  - [x] Provider configuration and models mapping (Gemini, Groq, OpenAI, Ollama)
+  - [x] Direct async REST client (`httpx.AsyncClient`) with connection pooling
+  - [x] Round-robin API key rotation per provider
+  - [x] Failover logic on HTTP 429 and 503 to fallback providers/models
+  - [x] Direct REST transformation for Google Gemini, Groq, OpenAI, and Ollama (standard JSON & SSE streaming)
+  - [x] Endpoints: `GET /health`, `GET /v1/models`, `POST /v1/chat/completions`
+- [x] Module 2: Semantic Cache & Guardrails (`cache.py`, `guardrails.py`)
+  - [x] SQLite schema for semantic cache embeddings and metadata (`sentinelgate.db`)
+  - [x] Local embedding with `fastembed` (lightweight ONNX) and NumPy cosine similarity (> 0.92, TTL, $0 cost)
+  - [x] Bypass header `X-No-Cache: true`
+  - [x] PII Guardrails: Regex masking & restoration for emails, phone numbers, API keys
+  - [x] JSON Self-Healing: 1-shot self-repair retry when `response_format={"type": "json_object"}` yields invalid JSON
+- [x] Module 3: Shadow Evals & Live Dashboard (`evals.py`, `dashboard.html`)
+  - [x] SQLite metrics table (model, latency_ms, cache_hit, prompt_tokens, completion_tokens, cost_usd, timestamp)
+  - [x] Token counting and USD cost estimation per model
+  - [x] BackgroundTasks 10% shadow evaluation to cheaper fallback model with LLM-as-a-judge quality score (1-10)
+  - [x] Live single-page dark-mode dashboard at `GET /dashboard` with summary cards, p50/p95 latency, cache hit rate, USD saved, win-rate chart
+  - [x] API endpoint `GET /api/metrics` for dashboard telemetry
+- [x] Module 4: Offline Tests, Benchmarks, Docker & Documentation
+  - [x] Comprehensive unit & integration tests (`tests/test_gateway.py`) with `pytest` and `respx` (429 failover, key rotation, cache hits, PII redaction, JSON self-repair, streaming)
+  - [x] `benchmark.py` running 100 simulated requests and printing performance table
+  - [x] Multi-stage `Dockerfile`
+  - [x] `.github/workflows/ci.yml` (running ruff and pytest)
+  - [x] `.gitignore`
+  - [x] Comprehensive recruiter-ready `README.md` with Mermaid diagram, quickstart, and benchmark results
+- [x] Verification & Autonomous Loop
+  - [x] Run `uv run ruff check . --fix`
+  - [x] Run `uv run pytest` until 100% pass (10/10 tests passed)
+  - [x] Run `benchmark.py` and capture output for README
+  - [x] Test live server startup and verify `GET /health` and `GET /dashboard` return HTTP 200
+  - [x] Ensure core source code line count is well under 1,500 lines (1,177 lines)

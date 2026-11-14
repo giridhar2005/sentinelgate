@@ -1,0 +1,411 @@
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+
+import httpx
+import pytest
+import respx
+from starlette.testclient import TestClient
+
+import main
+from cache import SemanticCache
+from evals import EvalsManager
+from router import ProviderRouter
+
+
+@pytest.fixture
+def test_env():
+    """Sets up a temporary SQLite database and config for isolated test execution."""
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as db_f:
+        db_path = db_f.name
+
+    test_config = {
+        "providers": {
+            "openai": {
+                "type": "openai",
+                "base_url": "https://api.openai.com/v1",
+                "api_keys": ["key-alpha", "key-beta"],
+                "models": {
+                    "gpt-4o-mini": {
+                        "input_cost_per_m": 0.15,
+                        "output_cost_per_m": 0.60,
+                        "fallbacks": ["groq/llama-3.1-8b-instant"],
+                    }
+                },
+            },
+            "groq": {
+                "type": "openai_compatible",
+                "base_url": "https://api.groq.com/openai/v1",
+                "api_keys": ["groq-key-1"],
+                "models": {
+                    "llama-3.1-8b-instant": {
+                        "input_cost_per_m": 0.05,
+                        "output_cost_per_m": 0.08,
+                        "fallbacks": [],
+                    }
+                },
+            },
+        }
+    }
+
+    with tempfile.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as cfg_f:
+        import yaml
+        yaml.safe_dump(test_config, cfg_f)
+        cfg_path = cfg_f.name
+
+    # Patch global instances in main
+    main.router = ProviderRouter(config_path=cfg_path)
+    main.cache = SemanticCache(db_path=db_path, similarity_threshold=0.90)
+    main.evals = EvalsManager(db_path=db_path)
+
+    client = TestClient(main.app)
+    yield client, main.router, main.cache, main.evals
+
+    if os.path.exists(db_path):
+        os.remove(db_path)
+    if os.path.exists(cfg_path):
+        os.remove(cfg_path)
+
+
+def test_health_and_models(test_env):
+    client, _, _, _ = test_env
+    res = client.get("/health")
+    assert res.status_code == 200
+    assert res.json()["status"] == "healthy"
+
+    models_res = client.get("/v1/models")
+    assert models_res.status_code == 200
+    data = models_res.json()["data"]
+    model_ids = [m["id"] for m in data]
+    assert "gpt-4o-mini" in model_ids
+    assert "llama-3.1-8b-instant" in model_ids
+
+
+@respx.mock
+def test_key_rotation(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    openai_route = respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-1",
+                "object": "chat.completion",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello!"}}],
+                "usage": {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10},
+            },
+        )
+    )
+
+    # First request should use key-alpha
+    resp1 = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Req 1"}]},
+    )
+    assert resp1.status_code == 200
+    auth1 = openai_route.calls[0].request.headers["authorization"]
+    assert auth1 == "Bearer key-alpha"
+
+    # Second request should rotate to key-beta
+    resp2 = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Req 2"}]},
+    )
+    assert resp2.status_code == 200
+    auth2 = openai_route.calls[1].request.headers["authorization"]
+    assert auth2 == "Bearer key-beta"
+
+
+@respx.mock
+def test_429_failover_to_backup_model(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    # Primary (OpenAI) returns HTTP 429
+    respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(429, json={"error": "Rate limit exceeded"})
+    )
+
+    # Fallback (Groq) succeeds with 200
+    groq_route = respx.post("https://api.groq.com/openai/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-groq-fallback",
+                "object": "chat.completion",
+                "model": "llama-3.1-8b-instant",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Groq fallback succeeded."}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
+            },
+        )
+    )
+
+    resp = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Failover test"}]},
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert groq_route.called
+    assert "Groq fallback succeeded." in data["choices"][0]["message"]["content"]
+
+
+@respx.mock
+def test_503_failover(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    # Primary returns 503
+    respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(503, text="Service Unavailable")
+    )
+
+    # Fallback returns 200
+    respx.post("https://api.groq.com/openai/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-groq-503-fb",
+                "object": "chat.completion",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "503 recovered"}}],
+            },
+        )
+    )
+
+    resp = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Recover test"}]},
+    )
+    assert resp.status_code == 200
+    assert "503 recovered" in resp.json()["choices"][0]["message"]["content"]
+
+
+@respx.mock
+def test_semantic_cache_hit_and_zero_cost(test_env):
+    client, router, cache, _ = test_env
+    router.client = None
+
+    mock_route = respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-initial",
+                "object": "chat.completion",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Paris is the capital."}}],
+                "usage": {"prompt_tokens": 8, "completion_tokens": 6, "total_tokens": 14},
+            },
+        )
+    )
+
+    payload = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "What is the capital of France?"}]}
+
+    # 1st request: Cache Miss -> calls upstream
+    resp1 = client.post("/v1/chat/completions", json=payload)
+    assert resp1.status_code == 200
+    assert mock_route.call_count == 1
+    assert "Paris is the capital." in resp1.json()["choices"][0]["message"]["content"]
+
+    # 2nd request: Cache Hit -> returns cached response with $0.00 cost, upstream not called again
+    resp2 = client.post("/v1/chat/completions", json=payload)
+    assert resp2.status_code == 200
+    assert mock_route.call_count == 1  # Still 1! Upstream was NOT invoked
+    data2 = resp2.json()
+    assert data2.get("sentinel_cache_hit") is True
+    assert "Paris is the capital." in data2["choices"][0]["message"]["content"]
+
+
+@respx.mock
+def test_cache_bypass_header(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    mock_route = respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-bypass",
+                "object": "chat.completion",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Fresh data."}}],
+            },
+        )
+    )
+
+    payload = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Cache bypass test query."}]}
+
+    # 1st request
+    client.post("/v1/chat/completions", json=payload)
+    assert mock_route.call_count == 1
+
+    # 2nd request with bypass header
+    resp2 = client.post("/v1/chat/completions", headers={"X-No-Cache": "true"}, json=payload)
+    assert resp2.status_code == 200
+    assert mock_route.call_count == 2  # Upstream was called because of X-No-Cache header!
+
+
+@respx.mock
+def test_pii_masking_and_restoration(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    captured_payload = None
+
+    def handle_pii_call(request):
+        nonlocal captured_payload
+        captured_payload = json.loads(request.content)
+        # Upstream generates response containing placeholder
+        return httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-pii",
+                "object": "chat.completion",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "Received contact {{PII_EMAIL_1}} and phone {{PII_PHONE_1}}.",
+                    },
+                }],
+            },
+        )
+
+    respx.post("https://api.openai.com/v1/chat/completions").mock(side_effect=handle_pii_call)
+
+    secret_email = "alex.dev@sentinelgate.io"
+    secret_phone = "+1 555-890-1234"
+    secret_key = "sk-1234567890abcdef1234567890abcdef"
+
+    resp = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{
+                "role": "user",
+                "content": f"My email is {secret_email}, phone is {secret_phone}, and key is {secret_key}.",
+            }],
+        },
+    )
+
+    assert resp.status_code == 200
+
+    # Verify upstream received masked placeholders
+    upstream_user_msg = captured_payload["messages"][0]["content"]
+    assert secret_email not in upstream_user_msg
+    assert secret_phone not in upstream_user_msg
+    assert secret_key not in upstream_user_msg
+    assert "{{PII_EMAIL_1}}" in upstream_user_msg
+    assert "{{PII_PHONE_1}}" in upstream_user_msg
+    assert "{{PII_KEY_1}}" in upstream_user_msg
+
+    # Verify final client response has restored values
+    final_content = resp.json()["choices"][0]["message"]["content"]
+    assert secret_email in final_content
+    assert secret_phone in final_content
+
+
+@respx.mock
+def test_json_self_healing_retry(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    call_index = 0
+
+    def mock_json_flow(request):
+        nonlocal call_index
+        call_index += 1
+        if call_index == 1:
+            # 1st call returns invalid broken JSON
+            return httpx.Response(
+                200,
+                json={
+                    "id": "chatcmpl-bad",
+                    "object": "chat.completion",
+                    "choices": [{
+                        "index": 0,
+                        "message": {"role": "assistant", "content": '{"status": "ok", "count": 42'},
+                    }],
+                },
+            )
+        else:
+            # 2nd call (self-repair retry) returns fixed valid JSON
+            return httpx.Response(
+                200,
+                json={
+                    "id": "chatcmpl-fixed",
+                    "object": "chat.completion",
+                    "choices": [{
+                        "index": 0,
+                        "message": {"role": "assistant", "content": '{"status": "ok", "count": 42}'},
+                    }],
+                },
+            )
+
+    respx.post("https://api.openai.com/v1/chat/completions").mock(side_effect=mock_json_flow)
+
+    resp = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={
+            "model": "gpt-4o-mini",
+            "response_format": {"type": "json_object"},
+            "messages": [{"role": "user", "content": "Return count in JSON"}],
+        },
+    )
+
+    assert resp.status_code == 200
+    assert call_index == 2  # 1-shot repair triggered!
+    data = resp.json()
+    assert data.get("sentinel_json_repaired") is True
+    content = data["choices"][0]["message"]["content"]
+    parsed = json.loads(content)
+    assert parsed == {"status": "ok", "count": 42}
+
+
+def test_dashboard_and_metrics_endpoints(test_env):
+    client, _, _, _ = test_env
+    dash_resp = client.get("/dashboard")
+    assert dash_resp.status_code == 200
+    assert "SentinelGate" in dash_resp.text
+
+    metrics_resp = client.get("/api/metrics")
+    assert metrics_resp.status_code == 200
+    m_data = metrics_resp.json()
+    assert "total_requests" in m_data
+    assert "cache_hit_rate" in m_data
+    assert "p50_latency_ms" in m_data
+
+
+@respx.mock
+def test_streaming_sse_response(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    sse_data = "data: {\"choices\": [{\"delta\": {\"content\": \"Streaming hello\"}}]}\n\ndata: [DONE]\n\n"
+    respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            text=sse_data,
+            headers={"Content-Type": "text/event-stream"},
+        )
+    )
+
+    resp = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Stream me a response"}],
+            "stream": True,
+        },
+    )
+    assert resp.status_code == 200
+    assert "Streaming hello" in resp.text
+    assert "text/event-stream" in resp.headers["content-type"]
+
