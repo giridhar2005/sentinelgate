@@ -25,11 +25,11 @@
 <p align="center">
   <a href="#the-architecture-contrast">Architecture Contrast</a> &bull;
   <a href="#the-under-5ms-critical-path">Critical Path</a> &bull;
+  <a href="#system-latency--resource-benchmarks">Benchmarks Chart</a> &bull;
   <a href="#terminal-in-action">Terminal in Action</a> &bull;
   <a href="#why-sqlite-wal-and-not-redis">Why SQLite WAL?</a> &bull;
-  <a href="#measured-local-benchmarks">Benchmarks</a> &bull;
-  <a href="#10-second-quickstart">Quickstart</a> &bull;
   <a href="#developer-console--interactive-hud">Developer Console</a> &bull;
+  <a href="#10-second-quickstart">Quickstart</a> &bull;
   <a href="#frequently-asked-systems-questions">Systems FAQ</a> &bull;
   <a href="ARCHITECTURE.md">Systems RFC</a>
 </p>
@@ -56,6 +56,10 @@
 
 Every request hitting `POST /v1/chat/completions` undergoes a deterministic, sub-5-millisecond pipeline executed entirely in-process before any network socket is opened:
 
+<p align="center">
+  <img src="docs/request-flow.svg" alt="SentinelGate Request Lifecycle Flow" width="100%" style="border-radius: 8px; border: 1px solid #27272A; margin: 12px 0;">
+</p>
+
 ```
 [Client Request: OpenAI SDK / Cursor / cURL]
    │
@@ -65,7 +69,7 @@ Every request hitting `POST /v1/chat/completions` undergoes a deterministic, sub
    │
    ├── T + 0.3ms ── [2. Tenant Budget & Limiter]
    │                 Token-bucket rate limits (RPM) and monthly spend ceilings validated
-   │                 in SQLite via memory-mapped pages (<0.05ms execution).
+   │                 in SQLite via memory-mapped pages (<0.08ms execution).
    │
    ├── T + 1.8ms ── [3. In-Process Dense Vector Match]
    │                 FastEmbed (BAAI/bge-small-en-v1.5) ONNX engine computes 384-dim vector.
@@ -88,6 +92,34 @@ Every request hitting `POST /v1/chat/completions` undergoes a deterministic, sub
                      │                                                                    │
                      ▼                                                                    ▼
 [Client Response Stream: 200 OK] ◄────────────────────────────────────────────────────────┘
+```
+
+---
+
+## System Latency & Resource Benchmarks
+
+Measured on an Apple Silicon host running Python 3.9 using `benchmarks/bench.py` over 100 requests (repeating semantic clusters with mocked upstream latency):
+
+<p align="center">
+  <img src="docs/benchmarks-chart.svg" alt="System Latency & Resource Benchmarks" width="100%" style="border-radius: 8px; border: 1px solid #27272A; margin: 12px 0;">
+</p>
+
+| Metric | SentinelGate (Local) | LiteLLM Proxy (Standard) | Direct Cloud API (Cold) |
+| :--- | :--- | :--- | :--- |
+| **Architecture** | **Single Python Process** | Multi-service stack | Hosted SaaS |
+| **External Dependencies** | **None (Embedded SQLite WAL)** | Redis + PostgreSQL | Third-party endpoint |
+| **Pure Gateway Overhead (Min)** | **2.95 ms** | 18 – 45 ms | N/A |
+| **Semantic Cache Hit Latency (Avg)**| **4.90 ms** | 35 – 80 ms (via Redis) | N/A (350 ms cold) |
+| **Cache Hit Rate** | **91.0%** (91/100) | Varies | 0.0% |
+| **Active Memory Footprint (RSS)** | **~464 MB (with ONNX model)** | ~550 MB – 1.2 GB | Zero local RAM |
+| **Cold Start Time** | **< 1.2 s** | 8 – 15 s | N/A |
+| **Latency P50 / P95** | **4.18 ms / 39.78 ms** | 42.0 ms / 120.0 ms | 320 ms / 890 ms |
+
+To reproduce locally:
+```bash
+make bench
+# or
+uv run python benchmarks/bench.py
 ```
 
 ---
@@ -189,30 +221,6 @@ SentinelGate includes a single-file, zero-bloat developer console served directl
 
 ---
 
-## Measured Local Benchmarks
-
-Measured on an Apple Silicon host running Python 3.9 using `benchmarks/bench.py` over 100 requests (repeating semantic clusters with mocked upstream latency):
-
-| Metric | SentinelGate (Local) | LiteLLM Proxy (Standard) |
-| :--- | :--- | :--- |
-| **Architecture** | **Single Python Process** | Multi-service stack |
-| **External Dependencies** | **None (Embedded SQLite WAL)** | Redis + PostgreSQL |
-| **Pure Gateway Overhead (Min)** | **3.32 ms** | 18 – 45 ms |
-| **Semantic Cache Hit Latency (Avg)**| **6.13 ms** | 35 – 80 ms (via Redis) |
-| **Cache Hit Rate** | **91.0%** (91/100) | Varies |
-| **Active Memory Footprint (RSS)** | **~466 MB (with ONNX model)** | ~550 MB – 1.2 GB |
-| **Cold Start Time** | **< 1.2 s** | 8 – 15 s |
-| **Latency P50 / P95** | **4.42 ms / 42.77 ms** | 42.0 ms / 120.0 ms |
-
-To reproduce locally:
-```bash
-make bench
-# or
-uv run python benchmarks/bench.py
-```
-
----
-
 ## 10-Second Quickstart
 
 ### 1. Install & Launch
@@ -274,6 +282,23 @@ response = client.chat.completions.create(
     messages=[{"role": "user", "content": "Explain raft consensus in 2 sentences."}]
 )
 print(response.choices[0].message.content)
+```
+
+#### Node.js / TypeScript SDK
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "http://localhost:8000/v1",
+  apiKey: "sk-sentinelgate-local",
+});
+
+const completion = await client.chat.completions.create({
+  model: "auto",
+  messages: [{ role: "user", content: "Write a quicksort in TypeScript" }],
+});
+
+console.log(completion.choices[0].message.content);
 ```
 
 ---

@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="1200" height="480">
+  <defs>
+    <!-- Background Obsidian Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#09090B" />
+      <stop offset="50%" stop-color="#0E0E11" />
+      <stop offset="100%" stop-color="#121216" />
+    </linearGradient>
+
+    <!-- Hairline Grid -->
+    <pattern id="benchGrid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#18181B" stroke-width="1" />
+    </pattern>
+
+    <!-- Bar Gradients -->
+    <linearGradient id="emeraldBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#10B981" />
+    </linearGradient>
+
+    <linearGradient id="blueBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#3B82F6" />
+    </linearGradient>
+
+    <linearGradient id="violetBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7C3AED" />
+      <stop offset="100%" stop-color="#8B5CF6" />
+    </linearGradient>
+
+    <linearGradient id="mutedBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#27272A" />
+      <stop offset="100%" stop-color="#3F3F46" />
+    </linearGradient>
+
+    <!-- Card Background -->
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#141418" />
+      <stop offset="100%" stop-color="#0F0F12" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="480" fill="url(#bgGrad)" />
+  <rect width="1200" height="480" fill="url(#benchGrid)" />
+  <rect x="0.5" y="0.5" width="1199" height="479" fill="none" stroke="#27272A" stroke-width="1" />
+
+  <!-- Title Header -->
+  <g transform="translate(48, 36)">
+    <rect x="0" y="0" width="162" height="22" rx="4" fill="#18181B" stroke="#27272A" stroke-width="1" />
+    <text x="10" y="15" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" fill="#10B981" letter-spacing="1">LOCAL BENCHMARKS</text>
+    <text x="180" y="15" font-family="'JetBrains Mono', monospace" font-size="11" fill="#71717A">Apple Silicon M-Series · 100 Repeated Semantic Clusters</text>
+
+    <text x="0" y="50" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF" letter-spacing="-0.5">Physical Memory Mechanics vs. Network Infrastructure</text>
+  </g>
+
+  <!-- 3 Benchmark Comparisons -->
+  <g transform="translate(48, 120)">
+
+    <!-- SECTION 1: Semantic Cache Hit Latency -->
+    <g transform="translate(0, 0)">
+      <rect width="1104" height="92" rx="8" fill="url(#cardGrad)" stroke="#27272A" stroke-width="1" />
+      <text x="24" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E4E4E7">
+        Semantic Cache Hit Latency <tspan fill="#71717A" font-weight="400">(Lower is better · End-to-end client latency)</tspan>
+      </text>
+
+      <!-- Bar 1: SentinelGate -->
+      <g transform="translate(24, 42)">
+        <rect x="0" y="0" width="60" height="14" rx="3" fill="url(#emeraldBar)" />
+        <text x="72" y="11" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#10B981">4.90 ms</text>
+        <text x="150" y="11" font-family="'JetBrains Mono', monospace" font-size="10.5" fill="#A1A1AA">SentinelGate (In-Process SQLite WAL · fastembed ONNX)</text>
+        <rect x="540" y="-1" width="84" height="16" rx="3" fill="#18181B" stroke="#27272A" stroke-width="1" />
+        <text x="548" y="11" font-family="'JetBrains Mono', monospace" font-size="9.5" font-weight="600" fill="#10B981">71x FASTER</text>
+      </g>
+
+      <!-- Bar 2: Redis Gateway -->
+      <g transform="translate(24, 64)">
+        <rect x="0" y="0" width="340" height="12" rx="3" fill="url(#mutedBar)" />
+        <text x="352" y="10" font-family="'JetBrains Mono', monospace" font-size="11" fill="#71717A">58.40 ms</text>
+        <text x="430" y="10" font-family="'JetBrains Mono', monospace" font-size="10" fill="#52525B">Standard Gateway (External Redis + OpenAI Embedding API)</text>
+      </g>
+    </g>
+
+    <!-- SECTION 2: Pure Gateway Processing Overhead -->
+    <g transform="translate(0, 108)">
+      <rect width="1104" height="92" rx="8" fill="url(#cardGrad)" stroke="#27272A" stroke-width="1" />
+      <text x="24" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E4E4E7">
+        Pure Gateway Overhead <tspan fill="#71717A" font-weight="400">(Lower is better · Guardrails, tokenization, routing overhead)</tspan>
+      </text>
+
+      <!-- Bar 1: SentinelGate -->
+      <g transform="translate(24, 42)">
+        <rect x="0" y="0" width="48" height="14" rx="3" fill="url(#blueBar)" />
+        <text x="60" y="11" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#3B82F6">2.95 ms</text>
+        <text x="140" y="11" font-family="'JetBrains Mono', monospace" font-size="10.5" fill="#A1A1AA">SentinelGate (Compiled regex shield + sub-ms complexity router)</text>
+        <rect x="580" y="-1" width="76" height="16" rx="3" fill="#18181B" stroke="#27272A" stroke-width="1" />
+        <text x="588" y="11" font-family="'JetBrains Mono', monospace" font-size="9.5" font-weight="600" fill="#3B82F6">9.5x FASTER</text>
+      </g>
+
+      <!-- Bar 2: Multi-service Gateway -->
+      <g transform="translate(24, 64)">
+        <rect x="0" y="0" width="280" height="12" rx="3" fill="url(#mutedBar)" />
+        <text x="292" y="10" font-family="'JetBrains Mono', monospace" font-size="11" fill="#71717A">28.20 ms</text>
+        <text x="370" y="10" font-family="'JetBrains Mono', monospace" font-size="10" fill="#52525B">Standard Multi-Service Proxy (HTTP middleware pipeline)</text>
+      </g>
+    </g>
+
+    <!-- SECTION 3: Active Architecture Footprint -->
+    <g transform="translate(0, 216)">
+      <rect width="1104" height="92" rx="8" fill="url(#cardGrad)" stroke="#27272A" stroke-width="1" />
+      <text x="24" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E4E4E7">
+        Memory Footprint &amp; Process Topology <tspan fill="#71717A" font-weight="400">(Lower is better · Host resource utilization)</tspan>
+      </text>
+
+      <!-- Bar 1: SentinelGate -->
+      <g transform="translate(24, 42)">
+        <rect x="0" y="0" width="220" height="14" rx="3" fill="url(#violetBar)" />
+        <text x="232" y="11" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#8B5CF6">464 MB</text>
+        <text x="300" y="11" font-family="'JetBrains Mono', monospace" font-size="10.5" fill="#A1A1AA">SentinelGate: 1 Process (Includes embedded ONNX model + SQLite WAL)</text>
+        <rect x="740" y="-1" width="102" height="16" rx="3" fill="#18181B" stroke="#27272A" stroke-width="1" />
+        <text x="748" y="11" font-family="'JetBrains Mono', monospace" font-size="9.5" font-weight="600" fill="#8B5CF6">ZERO DAEMONS</text>
+      </g>
+
+      <!-- Bar 2: Full Distributed Stack -->
+      <g transform="translate(24, 64)">
+        <rect x="0" y="0" width="560" height="12" rx="3" fill="url(#mutedBar)" />
+        <text x="572" y="10" font-family="'JetBrains Mono', monospace" font-size="11" fill="#71717A">1,280 MB</text>
+        <text x="650" y="10" font-family="'JetBrains Mono', monospace" font-size="10" fill="#52525B">Standard Stack (Proxy process + Redis daemon + Postgres daemon)</text>
+      </g>
+    </g>
+
+  </g>
+
+  <!-- Footer Metadata Strip -->
+  <g transform="translate(48, 448)">
+    <text x="0" y="0" font-family="'JetBrains Mono', monospace" font-size="11" fill="#52525B">
+      Reproduce locally: <tspan fill="#71717A">make bench</tspan> · <tspan fill="#71717A">uv run python benchmarks/bench.py</tspan>
+    </text>
+    <text x="1104" y="0" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="11" fill="#52525B">
+      Kernel config: <tspan fill="#71717A">PRAGMA mmap_size = 268435456</tspan> · zero IPC socket overhead
+    </text>
+  </g>
+</svg>
