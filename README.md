@@ -11,11 +11,24 @@
 </p>
 
 <p align="center">
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+"></a>
+  <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
+  <a href="https://github.com/giridhar2005/sentinelgate/releases"><img src="https://img.shields.io/github/v/release/giridhar2005/sentinelgate?style=flat-square&color=emerald" alt="Release"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a>
   <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57.svg?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite WAL"></a>
+  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
   <a href="ARCHITECTURE.md"><img src="https://img.shields.io/badge/RFC-Architecture_Doc-orange.svg?style=flat-square" alt="Architecture RFC"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <a href="#who-is-this-for">Audience</a> &bull;
+  <a href="#measured-local-benchmarks">Benchmarks</a> &bull;
+  <a href="#request-lifecycle">Lifecycle</a> &bull;
+  <a href="#10-second-quickstart">Quickstart</a> &bull;
+  <a href="#production-capabilities--architecture-deep-dives">Deep Dives</a> &bull;
+  <a href="ARCHITECTURE.md">Systems RFC</a> &bull;
+  <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 <p align="center">
@@ -125,6 +138,9 @@ SentinelGate will print an auto-discovery summary table and start listening:
 - **Dashboard HUD:** `http://localhost:8000/dashboard`
 - **Health Check:** `http://localhost:8000/health`
 
+> [!NOTE]
+> **Zero-Key Sandbox Mode:** If no cloud provider API keys (`OPENAI_API_KEY`, etc.) or local model runtimes are detected, SentinelGate boots automatically into deterministic sandbox mode. The interactive HUD and `/v1/chat/completions` endpoint work out of the box on first clone.
+
 ### 2. Connect Your Tools in 5 Seconds
 
 Click the **"Connect Tool"** button on the `/dashboard` HUD for instant configuration snippets, or use standard setups:
@@ -135,6 +151,9 @@ Set OpenAI Base URL to:
 http://localhost:8000/v1
 ```
 Set Model Name to `auto` (or `gpt-4o-mini`, `claude-3-5-sonnet-20241022`).
+
+> [!TIP]
+> In Cursor or Cline, set `Model: auto` to let SentinelGate automatically route code diffs and complex architecture questions to frontier models while routing routine formatting and haikus to cheap utility backends.
 
 #### Terminal / CLI Environment
 ```bash
@@ -286,6 +305,16 @@ uv run ruff check .
 Built by **Giridhar** — Systems Engineer focusing on high-throughput backend infrastructure, distributed storage, and LLM gateway primitives.
 
 Open for Founding AI Infrastructure, Staff Systems, and Developer Tools Engineering roles. Reach out via [GitHub](https://github.com/giridhar2005) or open an issue.
+
+---
+
+## Star History
+
+<p align="center">
+  <a href="https://star-history.com/#giridhar2005/sentinelgate&Date">
+    <img src="https://api.star-history.com/svg?repos=giridhar2005/sentinelgate&type=Date&theme=dark" alt="SentinelGate Star History" width="760">
+  </a>
+</p>
 
 ---
 
