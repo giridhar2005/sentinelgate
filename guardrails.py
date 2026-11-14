@@ -15,6 +15,14 @@ API_KEY_REGEX = re.compile(
     r"\b(?:sk-[a-zA-Z0-9_-]{20,}|ghp_[a-zA-Z0-9]{20,}|AIza[0-9A-Za-z-_]{35}|gsk_[a-zA-Z0-9]{20,})\b"
 )
 
+# Adversarial injection & jailbreak regex patterns
+INJECTION_PATTERNS = [
+    re.compile(r"(?:ignore|disregard|forget|override)\s+(?:all\s+)?(?:previous|prior|system)\s+(?:instructions|prompts|directives)", re.I),
+    re.compile(r"(?:you\s+are\s+now|act\s+as)\s+(?:DAN|unrestricted|jailbroken|an\s+evil|developer\s+mode)", re.I),
+    re.compile(r"(?:print|output|reveal|show|repeat)\s+(?:the\s+)?(?:secret|internal|system|initial)\s+(?:prompt|instructions)", re.I),
+    re.compile(r"[\u200B-\u200D\uFEFF]"),  # Invisible zero-width characters
+]
+
 
 class PIIGuardrail:
     """Masks emails, phone numbers, and API keys before sending upstream,
@@ -231,4 +239,20 @@ class PromptOptimizer:
                 new_m["content"] = cls.optimize_text(content)
             optimized.append(new_m)
         return optimized
+
+
+class InjectionDefense:
+    """Zero-dependency shield against prompt injection, jailbreaks, and system prompt exfiltration."""
+
+    @classmethod
+    def inspect(cls, messages: List[Dict[str, Any]]) -> Tuple[bool, Optional[str]]:
+        for m in messages:
+            content = m.get("content", "")
+            if isinstance(content, str):
+                for pattern in INJECTION_PATTERNS:
+                    match = pattern.search(content)
+                    if match:
+                        return False, f"Suspicious prompt injection/override detected: '{match.group(0)}'"
+        return True, None
+
 

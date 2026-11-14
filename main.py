@@ -12,10 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from budget import BudgetManager
+from budget import BudgetManager, VirtualKeyManager
 from cache import SemanticCache
 from evals import EvalsManager
-from guardrails import JSONSelfHealer, PIIGuardrail, PromptOptimizer
+from guardrails import InjectionDefense, JSONSelfHealer, PIIGuardrail, PromptOptimizer
 from router import ProviderRouter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -29,6 +29,7 @@ router = ProviderRouter(config_path=CONFIG_PATH)
 cache = SemanticCache(db_path=DB_PATH)
 evals = EvalsManager(db_path=DB_PATH)
 budget = BudgetManager(db_path=DB_PATH, daily_limit_usd=DAILY_BUDGET)
+virtual_keys = VirtualKeyManager(db_path=DB_PATH)
 
 
 @contextlib.asynccontextmanager
@@ -92,7 +93,25 @@ async def chat_completions(
     req: ChatCompletionRequest,
     background_tasks: BackgroundTasks,
     x_no_cache: Optional[str] = Header(None, alias="X-No-Cache"),
+    authorization: Optional[str] = Header(None),
 ):
+    # Multi-tenant virtual key validation & sliding-window rate limiting
+    if authorization and "Bearer sg-" in authorization:
+        v_key = authorization.split("Bearer ", 1)[1].strip()
+        is_valid, err_msg = virtual_keys.verify_and_rate_limit(v_key)
+        if not is_valid:
+            status_code = 429 if "Rate limit" in (err_msg or "") else 401
+            raise HTTPException(status_code=status_code, detail=err_msg)
+
+    # Prompt injection & adversarial override shield
+    is_safe, threat_reason = InjectionDefense.inspect(req.messages)
+    if not is_safe:
+        logger.warning(f"Prompt injection blocked: {threat_reason}")
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Prompt Security Violation: Adversarial injection detected", "threat": threat_reason},
+        )
+
     start_time = time.time()
     req_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     raw_dict = req.model_dump(exclude_unset=True)
@@ -253,6 +272,59 @@ async def chat_completions(
         )
 
     return JSONResponse(content=final_resp)
+
+
+class CreateKeyRequest(BaseModel):
+    name: str
+    daily_budget_usd: Optional[float] = 10.0
+    rate_limit_rpm: Optional[int] = 60
+
+
+@app.post("/v1/keys")
+async def create_key(req: CreateKeyRequest):
+    new_k = virtual_keys.create_key(
+        name=req.name,
+        daily_budget_usd=req.daily_budget_usd or 10.0,
+        rate_limit_rpm=req.rate_limit_rpm or 60,
+    )
+    return JSONResponse(content=new_k)
+
+
+@app.get("/v1/keys")
+async def list_keys():
+    return JSONResponse(content={"keys": virtual_keys.list_keys()})
+
+
+class CacheWarmItem(BaseModel):
+    prompt: str
+    response: str
+    model: Optional[str] = "gpt-4o-mini"
+
+
+@app.post("/v1/cache/warm")
+async def warm_cache(items: List[CacheWarmItem]):
+    for item in items:
+        cache.store(
+            messages=[{"role": "user", "content": item.prompt}],
+            model=item.model or "gpt-4o-mini",
+            response={
+                "id": f"chatcmpl-warm-{uuid.uuid4().hex[:8]}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": item.model or "gpt-4o-mini",
+                "choices": [{
+                    "index": 0,
+                    "message": {"role": "assistant", "content": item.response},
+                    "finish_reason": "stop",
+                }],
+                "usage": {
+                    "prompt_tokens": len(item.prompt) // 4,
+                    "completion_tokens": len(item.response) // 4,
+                    "total_tokens": (len(item.prompt) + len(item.response)) // 4,
+                },
+            },
+        )
+    return JSONResponse(content={"status": "success", "prewarmed_count": len(items)})
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
