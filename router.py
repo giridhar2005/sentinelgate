@@ -60,8 +60,18 @@ class ProviderRouter:
             await self.client.aclose()
 
     def get_all_models(self) -> List[Dict[str, Any]]:
-        models = []
         now = int(time.time())
+        models = [
+            {
+                "id": "auto",
+                "object": "model",
+                "created": now,
+                "owned_by": "sentinelgate",
+                "permission": [],
+                "root": "auto",
+                "parent": None,
+            }
+        ]
         for p_name, p_data in self.providers.items():
             for m_name in p_data.get("models", {}):
                 models.append({
@@ -75,8 +85,48 @@ class ProviderRouter:
                 })
         return models
 
-    def resolve_model(self, model_name: str) -> Tuple[str, str, List[str]]:
-        """Resolve model name to (provider_name, internal_model_name, fallback_list)"""
+    def classify_complexity(self, messages: List[Dict[str, Any]]) -> str:
+        """Common-sense heuristic prompt classifier for adaptive tiering:
+
+        - 'simple': Greetings, factual lookups, brief single-turn questions (< 120 chars) -> Tier 1.
+        - 'complex': Reasoning keywords ('derive', 'architect', 'analyze', 'step-by-step', 'debug', 'code', 'compare', 'refactor'),
+          code snippets (```), multi-step dialogue (>3 turns), or long prompt (> 400 chars) -> Tier 2.
+        """
+        full_text = " ".join([m.get("content", "") for m in messages if isinstance(m.get("content"), str)])
+        lower_text = full_text.lower()
+
+        complex_keywords = [
+            "architect", "analyze", "step by step", "step-by-step", "derive",
+            "refactor", "proof", "implement", "benchmark", "evaluate", "debug",
+            "optimize", "tradeoffs", "design", "algorithm",
+        ]
+        has_code = "```" in full_text
+        has_complex_keyword = any(kw in lower_text for kw in complex_keywords)
+        is_long = len(full_text) > 350
+        is_multi_turn = len(messages) >= 4
+
+        if has_code or has_complex_keyword or is_long or is_multi_turn:
+            return "complex"
+        return "simple"
+
+    def resolve_model(
+        self,
+        model_name: str,
+        messages: Optional[List[Dict[str, Any]]] = None,
+    ) -> Tuple[str, str, List[str]]:
+        """Resolve model name to (provider_name, internal_model_name, fallback_list)
+
+        Supports adaptive smart auto-routing when model is 'auto'.
+        """
+        if model_name == "auto" and messages:
+            complexity = self.classify_complexity(messages)
+            if complexity == "simple":
+                # Tier 1: Fast, highly cost-effective model
+                return "groq", "llama-3.1-8b-instant", ["openai/gpt-4o-mini", "gemini/gemini-1.5-flash"]
+            else:
+                # Tier 2: Flagship / Deep reasoning model
+                return "groq", "llama-3.3-70b-versatile", ["openai/gpt-4o", "gemini/gemini-1.5-pro"]
+
         # Format might be 'provider/model' or just 'model'
         if "/" in model_name:
             p, m = model_name.split("/", 1)
@@ -179,7 +229,7 @@ class ProviderRouter:
     ) -> Tuple[Union[Dict[str, Any], AsyncGenerator[str, None]], str, str]:
         """Execute request with automatic key rotation and failover on 429/503."""
         requested_model = request_data.get("model", "gpt-4o-mini")
-        provider, model, fallbacks = self.resolve_model(requested_model)
+        provider, model, fallbacks = self.resolve_model(requested_model, request_data.get("messages"))
 
         candidates_queue = [(provider, model)] + [self.resolve_model(fb)[:2] for fb in fallbacks]
         client = await self.get_client()

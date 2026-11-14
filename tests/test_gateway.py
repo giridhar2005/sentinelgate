@@ -10,6 +10,7 @@ import respx
 from starlette.testclient import TestClient
 
 import main
+from budget import BudgetManager
 from cache import SemanticCache
 from evals import EvalsManager
 from router import ProviderRouter
@@ -59,6 +60,7 @@ def test_env():
     main.router = ProviderRouter(config_path=cfg_path)
     main.cache = SemanticCache(db_path=db_path, similarity_threshold=0.90)
     main.evals = EvalsManager(db_path=db_path)
+    main.budget = BudgetManager(db_path=db_path, daily_limit_usd=10.0)
 
     client = TestClient(main.app)
     yield client, main.router, main.cache, main.evals
@@ -408,4 +410,121 @@ def test_streaming_sse_response(test_env):
     assert resp.status_code == 200
     assert "Streaming hello" in resp.text
     assert "text/event-stream" in resp.headers["content-type"]
+
+
+@respx.mock
+def test_budget_circuit_breaker(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    # Set tiny daily budget of $0.0001
+    main.budget.daily_limit_usd = 0.0001
+
+    respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-cost",
+                "object": "chat.completion",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Done."}}],
+                "usage": {"prompt_tokens": 1000, "completion_tokens": 1000, "total_tokens": 2000},
+            },
+        )
+    )
+
+    # 1st request should succeed and consume budget
+    resp1 = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Query 1"}]},
+    )
+    assert resp1.status_code == 200
+
+    # 2nd request should trip the budget circuit breaker with HTTP 429
+    resp2 = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Query 2"}]},
+    )
+    assert resp2.status_code == 429
+    assert "Daily Budget Exceeded" in resp2.json()["detail"]
+
+
+@respx.mock
+def test_adaptive_smart_auto_routing(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    # Groq handles both tier 1 and tier 2
+    groq_route = respx.post("https://api.groq.com/openai/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-auto",
+                "object": "chat.completion",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Routed!"}}],
+            },
+        )
+    )
+
+    # Simple greeting -> routes to Tier 1 (llama-3.1-8b-instant)
+    resp_simple = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "auto", "messages": [{"role": "user", "content": "Hello there!"}]},
+    )
+    assert resp_simple.status_code == 200
+    last_payload = json.loads(groq_route.calls[-1].request.content)
+    assert last_payload["model"] == "llama-3.1-8b-instant"
+
+    # Complex reasoning task -> routes to Tier 2 (llama-3.3-70b-versatile or flagship fallback)
+    resp_complex = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={
+            "model": "auto",
+            "messages": [{
+                "role": "user",
+                "content": "Please analyze step by step the architectural tradeoffs between microservices and serverless.",
+            }],
+        },
+    )
+    assert resp_complex.status_code == 200
+
+
+@respx.mock
+def test_prompt_optimizer_preserves_code_fences(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    captured_payload = None
+
+    def intercept_request(request):
+        nonlocal captured_payload
+        captured_payload = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-opt",
+                "object": "chat.completion",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Code received."}}],
+            },
+        )
+
+    respx.post("https://api.openai.com/v1/chat/completions").mock(side_effect=intercept_request)
+
+    messy_prompt = "Here is   my code:\n\n\n```python\ndef hello():\n    print('keep indent')\n```\n\n\nThanks   !"
+    resp = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true"},
+        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": messy_prompt}]},
+    )
+    assert resp.status_code == 200
+    cleaned_content = captured_payload["messages"][0]["content"]
+
+    # Redundant 3+ newlines collapsed outside code fence
+    assert "\n\n\n" not in cleaned_content
+    # Code formatting strictly preserved
+    assert "def hello():\n    print('keep indent')" in cleaned_content
+
 

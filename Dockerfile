@@ -30,7 +30,7 @@ COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy source code and static assets
-COPY main.py router.py cache.py guardrails.py evals.py dashboard.html config.yaml ./
+COPY main.py router.py cache.py guardrails.py evals.py budget.py dashboard.html config.yaml ./
 
 # Permissions
 RUN chown -R sentinel:sentinel /app

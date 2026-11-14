@@ -12,9 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
+from budget import BudgetManager
 from cache import SemanticCache
 from evals import EvalsManager
-from guardrails import JSONSelfHealer, PIIGuardrail
+from guardrails import JSONSelfHealer, PIIGuardrail, PromptOptimizer
 from router import ProviderRouter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -22,10 +23,12 @@ logger = logging.getLogger("sentinelgate")
 
 CONFIG_PATH = os.getenv("SENTINELGATE_CONFIG", "config.yaml")
 DB_PATH = os.getenv("SENTINELGATE_DB", "sentinelgate.db")
+DAILY_BUDGET = float(os.getenv("SENTINELGATE_DAILY_BUDGET", "10.0"))
 
 router = ProviderRouter(config_path=CONFIG_PATH)
 cache = SemanticCache(db_path=DB_PATH)
 evals = EvalsManager(db_path=DB_PATH)
+budget = BudgetManager(db_path=DB_PATH, daily_limit_usd=DAILY_BUDGET)
 
 
 @contextlib.asynccontextmanager
@@ -94,13 +97,16 @@ async def chat_completions(
     req_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     raw_dict = req.model_dump(exclude_unset=True)
 
+    # 0. Zero-Loss Prompt Optimization (strips excessive whitespace outside code fences)
+    optimized_messages = PromptOptimizer.optimize_messages(req.messages)
+
     # 1. PII Masking Guardrail
-    masked_messages, pii_mapping = PIIGuardrail.mask_messages(req.messages)
+    masked_messages, pii_mapping = PIIGuardrail.mask_messages(optimized_messages)
     active_req = dict(raw_dict)
     active_req["messages"] = masked_messages
 
     requested_model = req.model
-    provider, internal_model, _ = router.resolve_model(requested_model)
+    provider, internal_model, _ = router.resolve_model(requested_model, masked_messages)
 
     # 2. Semantic Cache Check (for non-streaming queries)
     if not req.stream:
@@ -136,6 +142,18 @@ async def chat_completions(
                 cost_saved_usd=cost_saved,
             )
             return JSONResponse(content=final_resp)
+
+    # 2.5 Common-Sense Budget Circuit Breaker: Halt upstream queries if daily limit is exceeded
+    is_budget_ok, spent_today, budget_limit = budget.check_budget()
+    if not is_budget_ok:
+        logger.warning(f"Budget circuit breaker tripped! Spent: ${spent_today:.4f} / ${budget_limit:.2f}")
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"SentinelGate Daily Budget Exceeded: Spent ${spent_today:.4f} / ${budget_limit:.2f} USD today. "
+                "Halting upstream queries to protect against cost overruns."
+            ),
+        )
 
     # 3. Direct REST execution with Key Rotation & Failover
     try:
@@ -215,6 +233,9 @@ async def chat_completions(
         cost_saved_usd=0.0,
     )
 
+    # Record spend in Daily Budget Tracker
+    budget.record_spend(cost_usd)
+
     # 6. Asynchronous 10% Shadow Evaluation
     if evals.should_sample_shadow(cache_hit=False):
         resp_text = (
@@ -245,7 +266,18 @@ async def serve_dashboard():
 
 @app.get("/api/metrics")
 async def get_metrics():
-    return JSONResponse(content=evals.get_metrics_summary())
+    summary = evals.get_metrics_summary()
+    spent_today, req_cnt_today = budget.get_today_spend()
+    limit = budget.daily_limit_usd
+    percent = round((spent_today / limit * 100.0), 1) if limit > 0 else 0.0
+    summary["budget"] = {
+        "spent_today_usd": spent_today,
+        "limit_usd": limit,
+        "percent_used": percent,
+        "is_allowed": spent_today < limit,
+        "request_count_today": req_cnt_today,
+    }
+    return JSONResponse(content=summary)
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SentinelGate | LLM Gateway Observability</title>
+  <title>SentinelGate | LLM Gateway Observability &amp; Playground</title>
   <style>
     :root {
       --bg: #090d16;
@@ -14,6 +14,7 @@
       --success: #10b981;
       --success-glow: rgba(16, 185, 129, 0.2);
       --warning: #f59e0b;
+      --danger: #ef4444;
       --text: #f1f5f9;
       --text-muted: #94a3b8;
     }
@@ -24,6 +25,8 @@
       color: var(--text);
       line-height: 1.5;
       padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
     }
     .header {
       display: flex;
@@ -39,8 +42,8 @@
       gap: 12px;
     }
     .brand-icon {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       background: linear-gradient(135deg, #6366f1, #a855f7);
       border-radius: 8px;
       display: flex;
@@ -59,26 +62,57 @@
       text-transform: uppercase;
     }
     .badge-live { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-hit { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+    .badge-hit { background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); }
     .badge-miss { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); }
     .badge-win { background: rgba(16, 185, 129, 0.2); color: #34d399; }
     .badge-loss { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .badge-budget { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+
+    /* Budget Banner */
+    .budget-banner {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .budget-info { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+    .budget-progress-track {
+      flex: 1;
+      max-width: 400px;
+      height: 8px;
+      background: #1e293b;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .budget-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #6366f1);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* Stats Grid */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 16px;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
     .card {
       background-color: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 20px;
+      padding: 18px;
       transition: transform 0.15s, border-color 0.15s;
     }
     .card:hover { border-color: #334155; }
     .card-title {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--text-muted);
       text-transform: uppercase;
@@ -86,18 +120,101 @@
       margin-bottom: 8px;
     }
     .card-value {
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 700;
-      letter-spacing: -1px;
+      letter-spacing: -0.5px;
       color: #fff;
     }
-    .card-sub {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
+    .card-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
     .card-value.highlight-green { color: var(--success); text-shadow: 0 0 16px var(--success-glow); }
     .card-value.highlight-indigo { color: #818cf8; text-shadow: 0 0 16px var(--accent-glow); }
+
+    /* Playground */
+    .playground-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .playground-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .btn-preset {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-preset:hover { background: #334155; color: #fff; }
+    .playground-controls {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 12px;
+      align-items: center;
+    }
+    @media (max-width: 800px) {
+      .playground-controls { grid-template-columns: 1fr; }
+    }
+    .prompt-input {
+      background: #090d16;
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      width: 100%;
+      outline: none;
+    }
+    .prompt-input:focus { border-color: var(--accent); }
+    .model-select {
+      background: #090d16;
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      border: none;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary:hover { opacity: 0.95; box-shadow: 0 0 12px var(--accent-glow); }
+    .response-box {
+      margin-top: 14px;
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 13px;
+      display: none;
+    }
+    .response-meta {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Content Layout */
     .content-grid {
       display: grid;
       grid-template-columns: 2fr 1fr;
@@ -107,7 +224,7 @@
       .content-grid { grid-template-columns: 1fr; }
     }
     .section-title {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
       margin-bottom: 12px;
       display: flex;
@@ -120,12 +237,7 @@
       border-radius: 12px;
       overflow-x: auto;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 13px;
-    }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
     th {
       padding: 12px 16px;
       background: #0f1523;
@@ -133,11 +245,7 @@
       font-weight: 600;
       border-bottom: 1px solid var(--border);
     }
-    td {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      color: #cbd5e1;
-    }
+    td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: #cbd5e1; }
     tr:last-child td { border-bottom: none; }
     .shadow-item {
       background: var(--card-bg);
@@ -152,11 +260,7 @@
       margin-bottom: 8px;
       font-size: 12px;
     }
-    .shadow-reason {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 6px;
-    }
+    .shadow-reason { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
     .btn-refresh {
       background: #1e293b;
       border: 1px solid #334155;
@@ -176,7 +280,7 @@
       <div class="brand-icon">SG</div>
       <div>
         <h1>SentinelGate Observability</h1>
-        <div style="font-size: 12px; color: var(--text-muted);">Zero-Bloat AI Gateway &amp; Telemetry</div>
+        <div style="font-size: 12px; color: var(--text-muted);">Zero-Bloat AI Gateway, Budget Breaker &amp; Semantic Router</div>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 12px;">
@@ -185,6 +289,19 @@
     </div>
   </div>
 
+  <!-- Budget Circuit Breaker Meter -->
+  <div class="budget-banner">
+    <div class="budget-info">
+      <span>🛡️ <strong>Spend Circuit Breaker:</strong></span>
+      <span id="budget-status-text">Checking daily spend...</span>
+    </div>
+    <div class="budget-progress-track">
+      <div class="budget-progress-bar" id="budget-bar"></div>
+    </div>
+    <span class="badge badge-budget" id="budget-badge">Daily Cap: $10.00</span>
+  </div>
+
+  <!-- Primary Stats Grid -->
   <div class="stats-grid">
     <div class="card">
       <div class="card-title">Total Requests</div>
@@ -204,7 +321,7 @@
     <div class="card">
       <div class="card-title">Latency (P50 / P95)</div>
       <div class="card-value" id="val-latency">0 / 0 <span style="font-size:14px;">ms</span></div>
-      <div class="card-sub">Fast local ONNX caching</div>
+      <div class="card-sub">Local FastEmbed ONNX</div>
     </div>
     <div class="card">
       <div class="card-title">Shadow Parity Win Rate</div>
@@ -213,6 +330,43 @@
     </div>
   </div>
 
+  <!-- Live Gateway Playground -->
+  <div class="playground-card">
+    <div class="playground-header">
+      <div style="font-weight: 600; font-size: 15px;">⚡ Interactive Gateway Playground</div>
+      <span style="font-size: 12px; color: var(--text-muted);">Test PII masking, semantic cache &amp; auto-routing live</span>
+    </div>
+
+    <div class="presets">
+      <span style="font-size: 12px; color: var(--text-muted); align-self: center;">Quick Presets:</span>
+      <button class="btn-preset" onclick="setPreset('pii')">🔒 PII Masking Test</button>
+      <button class="btn-preset" onclick="setPreset('cache')">🎯 Semantic Cache Hit</button>
+      <button class="btn-preset" onclick="setPreset('simple')">⚡ Simple Greeting (Auto-Tier 1)</button>
+      <button class="btn-preset" onclick="setPreset('complex')">🧠 Architecture Analysis (Auto-Tier 2)</button>
+    </div>
+
+    <div class="playground-controls">
+      <input type="text" id="playground-prompt" class="prompt-input" placeholder="Type prompt (e.g. My email is alex@example.com, explain Docker)...">
+      <select id="playground-model" class="model-select">
+        <option value="auto">auto (Adaptive Routing)</option>
+        <option value="gpt-4o-mini">gpt-4o-mini</option>
+        <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
+        <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
+        <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+      </select>
+      <label style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+        <input type="checkbox" id="playground-nocache"> Bypass Cache
+      </label>
+      <button class="btn-primary" id="btn-submit-playground" onclick="runPlayground()">Send Request</button>
+    </div>
+
+    <div id="playground-response" class="response-box">
+      <div class="response-meta" id="response-meta-tags"></div>
+      <div id="response-text" style="color: #fff; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, monospace;"></div>
+    </div>
+  </div>
+
+  <!-- Traffic Logs & Shadow Evals Grid -->
   <div class="content-grid">
     <div>
       <div class="section-title">
@@ -257,6 +411,19 @@
         const res = await fetch('/api/metrics');
         if (!res.ok) return;
         const data = await res.json();
+
+        // Spend Budget
+        if (data.budget) {
+          const b = data.budget;
+          const pct = Math.min(100, b.percent_used || 0);
+          document.getElementById('budget-bar').style.width = `${pct}%`;
+          document.getElementById('budget-status-text').innerHTML = `Spent <strong>$${(b.spent_today_usd || 0).toFixed(4)}</strong> of <strong>$${(b.limit_usd || 0).toFixed(2)}</strong> (${pct.toFixed(1)}%)`;
+          document.getElementById('budget-badge').textContent = b.is_allowed ? `Cap: $${b.limit_usd.toFixed(2)}` : 'CIRCUIT BREAKER TRIPPED';
+          if (!b.is_allowed) {
+            document.getElementById('budget-badge').style.background = 'rgba(239, 68, 68, 0.2)';
+            document.getElementById('budget-badge').style.color = '#ef4444';
+          }
+        }
 
         document.getElementById('val-total-requests').textContent = Number(data.total_requests || 0).toLocaleString();
         const totalTokens = (data.total_prompt_tokens || 0) + (data.total_completion_tokens || 0);
@@ -310,6 +477,81 @@
         }
       } catch (err) {
         console.error('Metrics fetch error:', err);
+      }
+    }
+
+    function setPreset(type) {
+      const input = document.getElementById('playground-prompt');
+      const model = document.getElementById('playground-model');
+      if (type === 'pii') {
+        input.value = "My email is john.doe@cybercorp.com and phone is +1 555-439-8291. Please confirm you received this.";
+        model.value = "gpt-4o-mini";
+      } else if (type === 'cache') {
+        input.value = "What is the capital of France?";
+        model.value = "gpt-4o-mini";
+      } else if (type === 'simple') {
+        input.value = "Hello! Tell me a one sentence joke.";
+        model.value = "auto";
+      } else if (type === 'complex') {
+        input.value = "Analyze step by step the architectural tradeoffs between event-driven microservices vs monoliths.";
+        model.value = "auto";
+      }
+    }
+
+    async function runPlayground() {
+      const prompt = document.getElementById('playground-prompt').value.trim();
+      if (!prompt) return;
+      const model = document.getElementById('playground-model').value;
+      const noCache = document.getElementById('playground-nocache').checked;
+      const btn = document.getElementById('btn-submit-playground');
+      const respBox = document.getElementById('playground-response');
+      const metaTags = document.getElementById('response-meta-tags');
+      const textElem = document.getElementById('response-text');
+
+      btn.disabled = true;
+      btn.textContent = 'Processing...';
+
+      const t0 = performance.now();
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (noCache) headers['X-No-Cache'] = 'true';
+
+        const res = await fetch('/v1/chat/completions', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({
+            model: model,
+            messages: [{ role: 'user', content: prompt }]
+          })
+        });
+
+        const dt = Math.round(performance.now() - t0);
+        const data = await res.json();
+        respBox.style.display = 'block';
+
+        if (!res.ok) {
+          metaTags.innerHTML = `<span class="badge badge-loss">HTTP ${res.status}</span>`;
+          textElem.textContent = JSON.stringify(data, null, 2);
+        } else {
+          const isHit = data.sentinel_cache_hit || false;
+          const choice = data.choices && data.choices[0] ? data.choices[0].message.content : 'No content';
+          const resolvedModel = data.model || model;
+
+          metaTags.innerHTML = `
+            <span class="badge ${isHit ? 'badge-hit' : 'badge-miss'}">${isHit ? '⚡ CACHE HIT ($0.00)' : '🌐 UPSTREAM'}</span>
+            <span>Latency: <strong>${dt}ms</strong></span>
+            <span>Model: <strong>${resolvedModel}</strong></span>
+          `;
+          textElem.textContent = choice;
+        }
+
+        fetchMetrics();
+      } catch (err) {
+        respBox.style.display = 'block';
+        textElem.textContent = 'Error: ' + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Request';
       }
     }
 

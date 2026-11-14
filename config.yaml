@@ -12,6 +12,11 @@ guardrails:
   pii_masking: true
   json_self_healing: true
   max_repair_attempts: 1
+  prompt_optimization: true
+
+budget:
+  enabled: true
+  daily_limit_usd: 10.0
 
 evals:
   enabled: true

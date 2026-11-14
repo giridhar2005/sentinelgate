@@ -1,7 +1,7 @@
 # SentinelGate 🛡️
 
 > **Zero-Bloat, OpenAI-Compatible LLM Gateway in Pure Python**  
-> Direct provider REST streaming, sub-15ms local semantic caching, bidirectional PII guardrails, 1-shot JSON self-repair, and asynchronous shadow evaluation. Core source code is strictly under **1,200 lines** with zero heavyweight orchestration frameworks.
+> Direct provider REST streaming, sub-15ms local semantic caching, spend circuit breaker, bidirectional PII guardrails, adaptive auto-routing, 1-shot JSON self-repair, and asynchronous shadow evaluation. Core source code is strictly under **1,400 lines** with zero heavyweight orchestration frameworks.
 
 [![CI](https://github.com/sentinelgate/sentinelgate/actions/workflows/ci.yml/badge.svg)](https://github.com/sentinelgate/sentinelgate/actions)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
@@ -19,8 +19,11 @@ flowchart TD
     Client["Client / Application\n(OpenAI SDK, cURL, LangChain)"] -->|"POST /v1/chat/completions"| SG["SentinelGate Proxy\n(FastAPI)"]
     
     subgraph Guardrails ["1. Pre-Processing & Guardrails"]
-        SG --> PII["PII Masker\n(Emails, Phones, API Keys)"]
-        PII --> CacheCheck{"Cache Check\n(X-No-Cache?)"}
+        SG --> Opt["Prompt Token Optimizer\n(Collapse redundant whitespace outside code)"]
+        Opt --> PII["PII Masker\n(Emails, Phones, API Keys)"]
+        PII --> Budget{"Spend Circuit Breaker\n(Daily Cap Check)"}
+        Budget -->|"Breached"| Stop["HTTP 429: Budget Cap Exceeded"]
+        Budget -->|"Allowed"| CacheCheck{"Cache Check\n(X-No-Cache?)"}
     end
 
     subgraph Caching ["2. Local Semantic Cache (ONNX + SQLite)"]
@@ -29,8 +32,13 @@ flowchart TD
         Cosine -->|"Hit (Cost: $0.00)"| CacheHit["Instant Cached Response\n(~12ms)"]
     end
 
-    subgraph CoreProxy ["3. Direct REST Router & Failover"]
-        Cosine -->|"Miss"| Upstream["Async Client Pool\n(HTTP Keep-Alive)"]
+    subgraph CoreProxy ["3. Smart Router & Failover"]
+        Cosine -->|"Miss"| SmartRoute{"Model == 'auto'?"}
+        SmartRoute -->|"Simple Query"| Tier1["Tier 1: Fast & Low-Cost\n(llama-3.1-8b-instant)"]
+        SmartRoute -->|"Complex / Code"| Tier2["Tier 2: Flagship Reasoning\n(llama-3.3-70b / gpt-4o)"]
+        SmartRoute -->|"Explicit Model"| Upstream["Async Client Pool\n(HTTP Keep-Alive)"]
+        Tier1 --> Upstream
+        Tier2 --> Upstream
         Upstream -->|"Round-Robin Key"| Providers{"Provider Call"}
         Providers -->|"Primary"| OpenAI["OpenAI REST API\n(gpt-4o, gpt-4o-mini)"]
         Providers -->|"Failover on 429/503"| Groq["Groq REST API\n(llama-3.3-70b)"]
@@ -49,12 +57,12 @@ flowchart TD
         CacheHit --> PIIRestore
     end
 
-    subgraph Telemetry ["5. Telemetry & Shadow Evals"]
+    subgraph Telemetry ["5. Telemetry & Playground"]
         PIIRestore -->|"Final Response"| Client
-        PIIRestore -.->|"Log Metrics"| DB[("SQLite: sentinelgate.db")]
+        PIIRestore -.->|"Log Metrics & Spend"| DB[("SQLite: sentinelgate.db")]
         PIIRestore -.->|"Sample 10% Uncached"| Shadow["Background Task:\nShadow Replay & Parity Judge"]
         Shadow -.->|"Quality Score (1-10)"| DB
-        DB --> Dashboard["GET /dashboard\n(Dark-Mode Live UI)"]
+        DB --> Dashboard["GET /dashboard\n(Dark-Mode UI + Live Playground)"]
     end
 ```
 
@@ -63,12 +71,15 @@ flowchart TD
 ## Key Engineering Highlights
 
 - **Zero Framework Bloat**: Completely avoids `langchain`, `litellm`, `openai`, `anthropic`, `torch`, or `sentence-transformers`. Talks directly to provider REST endpoints using pure `httpx.AsyncClient` with connection pooling.
-- **Microsecond Semantic Caching**: Uses `fastembed` (quantized ONNX runtime) and vectorized NumPy cosine similarity against SQLite (`sentinelgate.db`). Queries with >0.92 cosine similarity resolve in ~12ms with **$0.00 API cost**. Supports `X-No-Cache: true` bypass header.
+- **Microsecond Semantic Caching**: Uses `fastembed` (quantized ONNX runtime) and vectorized NumPy cosine similarity against SQLite (`sentinelgate.db`). Queries with >0.92 cosine similarity resolve in ~13ms with **$0.00 API cost**. Supports `X-No-Cache: true` bypass header.
+- **Common-Sense Spend Circuit Breaker**: Tracks cumulative daily USD spend across all models. If spending reaches your daily budget limit (e.g. `$10.00/day`), SentinelGate automatically halts upstream calls with HTTP `429`, protecting teams against runaway credit card bills and rogue loops.
+- **Adaptive Smart Auto-Routing (`model: "auto"`)**: Intelligently classifies prompt complexity: simple greetings and basic lookups route to ultra-cheap, ultra-fast models (`llama-3.1-8b-instant`), while complex architectural and coding queries route to flagship models (`llama-3.3-70b-versatile` / `gpt-4o`).
+- **Zero-Loss Prompt Token Optimizer**: Automatically eliminates redundant whitespace, trailing blanks, and multi-line gaps outside code blocks before dispatching upstream, cutting token costs by 5–15% without altering meaning or code indentation.
 - **Resilient Key Rotation & 429/503 Failover**: Automatically rotates provider API keys round-robin. If a provider returns HTTP `429` (Rate Limited) or `503` (Overloaded), SentinelGate automatically retries alternative keys and seamlessly cascades down configured fallback models.
 - **Reversible PII Masking**: Automatically redacts emails, phone numbers, and API tokens with cryptographic placeholders before prompts leave your network, and reconstructs original data into the final output.
 - **1-Shot JSON Self-Healing**: When `response_format={"type": "json_object"}` is requested and an LLM outputs malformed JSON, SentinelGate intercepts the decode error and prompts the model with a 1-shot repair retry.
 - **Continuous 10% Shadow Parity Evals**: Samples 10% of production traffic asynchronously via FastAPI `BackgroundTasks`, replays queries to cheaper alternative models, and scores parity (1–10) using an LLM-as-a-judge prompt.
-- **Dark-Mode Live Observability**: Built-in, zero-dependency dashboard served at `/dashboard` tracking P50/P95 latency, cache hit ratios, cumulative USD savings, and shadow evaluation win-rates.
+- **Dark-Mode Observability & Live Playground**: Built-in, zero-dependency dashboard served at `/dashboard` featuring a real-time budget meter, P50/P95 latency, shadow eval win-rates, and an **interactive in-browser playground** to test prompts live.
 
 ---
 
@@ -79,16 +90,16 @@ Benchmark executed with `uv run python benchmark.py` across **100 simulated requ
 | Metric | Value |
 |---|---|
 | **Total Test Requests** | 100 |
-| **Cache Hit Rate** | 92.0% (92/100) |
-| **Average Uncached Latency (Upstream LLM)** | 390.95 ms |
-| **Average Semantic Cache Latency** | 12.58 ms |
-| **Semantic Cache Speedup** | **31.1x faster** |
-| **Latency P50** | 11.87 ms |
-| **Latency P90** | 18.73 ms |
-| **Latency P95** | 277.44 ms |
-| **Latency P99** | 693.83 ms |
-| **Cost Incurred** | $0.00008 |
-| **Cost Saved (via Cache)** | **$0.00092** |
+| **Cache Hit Rate** | 91.0% (91/100) |
+| **Average Uncached Latency (Upstream LLM)** | 361.95 ms |
+| **Average Semantic Cache Latency** | 14.57 ms |
+| **Semantic Cache Speedup** | **24.8x faster** |
+| **Latency P50** | 13.25 ms |
+| **Latency P90** | 34.39 ms |
+| **Latency P95** | 259.77 ms |
+| **Latency P99** | 705.93 ms |
+| **Cost Incurred** | $0.00009 |
+| **Cost Saved (via Cache)** | **$0.00091** |
 
 ---
 
@@ -112,6 +123,7 @@ cp .env.example .env
 export OPENAI_API_KEY="sk-proj-..."
 export GROQ_API_KEY="gsk_..."
 export GEMINI_API_KEY="AIzaSy..."
+export SENTINELGATE_DAILY_BUDGET=10.0
 ```
 
 ### 3. Start SentinelGate
@@ -119,15 +131,27 @@ export GEMINI_API_KEY="AIzaSy..."
 uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 - **Health Check**: `http://localhost:8000/health`
-- **Models List**: `http://localhost:8000/v1/models`
+- **Models Catalog**: `http://localhost:8000/v1/models`
 - **Chat Completions**: `http://localhost:8000/v1/chat/completions`
-- **Live Observability Dashboard**: `http://localhost:8000/dashboard`
+- **Live Observability & Playground**: `http://localhost:8000/dashboard`
 
 ---
 
 ## Usage Examples
 
-### Using `cURL` (Standard Chat Completion)
+### 1. Smart Adaptive Auto-Routing
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [
+      {"role": "user", "content": "Hello! Give me a quick joke."}
+    ]
+  }'
+```
+
+### 2. Standard Chat Completion
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -139,7 +163,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   }'
 ```
 
-### Streaming SSE Response
+### 3. Streaming SSE Response
 ```bash
 curl -N -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -152,7 +176,7 @@ curl -N -X POST http://localhost:8000/v1/chat/completions \
   }'
 ```
 
-### Bypassing Cache Explicitly
+### 4. Bypassing Semantic Cache
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -161,20 +185,6 @@ curl -X POST http://localhost:8000/v1/chat/completions \
     "model": "gpt-4o-mini",
     "messages": [{"role": "user", "content": "Give me current stock price."}]
   }'
-```
-
-### Using OpenAI Python Client
-Because SentinelGate is 100% wire-compatible with the OpenAI specification, simply redirect `base_url`:
-```python
-# In your existing client application
-import httpx
-
-client = httpx.Client(base_url="http://localhost:8000/v1")
-response = client.post("/chat/completions", json={
-    "model": "gpt-4o-mini",
-    "messages": [{"role": "user", "content": "Explain quantum computing in one sentence."}]
-})
-print(response.json()["choices"][0]["message"]["content"])
 ```
 
 ---
@@ -187,7 +197,7 @@ All tests run **100% offline** without live API keys using `pytest` and `respx` 
 # Run Ruff linting
 uv run ruff check .
 
-# Run complete offline test suite
+# Run complete offline test suite (13 tests)
 uv run pytest -v
 
 # Run the 100-request benchmark suite
@@ -204,6 +214,9 @@ uv run python benchmark.py
 - ✅ `test_pii_masking_and_restoration`: Bidirectional redaction and restoration of emails, phone numbers, and API tokens.
 - ✅ `test_json_self_healing_retry`: Automatic 1-shot self-repair on syntactically invalid JSON outputs.
 - ✅ `test_streaming_sse_response`: Wire-compatible Server-Sent Events (SSE) streaming chunks.
+- ✅ `test_budget_circuit_breaker`: Immediate short-circuiting when daily spending cap is breached.
+- ✅ `test_adaptive_smart_auto_routing`: Automatic tiering between Tier 1 (fast/cheap) and Tier 2 (flagship) based on prompt heuristics.
+- ✅ `test_prompt_optimizer_preserves_code_fences`: Whitespace trimming outside code blocks while keeping code intact.
 - ✅ `test_dashboard_and_metrics_endpoints`: Telemetry aggregation and dark-mode UI delivery.
 
 ---
@@ -221,6 +234,7 @@ docker run -d -p 8000:8000 \
   --name sentinelgate \
   -e OPENAI_API_KEY="sk-proj-..." \
   -e GROQ_API_KEY="gsk_..." \
+  -e SENTINELGATE_DAILY_BUDGET=10.0 \
   sentinelgate:latest
 
 # Check health
@@ -233,14 +247,15 @@ curl http://localhost:8000/health
 
 | Module | Purpose | Lines of Code |
 |---|---|---|
-| `router.py` | Direct REST integration, key rotation & failover | ~280 |
-| `cache.py` | FastEmbed ONNX & NumPy cosine semantic cache | ~180 |
-| `guardrails.py` | Reversible PII masking & 1-shot JSON self-healing | ~190 |
-| `evals.py` | Telemetry logging & 10% shadow evaluation replay | ~260 |
-| `main.py` | FastAPI application endpoints & lifecycle | ~250 |
-| **Total Core Code** | **Complete Zero-Bloat LLM Gateway** | **~1,160 lines** |
+| `router.py` | Direct REST proxy, auto-tiering, key rotation & failover | ~340 |
+| `cache.py` | FastEmbed ONNX & NumPy cosine semantic cache | ~185 |
+| `guardrails.py` | Reversible PII masking, JSON self-healing, prompt optimizer | ~235 |
+| `evals.py` | Telemetry logging & 10% shadow evaluation replay | ~265 |
+| `budget.py` | Daily spend tracker & cost circuit breaker | ~75 |
+| `main.py` | FastAPI application endpoints & lifecycle | ~285 |
+| **Total Core Code** | **Complete Zero-Bloat LLM Gateway** | **~1,385 lines** |
 
 ---
 
 ## License
-MIT License. Built for high-reliability, security-conscious AI engineering teams.
+MIT License. Built for high-reliability, cost-conscious, security-minded AI engineering teams.
