@@ -35,43 +35,19 @@ class PIIGuardrail:
         if not text or not isinstance(text, str):
             return text
 
-        # Mask emails
-        def _replace_email(match):
+        def _replace_entity(match, tag: str) -> str:
             val = match.group(0)
-            # Find existing placeholder if any
             for ph, orig in mapping.items():
-                if orig == val and "EMAIL" in ph:
+                if orig == val and tag in ph:
                     return ph
-            idx = sum(1 for k in mapping if "EMAIL" in k) + 1
-            ph = f"{{{{PII_EMAIL_{idx}}}}}"
+            idx = sum(1 for k in mapping if tag in k) + 1
+            ph = f"{{{{PII_{tag}_{idx}}}}}"
             mapping[ph] = val
             return ph
 
-        # Mask phones
-        def _replace_phone(match):
-            val = match.group(0)
-            for ph, orig in mapping.items():
-                if orig == val and "PHONE" in ph:
-                    return ph
-            idx = sum(1 for k in mapping if "PHONE" in k) + 1
-            ph = f"{{{{PII_PHONE_{idx}}}}}"
-            mapping[ph] = val
-            return ph
-
-        # Mask API keys
-        def _replace_key(match):
-            val = match.group(0)
-            for ph, orig in mapping.items():
-                if orig == val and "KEY" in ph:
-                    return ph
-            idx = sum(1 for k in mapping if "KEY" in k) + 1
-            ph = f"{{{{PII_KEY_{idx}}}}}"
-            mapping[ph] = val
-            return ph
-
-        text = EMAIL_REGEX.sub(_replace_email, text)
-        text = PHONE_REGEX.sub(_replace_phone, text)
-        text = API_KEY_REGEX.sub(_replace_key, text)
+        text = EMAIL_REGEX.sub(lambda m: _replace_entity(m, "EMAIL"), text)
+        text = PHONE_REGEX.sub(lambda m: _replace_entity(m, "PHONE"), text)
+        text = API_KEY_REGEX.sub(lambda m: _replace_entity(m, "KEY"), text)
         return text
 
     @classmethod
@@ -254,5 +230,22 @@ class InjectionDefense:
                     if match:
                         return False, f"Suspicious prompt injection/override detected: '{match.group(0)}'"
         return True, None
+
+
+class ContextCompactor:
+    """Semantic Context Compactor: Trims conversational filler in long dialogs (>8 turns)."""
+    FILLER = re.compile(r"^(ok|okay|thanks|thank you|got it|understood|sure)[\.!\s]*$", re.I)
+
+    @classmethod
+    def compact(cls, messages: List[Dict[str, Any]], max_turns: int = 8) -> List[Dict[str, Any]]:
+        if len(messages) <= max_turns:
+            return messages
+        sys_m = [m for m in messages if m.get("role") == "system"]
+        chat_m = [m for m in messages if m.get("role") != "system"]
+        culled = [
+            m for i, m in enumerate(chat_m)
+            if i >= len(chat_m) - 4 or not cls.FILLER.match((m.get("content") or "").strip())
+        ]
+        return sys_m + culled[-max_turns:]
 
 

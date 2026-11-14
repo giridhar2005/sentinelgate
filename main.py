@@ -15,7 +15,13 @@ from pydantic import BaseModel
 from budget import BudgetManager, VirtualKeyManager
 from cache import SemanticCache
 from evals import EvalsManager
-from guardrails import InjectionDefense, JSONSelfHealer, PIIGuardrail, PromptOptimizer
+from guardrails import (
+    ContextCompactor,
+    InjectionDefense,
+    JSONSelfHealer,
+    PIIGuardrail,
+    PromptOptimizer,
+)
 from router import ProviderRouter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -70,22 +76,17 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: Optional[int] = None
     stream: Optional[bool] = False
     response_format: Optional[Dict[str, Any]] = None
+    hedge: Optional[bool] = False
 
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "healthy",
-        "service": "SentinelGate",
-        "version": "0.1.0",
-        "timestamp": time.time(),
-    }
+    return {"status": "healthy", "service": "SentinelGate", "version": "0.1.0", "timestamp": time.time()}
 
 
 @app.get("/v1/models")
 async def list_models():
-    models = router.get_all_models()
-    return {"object": "list", "data": models}
+    return {"object": "list", "data": router.get_all_models()}
 
 
 @app.post("/v1/chat/completions")
@@ -93,6 +94,7 @@ async def chat_completions(
     req: ChatCompletionRequest,
     background_tasks: BackgroundTasks,
     x_no_cache: Optional[str] = Header(None, alias="X-No-Cache"),
+    x_hedge: Optional[str] = Header(None, alias="X-Hedge"),
     authorization: Optional[str] = Header(None),
 ):
     # Multi-tenant virtual key validation & sliding-window rate limiting
@@ -116,8 +118,9 @@ async def chat_completions(
     req_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     raw_dict = req.model_dump(exclude_unset=True)
 
-    # 0. Zero-Loss Prompt Optimization (strips excessive whitespace outside code fences)
-    optimized_messages = PromptOptimizer.optimize_messages(req.messages)
+    # 0. Zero-Loss Compaction & Prompt Optimization
+    compacted_messages = ContextCompactor.compact(req.messages)
+    optimized_messages = PromptOptimizer.optimize_messages(compacted_messages)
 
     # 1. PII Masking Guardrail
     masked_messages, pii_mapping = PIIGuardrail.mask_messages(optimized_messages)
@@ -174,11 +177,15 @@ async def chat_completions(
             ),
         )
 
-    # 3. Direct REST execution with Key Rotation & Failover
+    # 3. Direct REST execution with Key Rotation, Failover, or Speculative Hedging
     try:
-        upstream_res, chosen_provider, chosen_model = await router.execute_request(
-            active_req, stream=bool(req.stream)
-        )
+        use_hedge = (req.hedge or (x_hedge and x_hedge.lower() == "true")) and not req.stream
+        if use_hedge:
+            upstream_res, chosen_provider, chosen_model = await router.execute_hedged_request(active_req)
+        else:
+            upstream_res, chosen_provider, chosen_model = await router.execute_request(
+                active_req, stream=bool(req.stream)
+            )
     except Exception as e:
         logger.error(f"Execution failed for {requested_model}: {e}")
         raise HTTPException(status_code=502, detail=f"All upstream providers failed: {e}")
@@ -334,6 +341,11 @@ async def warm_cache(items: List[CacheWarmItem]):
 @app.get("/v1/providers/health")
 async def provider_health():
     return JSONResponse(content={"providers": router.get_provider_statuses()})
+
+
+@app.get("/v1/evals/export")
+async def export_evals(limit: Optional[int] = 100):
+    return JSONResponse(content={"dataset": evals.export_golden_dataset(limit=limit or 100)})
 
 
 @app.get("/dashboard", response_class=HTMLResponse)

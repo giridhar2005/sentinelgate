@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -328,6 +329,36 @@ class ProviderRouter:
                     break
 
         raise RuntimeError(f"All providers and fallbacks exhausted. Last error: {last_error}")
+
+    async def execute_hedged_request(
+        self,
+        request_data: Dict[str, Any],
+        hedge_delay_sec: float = 0.45,
+    ) -> Tuple[Dict[str, Any], str, str]:
+        """Speculative Latency Hedging (Google Tail-at-Scale p99 Slasher):
+        Fires primary request. If primary does not return within hedge_delay_sec,
+        speculatively races a parallel request to a low-latency fallback provider.
+        First to respond wins; slower task is cancelled immediately.
+        """
+        primary_task = asyncio.create_task(self.execute_request(request_data, stream=False))
+        done, _ = await asyncio.wait([primary_task], timeout=hedge_delay_sec)
+        if primary_task in done:
+            return await primary_task
+
+        hedged_payload = dict(request_data)
+        hedged_payload["model"] = "groq/llama-3.1-8b-instant"
+        hedge_task = asyncio.create_task(self.execute_request(hedged_payload, stream=False))
+
+        done, pending = await asyncio.wait([primary_task, hedge_task], return_when=asyncio.FIRST_COMPLETED)
+        for t in pending:
+            t.cancel()
+        for t in done:
+            try:
+                res, p, m = await t
+                return res, f"{p}(hedged)", m
+            except Exception:
+                pass
+        raise RuntimeError("Hedged execution failed.")
 
     async def _stream_response(
         self,

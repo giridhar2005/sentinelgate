@@ -165,3 +165,19 @@ class EvalsManager:
             "recent_requests": recent_requests,
             "recent_shadow_evals": recent_shadows,
         }
+
+    def export_golden_dataset(self, limit: int = 100) -> List[Dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT original_model, shadow_model, prompt, original_response, shadow_response, judge_score, judge_reasoning, is_win, timestamp FROM shadow_evals ORDER BY judge_score DESC, id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [
+            {
+                "input": r["prompt"], "reference": r["original_response"], "candidate": r["shadow_response"],
+                "score": r["judge_score"], "reasoning": r["judge_reasoning"], "parity_win": bool(r["is_win"]),
+                "models": {"primary": r["original_model"], "shadow": r["shadow_model"]}, "timestamp": r["timestamp"]
+            }
+            for r in rows
+        ]

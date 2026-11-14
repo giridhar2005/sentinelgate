@@ -689,5 +689,83 @@ def test_streaming_ttft_metric_capture(test_env):
     assert "providers" in m_data
 
 
+def test_context_compactor():
+    from guardrails import ContextCompactor
+
+    dialog = [
+        {"role": "system", "content": "You are a senior python engineer."},
+        {"role": "user", "content": "Let us start."},
+        {"role": "assistant", "content": "Understood."},
+        {"role": "user", "content": "Ok."},
+        {"role": "assistant", "content": "Sure."},
+        {"role": "user", "content": "Thanks."},
+        {"role": "assistant", "content": "Will do."},
+        {"role": "user", "content": "Write a binary search function."},
+        {"role": "assistant", "content": "def binary_search(arr, x): ..."},
+        {"role": "user", "content": "Optimize it."},
+    ]
+    compacted = ContextCompactor.compact(dialog, max_turns=6)
+    # System prompt must always be preserved
+    assert compacted[0]["role"] == "system"
+    # Recent turns preserved
+    contents = [m["content"] for m in compacted]
+    assert "Optimize it." in contents
+    assert "def binary_search(arr, x): ..." in contents
+    # Filler messages like "Ok." or "Thanks." should have been culled
+    assert "Ok." not in contents
+    assert "Thanks." not in contents
+
+
+@respx.mock
+def test_speculative_latency_hedging(test_env):
+    client, router, _, _ = test_env
+    router.client = None
+
+    # OpenAI mock responds successfully
+    respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-fast-primary",
+                "object": "chat.completion",
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Fast primary response"}}],
+            },
+        )
+    )
+
+    res = client.post(
+        "/v1/chat/completions",
+        headers={"X-No-Cache": "true", "X-Hedge": "true"},
+        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Hedged query"}]},
+    )
+    assert res.status_code == 200
+    assert "Fast primary response" in res.json()["choices"][0]["message"]["content"]
+
+
+def test_golden_dataset_export(test_env):
+    client, _, _, evals = test_env
+
+    # Seed a shadow eval
+    import sqlite3
+    with sqlite3.connect(evals.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO shadow_evals (
+                    request_id, original_model, shadow_model, prompt, original_response,
+                    shadow_response, judge_score, judge_reasoning, is_win, timestamp
+                ) VALUES ('req-101', 'gpt-4o', 'llama-3.1-8b', 'Explain GIL', 'GIL is...', 'GIL is Python...', 9, 'High parity', 1, 1000.0)
+                """
+            )
+
+    resp = client.get("/v1/evals/export?limit=10")
+    assert resp.status_code == 200
+    ds = resp.json()["dataset"]
+    assert len(ds) >= 1
+    assert ds[0]["score"] == 9
+    assert ds[0]["parity_win"] is True
+    assert "Explain GIL" in ds[0]["input"]
+
+
+
 
 
