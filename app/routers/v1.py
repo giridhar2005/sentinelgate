@@ -276,6 +276,7 @@ async def chat_completions(
                 async for chunk in upstream_res:
                     if not ttft_logged["done"]:
                         ttft_ms = (time.time() - start_time) * 1000.0
+                        stream_status = "FAILOVER" if chosen_provider != provider else ("REDACTED" if scrubbed_count > 0 else "UPSTREAM")
                         app_evals.log_request(
                             request_id=req_id,
                             model=requested_model,
@@ -286,6 +287,8 @@ async def chat_completions(
                             completion_tokens=0,
                             cost_usd=0.0,
                             ttft_ms=ttft_ms,
+                            status=stream_status,
+                            prompt_snippet=user_prompt[:250],
                         )
                         ttft_logged["done"] = True
                     if pii_mapping:
@@ -349,7 +352,12 @@ async def chat_completions(
         completion_tokens=out_tok,
     )
 
-    status = "FAILOVER" if chosen_provider != provider else "UPSTREAM"
+    if chosen_provider != provider:
+        status = "FAILOVER"
+    elif scrubbed_count > 0:
+        status = "REDACTED"
+    else:
+        status = "UPSTREAM"
     resp_snippet = final_resp.get("choices", [{}])[0].get("message", {}).get("content", "")[:300]
     timing = {
         "guardrail_ms": round(guard_ms, 2),

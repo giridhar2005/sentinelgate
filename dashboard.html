@@ -61,6 +61,11 @@
       color: #FBBF24;
       border: 1px solid rgba(245, 158, 11, 0.24);
     }
+    .badge-redacted {
+      background: rgba(139, 92, 246, 0.08);
+      color: #A78BFA;
+      border: 1px solid rgba(139, 92, 246, 0.24);
+    }
     .badge-blocked {
       background: rgba(239, 68, 68, 0.08);
       color: #F87171;
@@ -208,21 +213,26 @@
 
           <!-- Presets buttons -->
           <div class="flex flex-wrap items-center gap-2 mb-3">
-            <span class="text-xs text-zinc-500 font-medium">Presets:</span>
-            <button onclick="loadPreset('A')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-zinc-300 transition">
-              Preset A: Normal Query (Miss)
+            <span class="text-xs text-zinc-500 font-medium">1-Click Playground:</span>
+            <button onclick="runTestPreset('A')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-zinc-300 transition flex items-center space-x-1.5" title="Send standard prompt (Cache Miss / Upstream call)">
+              <span>Send Normal Prompt</span>
+              <span class="text-[10px] text-zinc-500 font-mono">(MISS)</span>
             </button>
-            <button onclick="loadPreset('B')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-emerald-300 transition">
-              Preset B: Paraphrase (Hit ~4ms)
+            <button onclick="runTestPreset('B')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-emerald-300 transition flex items-center space-x-1.5" title="Send paraphrased prompt (Instant Semantic Cache Hit in &lt;2ms)">
+              <span>Send Paraphrased Prompt</span>
+              <span class="text-[10px] text-emerald-400 font-mono">(HIT &lt;2ms)</span>
             </button>
-            <button onclick="loadPreset('C')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-rose-300 transition">
-              Preset C: Secret Scrub (Shield)
+            <button onclick="runTestPreset('C')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-violet-300 transition flex items-center space-x-1.5" title="Test secret firewall with leaked API key & DB URI">
+              <span>Test Secret Firewall</span>
+              <span class="text-[10px] text-violet-400 font-mono">(REDACT)</span>
             </button>
-            <button onclick="loadPreset('D')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-sky-300 transition">
-              Preset D: Auto Simple
+            <button onclick="runTestPreset('D')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-sky-300 transition flex items-center space-x-1.5" title="Test model=auto routing for simple prompt (routes to cheap model)">
+              <span>Auto-Route (Simple)</span>
+              <span class="text-[10px] text-sky-400 font-mono">(99% SAVE)</span>
             </button>
-            <button onclick="loadPreset('E')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-amber-300 transition">
-              Preset E: Auto Complex
+            <button onclick="runTestPreset('E')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-amber-300 transition flex items-center space-x-1.5" title="Test model=auto routing for complex prompt (routes to frontier model)">
+              <span>Auto-Route (Complex)</span>
+              <span class="text-[10px] text-amber-400 font-mono">(FRONTIER)</span>
             </button>
           </div>
 
@@ -835,6 +845,8 @@ console.log(completion.choices[0].message.content);</code></pre>
           statusBadge = `<span class="badge-blocked px-2 py-0.5 rounded text-[11px] font-medium">BLOCKED</span>`;
         } else if (status === "FAILOVER") {
           statusBadge = `<span class="badge-failover px-2 py-0.5 rounded text-[11px] font-medium">FAILOVER</span>`;
+        } else if (status === "REDACTED") {
+          statusBadge = `<span class="badge-redacted px-2 py-0.5 rounded text-[11px] font-medium">REDACTED</span>`;
         } else {
           statusBadge = `<span class="badge-upstream px-2 py-0.5 rounded text-[11px] font-medium">UPSTREAM</span>`;
         }
@@ -872,6 +884,7 @@ console.log(completion.choices[0].message.content);</code></pre>
       badge.className = status === "CACHE_HIT" ? "badge-hit px-2 py-0.5 rounded text-[11px] font-mono font-medium"
                       : status === "BLOCKED" ? "badge-blocked px-2 py-0.5 rounded text-[11px] font-mono font-medium"
                       : status === "FAILOVER" ? "badge-failover px-2 py-0.5 rounded text-[11px] font-mono font-medium"
+                      : status === "REDACTED" ? "badge-redacted px-2 py-0.5 rounded text-[11px] font-mono font-medium"
                       : "badge-upstream px-2 py-0.5 rounded text-[11px] font-mono font-medium";
 
       // Parse timing breakdown
@@ -1006,7 +1019,7 @@ console.log(completion.choices[0].message.content);</code></pre>
       }
     }
 
-    // Presets
+    // 1-Click Test Presets
     function loadPreset(type) {
       const promptEl = document.getElementById("sim-prompt");
       const noCacheEl = document.getElementById("sim-nocache");
@@ -1021,8 +1034,8 @@ console.log(completion.choices[0].message.content);</code></pre>
         noCacheEl.checked = false;
         modelEl.value = "gpt-4o-mini";
       } else if (type === 'C') {
-        promptEl.value = "My AWS key is AKIAIOSFODNN7EXAMPLE and DB is postgresql://user:pass@db.internal:5432/prod. Help me connect.";
-        noCacheEl.checked = false;
+        promptEl.value = "My secret key is sk-proj-9999888877776666555544443333 and database is postgresql://admin:secretPass@localhost:5432/prod. Help me connect.";
+        noCacheEl.checked = true;
         modelEl.value = "gpt-4o-mini";
       } else if (type === 'D') {
         promptEl.value = "Write a haiku about compiling Rust code.";
@@ -1033,6 +1046,11 @@ console.log(completion.choices[0].message.content);</code></pre>
         noCacheEl.checked = true;
         modelEl.value = "auto";
       }
+    }
+
+    function runTestPreset(type) {
+      loadPreset(type);
+      executeSimulatorRequest();
     }
 
     // Connect Tool Modal
@@ -1132,6 +1150,10 @@ console.log(completion.choices[0].message.content);</code></pre>
             badge.className = "badge-hit px-2 py-0.5 rounded text-[11px] font-medium";
             badge.innerText = "CACHE HIT";
             sim.innerText = `Similarity: ${(data.sentinel_similarity || 0.9412).toFixed(4)}`;
+          } else if (scrubbed && parseInt(scrubbed) > 0) {
+            badge.className = "badge-redacted px-2 py-0.5 rounded text-[11px] font-medium";
+            badge.innerText = "REDACTED";
+            sim.innerText = `Shield: ${scrubbed} secret(s) scrubbed in flight & restored`;
           } else if (autoRoute) {
             badge.className = "badge-upstream px-2 py-0.5 rounded text-[11px] font-medium";
             badge.innerText = `ROUTED: ${autoRoute.toUpperCase()}`;
@@ -1140,9 +1162,6 @@ console.log(completion.choices[0].message.content);</code></pre>
             badge.className = "badge-upstream px-2 py-0.5 rounded text-[11px] font-medium";
             badge.innerText = "UPSTREAM";
             sim.innerText = "Similarity: -";
-          }
-          if (scrubbed && parseInt(scrubbed) > 0) {
-            sim.innerText += ` · Shield: ${scrubbed} secret(s) scrubbed`;
           }
           const content = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : JSON.stringify(data);
           output.innerText = content;
