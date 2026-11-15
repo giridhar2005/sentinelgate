@@ -15,7 +15,7 @@ Show HN: SentinelGate – Zero-bloat, in-process LLM gateway in Python (SQLite W
 ```markdown
 Hi HN,
 
-I built SentinelGate (https://github.com/giridhar2005/sentinelgate) because existing AI gateways (LiteLLM, Portkey) require running Redis clusters, PostgreSQL daemons, and background Celery workers just to proxy LLM requests and cache responses.
+I built SentinelGate (https://github.com/giridhar2005/sentinelgate) because many AI gateway setups require external database services, Redis clusters, or remote control planes just to proxy LLM requests and cache responses.
 
 For teams running autonomous agents or high-throughput LLM pipelines, that adds operational failure modes, network hop latency, and infrastructure maintenance.
 
@@ -65,7 +65,7 @@ I'd value your feedback on the architecture, in-process memory-mapping design, a
 
 ### Tweet 1 (Hook + Visual Demo)
 ```text
-Most AI gateways make you deploy Redis, PostgreSQL, and Celery just to proxy LLM requests and cache responses.
+Many enterprise gateway deployments require managing external Redis clusters, PostgreSQL instances, and background workers just to proxy LLM requests and cache responses.
 
 I built SentinelGate: a zero-bloat, in-process LLM gateway in Python.
 
@@ -135,7 +135,7 @@ Every team building with LLMs eventually hits the same three scaling walls:
 2. Credential exposure when internal API keys or DB connection strings leak into third-party provider logs.
 3. Reliability failures when primary model providers return 429 rate limits or 503 outages.
 
-The standard industry fix is deploying an AI Gateway—but popular solutions require managing Redis clusters, PostgreSQL databases, and Celery worker pools. That replaces one operational headache with another.
+The standard industry fix is deploying an AI Gateway—but complex gateway architectures often require managing external caching and database infrastructure. That can replace one operational headache with another.
 
 I built SentinelGate (https://github.com/giridhar2005/sentinelgate) to demonstrate that modern AI infrastructure does not require distributed service sprawl.
 

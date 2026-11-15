@@ -118,18 +118,20 @@ While viewing the `/dashboard` developer console, use these keys:
 
 ---
 
-## 🧩 Architecture Contrast vs. Alternatives
+## 🧩 Architecture Contrast & Trade-Offs
 
-| Engineering Dimension | 🌸 SentinelGate | 📦 LiteLLM Proxy | ☁️ Portkey Gateway |
+Choosing an LLM gateway is a question of operational trade-offs. SentinelGate is built specifically as a lightweight, single-process embedded runtime with zero external infrastructure. Full-fledged gateways like [LiteLLM Proxy](https://docs.litellm.ai/docs/proxy/architecture) and [Portkey AI Gateway](https://docs.portkey.ai/docs/product/ai-gateway) offer broader multi-cloud provider ecosystems and multi-tenant enterprise control planes:
+
+| Engineering Dimension | 🌸 SentinelGate | 📦 LiteLLM Proxy ([Docs](https://docs.litellm.ai/docs/proxy/architecture)) | ☁️ Portkey AI Gateway ([Docs](https://docs.portkey.ai/docs/product/ai-gateway)) |
 | :--- | :--- | :--- | :--- |
-| **Operational Topology** | **Single Python Process** | Multi-service (Redis + Postgres + Celery) | Multi-container / Cloud SaaS |
-| **External Dependencies** | **Zero (In-Process SQLite WAL + ONNX)** | Requires Redis cluster & PostgreSQL | Cloud DBs & external control plane |
-| **Streaming Secret Redaction** | **Stateful Sliding-Window (N=64 lookahead)** | Naive per-chunk (fails across token splits) | Not supported on stream |
-| **Agent Tool & MCP Security** | **Pre-execution AST & regex firewall (Shell/SQL/SSRF)** | Post-hoc or uninspected | Basic policy checks |
-| **Distributed Tracing** | **Zero-Dependency OTLP JSON + W3C `traceparent`** | Requires 50MB `opentelemetry-sdk` | Proprietary logging format |
-| **Telemetry Pipeline** | **Non-blocking `asyncio.Queue` + WAL batch flusher** | Synchronous DB writes / Celery queue | Network telemetry egress |
-| **Cold Start Time** | **< 1.2s** | 8.0s – 15.0s | N/A (Cloud Hosted) |
-| **Base Memory (RSS)** | **45.1 MB (base) / ~365 MB (with ONNX model)** | ~550 MB – 1.2 GB | Multi-container overhead |
+| **Primary Architecture** | **Single-process embedded runtime** (FastAPI + SQLite WAL) | Standalone Python proxy or distributed multi-instance service | Open-source TypeScript proxy runtime or managed cloud SaaS |
+| **External Dependencies** | **Zero** (In-process SQLite WAL + local ONNX runtime) | Zero for standalone CLI; Redis/Postgres optional for cluster state | Zero for standalone container; cloud DBs for control plane |
+| **Provider Support** | Focused OpenAI-compatible backends (OpenAI, Anthropic, Groq, Ollama) | **100+ LLM providers** (Bedrock, Vertex AI, Azure, Cohere, etc.) | **250+ LLM providers** with unified multi-region routing |
+| **Agent Tool & MCP Guardrail** | Built-in regex & AST tool-call inspector for destructive patterns | Pluggable third-party integrations (Presidio, Lakera, Aporia) | Configurable guardrails and enterprise policy rules |
+| **Streaming Secret Redaction** | Stateful sliding window buffer ($N=64$ chars lookahead) | Middleware & callback hooks; Presidio PII plugins | Config-driven PII redaction and enterprise privacy rules |
+| **Distributed Tracing** | Zero-dependency W3C `traceparent` parsing + raw OTLP JSON | OpenTelemetry SDK, Prometheus, Datadog, Langfuse | Built-in trace analytics, OpenTelemetry exporter |
+| **State & Persistence** | Local SQLite database with Write-Ahead Logging (`WAL`) | Memory (single-node) or distributed Redis + PostgreSQL | Local SQLite/Redis or managed multi-region datastores |
+| **Best Suited For** | **Single-host deployments, local coding agents, zero-infra edge proxies** | **Enterprise teams needing 100+ provider mappings and team billing** | **Production web apps needing hosted control planes and prompt governance** |
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/benchmark-bars.svg" alt="SentinelGate Benchmark Comparison Bars" width="100%" style="border-radius: 12px; border: 1px solid #27272A; margin: 12px 0;">

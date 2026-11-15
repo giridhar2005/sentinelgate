@@ -15,9 +15,9 @@ Show HN: SentinelGate – In-process LLM gateway in Python (SQLite WAL, FastEmbe
 ```markdown
 Hi HN,
 
-I built SentinelGate (https://github.com/giridhar2005/sentinelgate) to address an operational problem with current LLM gateways: most require spinning up Redis clusters, PostgreSQL instances, and Celery background workers just to proxy requests and cache responses.
+I built SentinelGate (https://github.com/giridhar2005/sentinelgate) to address an operational problem with heavy LLM gateway setups: many require spinning up external caching clusters, database daemons, or remote control planes just to proxy requests and cache responses.
 
-For local agents, internal tools, and medium-scale production deployments, adding three distributed stateful services introduces more operational headaches and network latency than the LLM integration itself.
+For local agents, internal tools, and edge deployments, adding distributed stateful services introduces operational overhead and network latency.
 
 SentinelGate is an in-process, zero-dependency OpenAI-compatible gateway built on FastAPI, async httpx, SQLite WAL mode, and FastEmbed ONNX running on CPU. Zero Redis. Zero PostgreSQL. Zero node_modules.
 
@@ -62,7 +62,7 @@ I welcome feedback on the in-process SQLite WAL design and edge-case handling in
 
 ### Tweet 1 (Hook + Media)
 ```text
-Deploying Redis, PostgreSQL, and Celery just to proxy LLM requests and cache prompts is architectural overkill.
+Deploying complex multi-service infrastructure just to proxy LLM requests and cache prompts is often architectural overkill for single-host setups.
 
 I built SentinelGate: a zero-bloat, in-process LLM gateway in Python.
 
@@ -205,7 +205,7 @@ Every team building production AI eventually encounters three scaling challenges
 2. Credential exposure when internal keys or DB connection strings leak into third-party provider logs.
 3. Reliability failures when primary model providers return 429 rate limits or 503 outages.
 
-The typical solution is deploying an AI Gateway—but popular tools require managing Redis clusters, PostgreSQL databases, and Celery workers. That introduces operational complexity to solve an application-layer problem.
+The typical solution is deploying an AI Gateway—but enterprise tools often require managing external caching and database infrastructure. That can introduce operational complexity to solve a single-host application problem.
 
 I built SentinelGate (https://github.com/giridhar2005/sentinelgate) to show that production LLM infrastructure can run as a single, zero-bloat process.
 
