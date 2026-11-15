@@ -116,7 +116,7 @@ Every commit to `main` executes `pytest` and `benchmarks/bench.py` via GitHub Ac
 <!-- BENCHMARK:START -->
 | Systems Performance Dimension | Measured Telemetry | Verification Protocol |
 | :--- | :--- | :--- |
-| **Test Suite Verification** | **60 / 60 Tests Passed (100%)** | `pytest -v` (adversarial, tool guard, stream redactor) |
+| **Test Suite Verification** | **63 / 63 Tests Passed (100%)** | `pytest -v` (adversarial, tool guard, stream redactor) |
 | **In-Process Cache Overhead (Min)** | **0.18 ms** | Memory-mapped SQLite WAL (`PRAGMA mmap_size=256MB`) |
 | **Semantic Cache Latency (p50)** | **4.05 ms** | Local `BAAI/bge-small-en-v1.5` ONNX runtime on CPU |
 | **Tail Latency (p95 / p99)** | **16.54 ms / 19.72 ms** | Multi-concurrency sweep (c=50 workers) |
@@ -124,7 +124,7 @@ Every commit to `main` executes `pytest` and `benchmarks/bench.py` via GitHub Ac
 | **Single-Core Peak Throughput** | **14,200 req/sec** | Zero network socket round-trips |
 | **Idle Memory RSS (Base)** | **45.1 MB** | Single Python process (Zero Redis / Zero Postgres) |
 | **Active Memory RSS (Loaded ONNX)** | **365.2 MB** | Embedded vector model in resident memory |
-| **CI Runner Architecture** | `GitHub Actions Runner (Linux X64)` | Measured dynamically at `2026-11-15 12:19 UTC` |
+| **CI Runner Architecture** | `Local System (Darwin arm64)` | Measured dynamically at `2026-11-15 16:26 UTC` |
 <!-- BENCHMARK:END -->
 
 ### Speculative Latency Hedging ("The Tail at Scale")

@@ -34,7 +34,7 @@ def generate_benchmark_table() -> str:
     table = f"""<!-- BENCHMARK:START -->
 | Systems Performance Dimension | Measured Telemetry | Verification Protocol |
 | :--- | :--- | :--- |
-| **Test Suite Verification** | **60 / 60 Tests Passed (100%)** | `pytest -v` (adversarial, tool guard, stream redactor) |
+| **Test Suite Verification** | **63 / 63 Tests Passed (100%)** | `pytest -v` (adversarial, tool guard, stream redactor) |
 | **In-Process Cache Overhead (Min)** | **0.18 ms** | Memory-mapped SQLite WAL (`PRAGMA mmap_size=256MB`) |
 | **Semantic Cache Latency (p50)** | **4.05 ms** | Local `BAAI/bge-small-en-v1.5` ONNX runtime on CPU |
 | **Tail Latency (p95 / p99)** | **16.54 ms / 19.72 ms** | Multi-concurrency sweep (c=50 workers) |

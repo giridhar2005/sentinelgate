@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from typing import Optional
@@ -8,6 +9,8 @@ from typing import Optional
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
+
+logger = logging.getLogger("sentinelgate.dashboard")
 
 router = APIRouter(tags=["Observability & Dashboard"])
 
@@ -141,8 +144,9 @@ async def shadow_replay_estimator(request: Request, payload: ReplayRequest):
         )
         cand_lat_ms = (time.perf_counter() - t0) * 1000.0
     except Exception as e:
+        logger.warning(f"Candidate model execution failed: {e}")
         return JSONResponse(
-            content={"error": f"Candidate model execution failed: {e}"}, status_code=502
+            content={"error": "Candidate model execution failed."}, status_code=502
         )
 
     cand_text = cand_res.get("choices", [{}])[0].get("message", {}).get("content", "")

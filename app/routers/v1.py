@@ -336,7 +336,7 @@ async def chat_completions(
     except Exception as e:
         logger.error(f"Execution failed for {requested_model}: {e}")
         return make_openai_error(
-            f"All upstream providers failed: {e}", error_type="upstream_error", status_code=502
+            "All upstream providers failed or timed out", error_type="upstream_error", status_code=502
         )
 
     # 8. Handle SSE Streaming Response
@@ -569,7 +569,7 @@ async def create_embeddings(req: EmbeddingsRequest, request: Request):
         return JSONResponse(content=emb_response, headers=headers)
     except Exception as e:
         logger.error(f"Embeddings creation failed: {e}")
-        return make_openai_error(f"Embedding generation failed: {e}", status_code=500)
+        return make_openai_error("Embedding generation failed.", status_code=500)
 
 
 @router.post("/keys")

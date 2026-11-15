@@ -40,6 +40,8 @@ ignore = ["E501", "E402"]
 testpaths = ["tests"]
 pythonpath = ["."]
 filterwarnings = [
+    "ignore:.*NotOpenSSLWarning.*",
+    "ignore:.*LibreSSL.*",
     "ignore::urllib3.exceptions.NotOpenSSLWarning",
     "ignore::DeprecationWarning",
 ]

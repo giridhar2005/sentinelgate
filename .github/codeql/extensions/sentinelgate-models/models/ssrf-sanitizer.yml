@@ -1,0 +1,6 @@
+extensions:
+  - addsTo:
+      pack: codeql/python-all
+      extensible: barrierModel
+    data:
+      - ["app.routers.mcp", "Member[validate_mcp_target].ReturnValue", "full-ssrf"]
