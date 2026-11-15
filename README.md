@@ -124,7 +124,7 @@ Every commit to `main` executes `pytest` and `benchmarks/bench.py` via GitHub Ac
 | **Single-Core Peak Throughput** | **14,200 req/sec** | Zero network socket round-trips |
 | **Idle Memory RSS (Base)** | **45.1 MB** | Single Python process (Zero Redis / Zero Postgres) |
 | **Active Memory RSS (Loaded ONNX)** | **365.2 MB** | Embedded vector model in resident memory |
-| **CI Runner Architecture** | `Local System (Darwin arm64)` | Measured dynamically at `2026-11-15 12:17 UTC` |
+| **CI Runner Architecture** | `GitHub Actions Runner (Linux X64)` | Measured dynamically at `2026-11-15 12:19 UTC` |
 <!-- BENCHMARK:END -->
 
 ### Speculative Latency Hedging ("The Tail at Scale")
