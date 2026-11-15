@@ -1,8 +1,8 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/hero-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/hero-light.svg">
-    <img src="docs/hero-dark.svg" alt="SentinelGate Hero Banner" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/hero-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/hero-light.svg">
+    <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/hero-dark.svg" alt="SentinelGate Hero Banner" width="100%">
   </picture>
 </p>
 
@@ -104,7 +104,7 @@ While viewing the `/dashboard` developer console, use these keys:
 | **Base Memory (RSS)** | **45.1 MB (base) / ~365 MB (with ONNX model)** | ~550 MB – 1.2 GB | Multi-container overhead |
 
 <p align="center">
-  <img src="docs/benchmark-bars.svg" alt="SentinelGate Benchmark Comparison Bars" width="100%" style="border-radius: 8px; border: 1px solid #27272A; margin: 12px 0;">
+  <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/benchmark-bars.svg" alt="SentinelGate Benchmark Comparison Bars" width="100%" style="border-radius: 8px; border: 1px solid #27272A; margin: 12px 0;">
 </p>
 
 ---
@@ -149,7 +149,7 @@ SentinelGate implements **Speculative Latency Hedging**: if primary provider doe
 <br>
 
 <p align="center">
-  <img src="docs/bento-architecture.svg" alt="SentinelGate 4-Quadrant Architecture" width="100%" style="border-radius: 8px; border: 1px solid #27272A;">
+  <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/bento-architecture.svg" alt="SentinelGate 4-Quadrant Architecture" width="100%" style="border-radius: 8px; border: 1px solid #27272A;">
 </p>
 
 Every request hitting `POST /v1/chat/completions` undergoes a deterministic in-process pipeline executed before any network socket is opened:
