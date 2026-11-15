@@ -100,3 +100,35 @@ def test_export_traces_endpoints(test_app):
     assert "text/csv" in csv_resp.headers["content-type"]
     assert "req-exp-1" in csv_resp.text
     assert "Test export prompt" in csv_resp.text
+
+
+def test_live_benchmark_and_otel_audit_endpoints(test_app):
+    client, app = test_app
+
+    # 1. Test live in-process benchmark execution
+    bench_resp = client.post(
+        "/api/benchmark/run",
+        json={"concurrency": 5, "requests": 15, "test_type": "cache_hit"},
+    )
+    assert bench_resp.status_code == 200
+    b_data = bench_resp.json()
+    assert b_data["status"] == "success"
+    assert b_data["total_requests"] == 15
+    assert b_data["throughput_rps"] > 0
+    assert "p50_ms" in b_data["latencies"]
+    assert "process_rss_mb" in b_data
+
+    # 2. Test guardrail audit logs endpoint
+    evals = app.state.evals
+    evals.log_guardrail_event("req-test-audit", "TOOL_CALL_BLOCKED", "rm -rf / blocked", blocked=True)
+
+    audit_resp = client.get("/api/guardrails/audit?limit=10")
+    assert audit_resp.status_code == 200
+    events = audit_resp.json()["events"]
+    assert len(events) >= 1
+    assert any(e["event_type"] == "TOOL_CALL_BLOCKED" for e in events)
+
+    # 3. Test OTLP traces ring buffer endpoint
+    otel_resp = client.get("/api/traces/otel?limit=10")
+    assert otel_resp.status_code == 200
+    assert "spans" in otel_resp.json()

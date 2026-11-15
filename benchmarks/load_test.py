@@ -211,6 +211,45 @@ async def run_rate_limiter_benchmark(
     return stats
 
 
+async def run_concurrency_sweep(
+    concurrency_levels: List[int] = [1, 10, 50, 100],
+    requests_per_level: int = 50,
+) -> Dict[str, Any]:
+    print("\n[4/4] Benchmarking Multi-Concurrency Scaling & TTFT Sweep...")
+    router = ProviderRouter()
+    router.demo_mode = True
+
+    sweep_results: Dict[str, Any] = {}
+
+    for c in concurrency_levels:
+        sem = asyncio.Semaphore(c)
+        latencies: List[float] = []
+
+        async def worker(idx: int):
+            async with sem:
+                t0 = time.perf_counter()
+                req_data = {
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": f"Concurrency test query {idx}"}],
+                }
+                await router.execute_request(req_data, stream=False)
+                lat = (time.perf_counter() - t0) * 1000.0
+                latencies.append(lat)
+
+        t_start = time.perf_counter()
+        await asyncio.gather(*[worker(i) for i in range(requests_per_level)])
+        duration = time.perf_counter() - t_start
+        rps = round(requests_per_level / max(0.0001, duration), 1)
+
+        pcts = compute_percentiles(latencies)
+        pcts["concurrency"] = c
+        pcts["throughput_rps"] = rps
+        pcts["duration_sec"] = round(duration, 3)
+        sweep_results[f"c_{c}"] = pcts
+
+    return sweep_results
+
+
 def print_summary_table(results: Dict[str, Any]):
     print("\n" + "=" * 72)
     print("           SENTINELGATE SYSTEMS PERFORMANCE BENCHMARK REPORT           ")
@@ -219,6 +258,7 @@ def print_summary_table(results: Dict[str, Any]):
     cache = results.get("cache_wal", {})
     rl = results.get("rate_limiter", {})
     hedge = results.get("hedging", {})
+    sweep = results.get("concurrency_sweep", {})
 
     print("\n[1] SQLite WAL Semantic Cache (BAAI/bge-small-en-v1.5 + In-Process Mmap)")
     print(f"    Throughput:       {cache.get('rps', 0):,.1f} lookups/sec")
@@ -239,7 +279,14 @@ def print_summary_table(results: Dict[str, Any]):
     print(f"    Hedged p99:       {hedge.get('hedged', {}).get('p99', 0):.2f} ms")
     print(f"    Tail Reduction:   {hedge.get('p99_reduction_pct', 0)}% latency slashed")
 
-    print("\n[4] Architectural Memory Efficiency")
+    if sweep:
+        print("\n[4] Multi-Concurrency Proxy Throughput Scaling")
+        print("    Concurrency | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms)")
+        print("    ------------+--------------------+----------+----------+---------")
+        for key, s in sweep.items():
+            print(f"    c={s.get('concurrency', 0):<10} | {s.get('throughput_rps', 0):<18} | {s.get('p50', 0):<8.2f} | {s.get('p95', 0):<8.2f} | {s.get('p99', 0):<8.2f}")
+
+    print("\n[5] Architectural Memory Efficiency")
     print(f"    RSS RAM (Base):   {results.get('rss_base_mb', 0):.2f} MB")
     print(f"    RSS RAM (Peak):   {results.get('rss_peak_mb', 0):.2f} MB")
     print("=" * 72 + "\n")
@@ -263,6 +310,7 @@ async def main():
         concurrency=args.concurrency, requests_per_worker=30
     )
     hedge_stats = await run_hedged_benchmark(n_requests=60)
+    sweep_stats = await run_concurrency_sweep(concurrency_levels=[1, 10, 50], requests_per_level=30)
 
     rss_peak = get_rss_mb()
 
@@ -275,6 +323,7 @@ async def main():
         "cache_wal": cache_stats,
         "rate_limiter": rl_stats,
         "hedging": hedge_stats,
+        "concurrency_sweep": sweep_stats,
     }
 
     print_summary_table(results)

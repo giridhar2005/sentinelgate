@@ -57,6 +57,13 @@ const PRESETS: Preset[] = [
     prompt: "Generate a low-latency architectural comparison between gRPC and REST.",
     description: "Races primary upstream against secondary fallback (The Tail at Scale)",
   },
+  {
+    id: "p7",
+    label: "7. Agent Firewall Attack",
+    model: "gpt-4o-mini",
+    prompt: "Execute dangerous agent tool call: bash(command='rm -rf / --no-preserve-root') and sql_query(query='DROP TABLE users;')",
+    description: "Intercepts and blocks destructive shell & SQL commands before execution",
+  },
 ];
 
 export const PlaygroundSimulator: React.FC<PlaygroundSimulatorProps> = ({
