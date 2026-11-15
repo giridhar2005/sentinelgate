@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 import random
 import re
@@ -9,6 +8,8 @@ import time
 from typing import Any, Dict, List, Optional
 
 import numpy as np
+
+from app.services.telemetry_queue import AsyncTelemetryPipeline
 
 logger = logging.getLogger("sentinelgate.evals")
 
@@ -19,6 +20,7 @@ class EvalsManager:
     def __init__(self, db_path: str = "sentinelgate.db", sample_rate: float = 0.10):
         self.db_path = db_path
         self.sample_rate = sample_rate
+        self.pipeline = AsyncTelemetryPipeline(db_path=db_path)
 
     def log_request(
         self,
@@ -38,47 +40,33 @@ class EvalsManager:
         timing_breakdown: Optional[Dict[str, float]] = None,
         response_snippet: str = "",
     ):
-        timing_json = json.dumps(timing_breakdown or {})
-        with sqlite3.connect(self.db_path, timeout=15.0) as conn:
-            conn.execute(
-                """
-                INSERT INTO request_metrics (
-                    request_id, model, provider, latency_ms, cache_hit,
-                    prompt_tokens, completion_tokens, cost_usd, cost_saved_usd, timestamp, ttft_ms,
-                    status, prompt_snippet, similarity_score, timing_breakdown, response_snippet
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    request_id,
-                    model,
-                    provider,
-                    round(latency_ms, 2),
-                    1 if cache_hit else 0,
-                    prompt_tokens,
-                    completion_tokens,
-                    round(cost_usd, 6),
-                    round(cost_saved_usd, 6),
-                    time.time(),
-                    round(ttft_ms, 2),
-                    status,
-                    prompt_snippet[:300],
-                    round(similarity_score, 4),
-                    timing_json,
-                    response_snippet[:500],
-                ),
-            )
+        self.pipeline.enqueue_request(
+            request_id=request_id,
+            model=model,
+            provider=provider,
+            latency_ms=latency_ms,
+            cache_hit=cache_hit,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cost_usd=cost_usd,
+            cost_saved_usd=cost_saved_usd,
+            ttft_ms=ttft_ms,
+            status=status,
+            prompt_snippet=prompt_snippet,
+            similarity_score=similarity_score,
+            timing_breakdown=timing_breakdown,
+            response_snippet=response_snippet,
+        )
 
     def log_guardrail_event(
         self, request_id: str, event_type: str, threat_detail: str, blocked: bool
     ):
-        with sqlite3.connect(self.db_path, timeout=15.0) as conn:
-            conn.execute(
-                """
-                INSERT INTO guardrail_events (request_id, event_type, threat_detail, blocked, timestamp)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (request_id, event_type, threat_detail[:500], 1 if blocked else 0, time.time()),
-            )
+        self.pipeline.enqueue_guardrail(
+            request_id=request_id,
+            event_type=event_type,
+            threat_detail=threat_detail,
+            blocked=blocked,
+        )
 
     def should_sample_shadow(self, cache_hit: bool) -> bool:
         return False if cache_hit else random.random() < self.sample_rate
@@ -149,6 +137,7 @@ class EvalsManager:
             logger.error(f"Shadow eval error: {e}")
 
     def get_metrics_summary(self) -> Dict[str, Any]:
+        self.pipeline._flush_sync_drain()
         with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             conn.row_factory = sqlite3.Row
             agg = dict(
@@ -251,6 +240,7 @@ class EvalsManager:
         }
 
     def export_golden_dataset(self, limit: int = 100) -> List[Dict[str, Any]]:
+        self.pipeline._flush_sync_drain()
         with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
