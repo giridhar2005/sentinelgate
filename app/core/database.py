@@ -22,17 +22,22 @@ def init_db(db_path: str = "sentinelgate.db"):
         conn.execute("PRAGMA cache_size=-64000;")
 
         cursor = conn.cursor()
-        # Schema migration check: ensure semantic_cache has prompt_hash
+        # Schema migration check: ensure semantic_cache has multi-tenant fields
         cursor.execute("PRAGMA table_info(semantic_cache);")
         cache_cols = {row[1] for row in cursor.fetchall()}
-        if cache_cols and "prompt_hash" not in cache_cols:
-            logger.warning("Migrating legacy semantic_cache schema...")
+        if cache_cols and ("tenant_id" not in cache_cols or "system_hash" not in cache_cols or "prompt_hash" not in cache_cols):
+            logger.warning("Migrating legacy semantic_cache schema to multi-tenant...")
             conn.execute("DROP TABLE semantic_cache;")
 
-        # 1. Semantic Cache Table
+        # 1. Semantic Cache Table (Multi-Tenant Isolated)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS semantic_cache (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tenant_id TEXT NOT NULL DEFAULT 'default',
+                model TEXT NOT NULL,
+                system_hash TEXT NOT NULL DEFAULT 'none',
+                tools_hash TEXT NOT NULL DEFAULT 'none',
+                temperature REAL NOT NULL DEFAULT 0.0,
                 prompt_hash TEXT NOT NULL,
                 prompt_text TEXT NOT NULL,
                 embedding BLOB NOT NULL,
@@ -40,11 +45,10 @@ def init_db(db_path: str = "sentinelgate.db"):
                 prompt_tokens INTEGER NOT NULL,
                 completion_tokens INTEGER NOT NULL,
                 created_at REAL NOT NULL,
-                expires_at REAL NOT NULL,
-                model TEXT NOT NULL
+                expires_at REAL NOT NULL
             );
         """)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_cache_hash ON semantic_cache(prompt_hash);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_cache_tenant_lookup ON semantic_cache(tenant_id, model, prompt_hash);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_cache_expires ON semantic_cache(expires_at);")
 
         # 2. Telemetry Request Metrics Table

@@ -21,6 +21,7 @@ from app.services.budget import BudgetManager, VirtualKeyManager
 from app.services.cache import SemanticCache
 from app.services.discovery import ProviderDiscovery, print_startup_banner
 from app.services.evals import EvalsManager
+from app.services.gateway_pipeline import GatewayPipeline
 from app.services.router import ProviderRouter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -95,6 +96,7 @@ def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None)
         db_path=active_db,
         similarity_threshold=config.cache.similarity_threshold,
         default_ttl=config.cache.ttl_seconds,
+        exact_match_fallback=config.cache.exact_match_fallback,
     )
     evals = EvalsManager(db_path=active_db, sample_rate=config.evals.sample_rate)
     budget = BudgetManager(db_path=active_db, daily_limit_usd=config.budget.daily_limit_usd)
@@ -199,6 +201,15 @@ def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None)
     app.state.evals = evals
     app.state.budget = budget
     app.state.virtual_keys = virtual_keys
+    pipeline = GatewayPipeline(
+        router=gateway_router,
+        cache=cache,
+        budget=budget,
+        evals=evals,
+        virtual_keys=virtual_keys,
+        config=config,
+    )
+    app.state.pipeline = pipeline
 
     # Include modular sub-routers
     app.include_router(health.router)

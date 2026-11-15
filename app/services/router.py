@@ -742,10 +742,42 @@ class ProviderRouter:
 
     def _convert_anthropic_to_openai(self, anth_data: Dict[str, Any], model: str) -> Dict[str, Any]:
         content_blocks = anth_data.get("content", [])
-        text = "".join(b.get("text", "") for b in content_blocks if b.get("type") == "text")
+        text_parts = []
+        tool_calls = []
+        for b in content_blocks:
+            if not isinstance(b, dict):
+                continue
+            b_type = b.get("type")
+            if b_type == "text":
+                text_parts.append(b.get("text", ""))
+            elif b_type == "tool_use":
+                tool_calls.append(
+                    {
+                        "id": b.get("id", f"call_{uuid.uuid4().hex[:8]}"),
+                        "type": "function",
+                        "function": {
+                            "name": b.get("name", ""),
+                            "arguments": json.dumps(b.get("input", {})),
+                        },
+                    }
+                )
+
+        text = "".join(text_parts)
         usage = anth_data.get("usage", {})
         prompt_tokens = usage.get("input_tokens", max(1, len(str(anth_data)) // 4))
         completion_tokens = usage.get("output_tokens", max(1, len(text) // 4))
+
+        msg: Dict[str, Any] = {"role": "assistant", "content": text if text else None}
+        if tool_calls:
+            msg["tool_calls"] = tool_calls
+
+        stop_r = anth_data.get("stop_reason", "stop")
+        if stop_r == "tool_use":
+            finish_reason = "tool_calls"
+        elif stop_r == "max_tokens":
+            finish_reason = "length"
+        else:
+            finish_reason = "stop"
 
         return {
             "id": f"chatcmpl-ant-{uuid.uuid4().hex[:12]}",
@@ -755,8 +787,8 @@ class ProviderRouter:
             "choices": [
                 {
                     "index": 0,
-                    "message": {"role": "assistant", "content": text},
-                    "finish_reason": anth_data.get("stop_reason", "stop"),
+                    "message": msg,
+                    "finish_reason": finish_reason,
                 }
             ],
             "usage": {
@@ -1037,22 +1069,78 @@ class ProviderRouter:
                         try:
                             a_data = json.loads(data_str)
                             evt_type = a_data.get("type")
-                            if evt_type == "content_block_delta":
-                                delta_text = a_data.get("delta", {}).get("text", "")
-                                chunk = {
-                                    "id": req_id,
-                                    "object": "chat.completion.chunk",
-                                    "created": int(time.time()),
-                                    "model": model,
-                                    "choices": [
-                                        {
-                                            "index": 0,
-                                            "delta": {"content": delta_text},
-                                            "finish_reason": None,
-                                        }
-                                    ],
-                                }
-                                yield f"data: {json.dumps(chunk)}\n\n"
+                            if evt_type == "content_block_start":
+                                block = a_data.get("content_block", {})
+                                if block.get("type") == "tool_use":
+                                    chunk = {
+                                        "id": req_id,
+                                        "object": "chat.completion.chunk",
+                                        "created": int(time.time()),
+                                        "model": model,
+                                        "choices": [
+                                            {
+                                                "index": 0,
+                                                "delta": {
+                                                    "role": "assistant",
+                                                    "tool_calls": [
+                                                        {
+                                                            "index": a_data.get("index", 0),
+                                                            "id": block.get("id"),
+                                                            "type": "function",
+                                                            "function": {
+                                                                "name": block.get("name"),
+                                                                "arguments": "",
+                                                            },
+                                                        }
+                                                    ],
+                                                },
+                                                "finish_reason": None,
+                                            }
+                                        ],
+                                    }
+                                    yield f"data: {json.dumps(chunk)}\n\n"
+                            elif evt_type == "content_block_delta":
+                                delta_data = a_data.get("delta", {})
+                                d_type = delta_data.get("type")
+                                if d_type == "text_delta":
+                                    delta_text = delta_data.get("text", "")
+                                    chunk = {
+                                        "id": req_id,
+                                        "object": "chat.completion.chunk",
+                                        "created": int(time.time()),
+                                        "model": model,
+                                        "choices": [
+                                            {
+                                                "index": 0,
+                                                "delta": {"content": delta_text},
+                                                "finish_reason": None,
+                                            }
+                                        ],
+                                    }
+                                    yield f"data: {json.dumps(chunk)}\n\n"
+                                elif d_type == "input_json_delta":
+                                    partial_json = delta_data.get("partial_json", "")
+                                    chunk = {
+                                        "id": req_id,
+                                        "object": "chat.completion.chunk",
+                                        "created": int(time.time()),
+                                        "model": model,
+                                        "choices": [
+                                            {
+                                                "index": 0,
+                                                "delta": {
+                                                    "tool_calls": [
+                                                        {
+                                                            "index": a_data.get("index", 0),
+                                                            "function": {"arguments": partial_json},
+                                                        }
+                                                    ]
+                                                },
+                                                "finish_reason": None,
+                                            }
+                                        ],
+                                    }
+                                    yield f"data: {json.dumps(chunk)}\n\n"
                             elif evt_type == "message_stop":
                                 yield "data: [DONE]\n\n"
                         except Exception:

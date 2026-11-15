@@ -23,6 +23,7 @@ class CacheConfig(BaseModel):
     similarity_threshold: float = 0.92
     ttl_seconds: int = 3600
     db_path: str = "sentinelgate.db"
+    exact_match_fallback: bool = True
 
 
 class GuardrailsConfig(BaseModel):

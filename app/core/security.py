@@ -96,7 +96,9 @@ async def verify_auth(request: Request) -> AuthContext:
     """Unified FastAPI authentication dependency applied to every route except /health."""
     # Exempt /health and static favicon
     if request.url.path in ("/health", "/favicon.ico"):
-        return AuthContext(token="public", is_admin=False)
+        auth_ctx = AuthContext(token="public", is_admin=False)
+        request.state.auth_context = auth_ctx
+        return auth_ctx
 
     client_ip = request.client.host if request.client else "127.0.0.1"
 
@@ -121,7 +123,9 @@ async def verify_auth(request: Request) -> AuthContext:
         # In demo mode on localhost, allow keyless access or standard sentinel-local
         token = extract_token(request)
         if not token or token in ("sentinel-local", "demo"):
-            return AuthContext(token="demo", is_admin=True)
+            auth_ctx = AuthContext(token="demo", is_admin=True)
+            request.state.auth_context = auth_ctx
+            return auth_ctx
 
     # In production/standard mode, token is strictly required
     token = extract_token(request)
@@ -142,7 +146,9 @@ async def verify_auth(request: Request) -> AuthContext:
         and secrets.compare_digest(token, "sentinel-local")
     ):
         reset_ip_failures(client_ip)
-        return AuthContext(token="admin", is_admin=True)
+        auth_ctx = AuthContext(token="admin", is_admin=True)
+        request.state.auth_context = auth_ctx
+        return auth_ctx
 
     # 2. Check virtual key manager (hashed at rest with pepper)
     virtual_keys = getattr(request.app.state, "virtual_keys", None)
@@ -178,12 +184,14 @@ async def verify_auth(request: Request) -> AuthContext:
         if is_valid:
             reset_ip_failures(client_ip)
             request.state.rate_limit_headers = rl_hdrs
-            return AuthContext(
+            auth_ctx = AuthContext(
                 token=token,
                 is_admin=False,
                 virtual_key={"token": token},
                 rate_limit_headers=rl_hdrs,
             )
+            request.state.auth_context = auth_ctx
+            return auth_ctx
         else:
             record_auth_failure(client_ip)
             status_code = 429 if "rate limit" in (err_msg or "").lower() else 401
