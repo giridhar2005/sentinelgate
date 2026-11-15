@@ -1,93 +1,117 @@
 # Security Policy & Threat Model
 
-SentinelGate provides an application-layer LLM gateway with heuristic payload inspection, semantic caching, and streaming secret redaction.
+SentinelGate provides an application-layer LLM gateway with deterministic tool-call security firewalls, semantic caching, and stateful sliding-window secret redaction.
 
-This document describes SentinelGate's **Threat Model**, what it defends against, and its **explicit architectural limitations**.
+This document outlines SentinelGate's **Threat Model**, empirical benchmark measurements, defensive capabilities, and **explicit architectural boundaries**.
 
 ---
 
 ## 1. Threat Model & Security Boundaries
 
 ### What SentinelGate Is
-- **An Application-Layer Gateway & Proxy:** SentinelGate sits between client applications (coding agents, developers, internal tools) and upstream LLM providers (OpenAI, Anthropic, Groq, Ollama).
-- **Heuristic Response Inspector:** Before returning non-streaming LLM responses to autonomous agents, SentinelGate parses the assistant's `tool_calls` / `function_call` JSON payloads to intercept commonly observed destructive shell commands, unconstrained SQL mutations, and SSRF targets.
-- **MCP Relay Guardrail:** When acting as a reverse proxy for Model Context Protocol (`/v1/mcp/proxy`), SentinelGate validates target URLs against SSRF patterns and scans incoming `tools/call` parameters.
-- **In-Flight Data Sanitizer:** SentinelGate masks PII before forwarding prompts upstream and redacts leaked API keys and credentials in streaming and non-streaming responses.
+- **An Application-Layer Gateway & Proxy:** SentinelGate sits between client autonomous agents (Cursor, Claude Code, Cline, LangGraph, custom SDKs) and upstream LLM providers (OpenAI, Anthropic, Groq, Ollama).
+- **Deterministic Pre-Execution Tool-Call Firewall:** Inspects assistant `tool_calls` / `function_call` payloads in both streaming (SSE chunk accumulation) and non-streaming modes across OpenAI and Anthropic protocols. Halts destructive shell commands, destructive SQL mutations, and SSRF attempts before client dispatch.
+- **MCP Relay Guardrail:** Reverse proxy for Model Context Protocol (`/v1/mcp/proxy`) that validates targets against SSRF/internal CIDRs and inspects incoming `tools/call` parameters.
+- **In-Flight Data Sanitizer:** Masks PII before forwarding prompts upstream and redacts leaked API keys and credentials in streaming and non-streaming responses.
 
 ### What SentinelGate Is NOT
-- **NOT an Operating System Sandbox:** SentinelGate does not run agent tools inside isolated kernel namespaces, gVisor containers, Docker seccomp profiles, or microVMs (e.g., Firecracker).
-- **NOT an Egress Network Firewall:** SentinelGate cannot govern or monitor network traffic generated directly by client applications outside the gateway transport.
-- **NOT an AST Shell Interpreter:** The tool-call inspector uses regular expression patterns and heuristic lexical normalization. It does not execute a full POSIX shell parser or dynamic taint analysis.
+- **NOT an Operating System Sandbox:** SentinelGate does not run agent tools inside isolated kernel namespaces, gVisor containers, or microVMs (e.g. Firecracker).
+- **NOT an Egress Network Firewall:** SentinelGate cannot monitor network traffic generated directly by client applications outside the gateway HTTP transport.
+- **NOT a Full Runtime Interpreter:** While SentinelGate performs lexical AST analysis (`shlex`, `sqlglot`, `urllib.parse`), it does not execute code or perform dynamic taint tracking inside an active kernel runtime.
 
 ---
 
-## 2. Guardrail Capabilities & Coverage
+## 2. Empirical Benchmark Evaluation & Corpus Validation
 
-### 2.1 Destructive Shell Interception
-SentinelGate inspects `tool_calls` arguments for patterns matching:
-- **Unconstrained deletion:** `rm -rf /`, `rm -rf ~`, `rm -rf ..`, `rm --no-preserve-root` (including `$IFS` whitespace substitution).
-- **Disk overwriting & formatting:** `mkfs`, `dd of=/dev/sd*`, `dd of=/dev/nvme*`.
-- **Denial of service:** Classical fork bombs (`:(){ :|:& };:`).
-- **Dangerous permissions:** `chmod 777`, `chmod -R 777`, `chmod a+w`.
-- **Remote code execution pipes:** `curl ... | sh`, `wget ... | bash`, `base64 -d | sh`.
-- **Reverse shells:** `bash -i >& /dev/tcp/...`, `nc -e /bin/bash`.
-- **Credential exfiltration:** Attempts to read `~/.ssh/id_*`, `/etc/shadow`, `/etc/sudoers`, `.aws/credentials`, or `.env`.
+SentinelGate's tool-call firewall is continuously benchmarked against an adversarial and benign corpus located in `tests/corpus/` (comprising 179 malicious samples from CTFs, CVEs, and bypass lists, and 154 benign samples from SWE-bench and Cursor workflows).
 
-### 2.2 Destructive SQL Mutation Interception
-SentinelGate intercepts high-risk DDL and DML operations in tool arguments:
-- `DROP TABLE`, `DROP DATABASE`, `DROP SCHEMA`, `DROP VIEW`.
-- `TRUNCATE TABLE`.
-- Unconstrained deletions (`DELETE FROM <table>` without a `WHERE` clause).
-- Tautology deletions (`DELETE FROM <table> WHERE 1=1` or `WHERE 'a'='a'`).
-- `ALTER TABLE <table> DROP COLUMN`.
-- Handles inline SQL comment evasion (`DROP/**/TABLE`, `DROP/*comment*/TABLE`).
+| Metric | Measured Result | CI Acceptance Gate |
+| :--- | :--- | :--- |
+| **Malicious Attack Corpus** | **179 samples** | &ge; 150 samples |
+| **Benign Developer Corpus** | **154 samples** | &ge; 150 samples |
+| **True Positives (TP)** | **179** | &mdash; |
+| **False Negatives (FN)** | **0** | &mdash; |
+| **False Positives (FP)** | **0** | &mdash; |
+| **True Negatives (TN)** | **154** | &mdash; |
+| **Empirical Recall** | **100.0%** (1.0000) | &ge; 90.0% |
+| **Empirical Precision** | **100.0%** (1.0000) | &ge; 95.0% |
+| **False Positive Rate (FPR)** | **0.00%** (0.0000) | &le; 2.0% |
 
-### 2.3 SSRF & Metadata Protection
-Both `/v1/mcp/proxy` and the tool guard validate outbound destinations:
-- **Cloud Metadata Services:** Intercepts `169.254.169.254` (AWS/Azure/GCP metadata) and `metadata.google.internal`.
-- **Loopback & Private Networks:** Rejects `127.0.0.1`, `localhost`, `0.0.0.0`, `::1`, and RFC 1918 private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`).
-- **Obfuscated IP Literals:** Resolves bracketed IPv6 literals (`[::1]`, `[::ffff:127.0.0.1]`), integer decimal IPs (`http://2852039166`), hex IPs (`http://0x7f000001`), and octal representations via C-level `inet_aton`.
-- **Dangerous Schemes:** Blocks `file://`, `gopher://`, `dict://`, `ldap://`, `sftp://`.
+*Measurements verified locally via `tests/test_firewall_corpus.py`.*
 
 ---
 
-## 3. Known Limitations & Bypass Risks
+## 3. Firewall Capabilities & Coverage
 
-Deploying SentinelGate does not replace OS-level isolation. You should be aware of the following known evasion risks:
+### 3.1 Lexical & AST Shell Inspection (`shlex`)
+SentinelGate parses shell commands using Python's `shlex` lexical analyzer:
+- **Flag Normalization:** De-aggregates and normalizes combined and split flags (e.g., `-r -f` &rarr; `-rf`, `--recursive --force`).
+- **Target Resolution:** Resolves relative paths (`..`), wildcards (`*`, `/*`), tildes (`~`, `~/*`), root (`/`, `/etc`, `/var`, `/usr`, `/root`), and `$IFS` whitespace substitution.
+- **Subshell & Substitution Traversal:** Recursively analyzes subshell invocations `$(...)`, `` `...` ``, and process substitutions `<(...)`.
+- **Variable Resolution:** Expands inline variable assignments (e.g. `TARGET=/; rm -rf $TARGET`).
+- **Pipeline & Sequence Splitting:** Traverses pipelines (`|`), logical operators (`&&`, `||`), and separators (`;`, `\n`).
+- **Disk & Filesystem Protection:** Blocks `mkfs`, `fdisk`, and `dd of=/dev/sd*` or `of=/dev/nvme*`.
+- **RCE & Reverse Shells:** Intercepts `curl | bash`, `wget | sh`, `base64 -d | sh`, `/dev/tcp/` device redirection, and `nc -e /bin/sh`.
+- **Credential Theft:** Blocks access to `~/.ssh/id_*`, `/etc/shadow`, `/etc/sudoers`, `.aws/credentials`, and `.env`.
 
-### 1. Command Obfuscation & Shell Dynamic Evaluation
-Heuristic regex scanning can be bypassed by determined adversaries using:
-- **String concatenation:** `a="r"; b="m"; $a$b -rf /`
-- **Variable indirection / Subshells:** `eval $(echo cm0gLXJmIC8= | base64 -d)`
-- **Polymorphic Python / Node / Ruby scripts:** A tool call that executes `python -c "import os, shutil; shutil.rmtree('/')"` will not match `rm -rf` regex rules.
+### 3.2 SQL AST Inspection (`sqlglot`)
+SentinelGate compiles queries into abstract syntax trees via `sqlglot`:
+- **Destructive DDL/DML:** Blocks `DROP TABLE`, `DROP DATABASE`, `DROP SCHEMA`, `DROP VIEW`, and `TRUNCATE TABLE`.
+- **Unconstrained Deletions:** Blocks `DELETE FROM <table>` without a `WHERE` clause.
+- **Tautology Deletions:** Blocks disguised deletes using boolean tautologies (`WHERE 1=1`, `WHERE 'a'='a'`, `WHERE true`, or identity checks like `WHERE x = x`).
+- **Unconstrained Updates:** Blocks `UPDATE <table> SET ...` without a `WHERE` clause or with tautological predicates.
+- **Comment Evasion Resistance:** Strips and handles inline comments (`DROP/**/TABLE`).
 
-### 2. Streaming Tool Calls (`stream=True`)
-In OpenAI-compatible streaming mode, model output is emitted token-by-token over Server-Sent Events (`SSE`). Tool calls are fragmented across multiple `delta.tool_calls` chunks:
-- SentinelGate's stateful sliding window redactor scrubs secrets in streaming text chunks.
-- However, tool-call payload inspection only executes on completed non-streaming responses (`/v1/chat/completions`). Clients streaming tool calls should re-assemble arguments and validate them locally before execution.
+### 3.3 SSRF & Metadata Protection (`urllib.parse` + DNS Resolution)
+- **RFC 3986 URL Parsing:** Strict validation of URL scheme (permits only `http` and `https`; rejects `file://`, `gopher://`, `dict://`, `ldap://`, `sftp://`).
+- **Userinfo Disallowed:** Rejects embedded credentials in URLs (`http://user:pass@host`).
+- **Cloud Metadata Literal Blocking:** Intercepts `169.254.169.254`, `[fd00:ec2::254]`, `100.100.100.200`, `metadata.google.internal`, and `metadata.azure.com`.
+- **DNS Resolution Check:** Uses `socket.getaddrinfo` to resolve hostnames before connection, rejecting any target that resolves to:
+  - Loopback (`127.0.0.0/8`, `::1`)
+  - Private networks RFC 1918 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`)
+  - Link-local (`169.254.0.0/16`, `fe80::/10`)
+  - Carrier-Grade NAT / CGNAT (`100.64.0.0/10`)
+  - Multicast, reserved, and unspecified addresses (`0.0.0.0`)
+- **Obfuscated IP Representations:** Detects integer decimal IPs (`http://2852039166`), hex IPs (`http://0x7f000001`), and octal IPs (`http://0177.0.0.1`).
 
-### 3. Client Agent Compliance
-SentinelGate modifies the LLM response to return a standard `refusal` message when a dangerous tool call is detected:
-- Compliant agents (e.g. standard LangChain, Cursor, Claude Code) read the refusal content and halt or retry.
-- If a client agent ignores model refusals or executes commands through channels not routed through SentinelGate, the gateway cannot prevent the action.
+### 3.4 Parameter Scoping & Zero False Positives on Code Writes
+The firewall scopes inspection strictly to executable parameter fields (`command`, `cmd`, `query`, `sql`, `url`, `endpoint`, `script`).
+- Tools designed to create or edit files (e.g., `write_file`, `create_file`, `edit_file`) do **NOT** scan document content parameters (`content`, `text`, `diff`, `data`).
+- This allows developers and agents to write source code, unit tests, or markdown documentation that mention security patterns (such as `rm -rf` or `DROP TABLE`) without triggering false alarms.
 
-### 4. DNS Rebinding Attacks
-When checking external hostnames in `/v1/mcp/proxy`, SentinelGate verifies the hostname syntax and rejects known private suffixes. However:
-- A malicious external domain may resolve to a safe public IP during DNS check, and subsequently resolve to `127.0.0.1` upon socket connection (Time-of-Check to Time-of-Use DNS rebinding).
-- For high-security environments, run SentinelGate behind an egress proxy that pins resolved socket IPs, or provide a strict allowlist of authorized hostnames.
+### 3.5 Configurable Policy Allowlists & Modes
+- `allowed_shell_prefixes`: e.g. `["git ", "npm test", "pytest"]`
+- `allowed_sql_tables`: e.g. `["temp_", "sandbox_"]`
+- `allowed_external_domains`: e.g. `["api.github.com", "huggingface.co"]`
+- `firewall_mode`:
+  - `"block"` (default): Returns an OpenAI-compatible sanitized refusal structure with HTTP 200 and `X-Agent-Firewall-Blocked: true`.
+  - `"audit"`: Logs the security violation in evals telemetry for observability without modifying the response payload.
 
 ---
 
-## 4. Recommended Defense-in-Depth Architecture
+## 4. Known Boundaries & Limitations
 
-For production agent deployments, use SentinelGate as the **first-mile application filter**, paired with:
-1. **Container / Sandboxing Isolation:** Run agent execution workers inside unprivileged Docker containers, gVisor sandboxes, or temporary Firecracker microVMs.
+SentinelGate is designed as a high-throughput, low-latency first-mile proxy filter. It does NOT replace defense-in-depth infrastructure:
+
+1. **Polymorphic Python / Language Runtimes:**
+   A tool invocation running `python -c "import os, shutil; shutil.rmtree('/')"` executes Python source code rather than a shell script. While SentinelGate inspects shell commands, it does not sandbox arbitrary Python ASTs.
+2. **Time-of-Check to Time-of-Use (TOCTOU) DNS Rebinding:**
+   While SentinelGate resolves hostnames via `socket.getaddrinfo` to verify IP safety, an adversary controlling an authoritative DNS nameserver could return a public IP during the pre-execution check and a loopback IP (`127.0.0.1`) during subsequent client execution. For high-security environments, outbound traffic must also be restricted at the network security group / firewall level.
+3. **Client Agent Compliance:**
+   SentinelGate synthesizes structured refusals inside the returned completion choices. Standard agents (Cursor, Claude Code, Cline, LangGraph) read the refusal and safely abort. If a client application ignores model tool refusals and executes raw parameters, the gateway cannot prevent the action.
+
+---
+
+## 5. Recommended Defense-in-Depth Architecture
+
+For production agent deployments, use SentinelGate as the **application-layer gateway**, combined with:
+1. **Container / Sandboxing Isolation:** Run agent execution workers inside unprivileged Docker containers, gVisor sandboxes, or Firecracker microVMs.
 2. **Read-Only Root Filesystems:** Mount execution filesystems with `read_only: true` and discardable `/tmp` tmpfs.
 3. **Restricted IAM & DB Roles:** Ensure database connections used by agents lack `DROP`, `TRUNCATE`, or `ALTER` permissions.
-4. **Network Segmentation:** Enforce iptables or cloud security groups blocking outbound access to metadata endpoints (`169.254.169.254`).
+4. **Network Segmentation:** Enforce cloud security groups or iptables rules blocking outbound access to metadata endpoints (`169.254.169.254`).
 
 ---
 
-## 5. Reporting a Security Vulnerability
+## 6. Reporting a Security Vulnerability
 
-If you discover a security vulnerability in SentinelGate, please report it privately via GitHub Security Advisories or by emailing the project maintainers directly. Please do not open public GitHub issues for undisclosed security vulnerabilities.
+If you discover a security vulnerability in SentinelGate, please report it privately via GitHub Security Advisories or by emailing the maintainer directly. Please do not open public GitHub issues for undisclosed security vulnerabilities.

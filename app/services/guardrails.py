@@ -14,7 +14,11 @@ SECRET_PATTERNS = [
     re.compile(r"sk-ant-[a-zA-Z0-9_-]{20,}", re.IGNORECASE),  # Anthropic API key
     re.compile(r"AKIA[0-9A-Z]{16}", re.IGNORECASE),  # AWS Access Key
     re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}", re.IGNORECASE),  # JWT token
-    re.compile(r"gh[pousr]_[a-zA-Z0-9]{36}", re.IGNORECASE),  # GitHub Token
+    re.compile(r"gh[pousr]_[a-zA-Z0-9]{30,}", re.IGNORECASE),  # GitHub Token
+    re.compile(
+        r"xox[baprs]-[0-9a-zA-Z]{10,13}-[0-9a-zA-Z]{10,13}-[a-zA-Z0-9]{24,}", re.IGNORECASE
+    ),  # Slack Token
+    re.compile(r"AIzaSy[0-9a-zA-Z_-]{25,}", re.IGNORECASE),  # Google API key
     re.compile(
         r"(?:postgres(?:ql)?|mongodb(?:\+srv)?|mysql|redis):\/\/[^\s\"'>]+", re.IGNORECASE
     ),  # Database URIs
@@ -27,7 +31,15 @@ SECRET_REDACTION_RULES = [
     ("KEY_OPENAI", re.compile(r"\b(?:sk-[a-zA-Z0-9_-]{20,})\b", re.IGNORECASE)),
     ("KEY_ANTHROPIC", re.compile(r"\b(?:sk-ant-[a-zA-Z0-9_-]{20,})\b", re.IGNORECASE)),
     ("KEY_AWS", re.compile(r"\b(?:AKIA[0-9A-Z]{16})\b")),
-    ("KEY_GITHUB", re.compile(r"\b(?:gh[pousr]_[a-zA-Z0-9]{36})\b")),
+    ("KEY_GITHUB", re.compile(r"\b(?:gh[pousr]_[a-zA-Z0-9]{30,})\b")),
+    (
+        "KEY_SLACK",
+        re.compile(
+            r"\b(?:xox[baprs]-[0-9a-zA-Z]{10,13}-[0-9a-zA-Z]{10,13}-[a-zA-Z0-9]{24,})\b",
+            re.IGNORECASE,
+        ),
+    ),
+    ("KEY_GEMINI", re.compile(r"\b(?:AIzaSy[0-9a-zA-Z_-]{25,})\b", re.IGNORECASE)),
     (
         "DB_URI",
         re.compile(
