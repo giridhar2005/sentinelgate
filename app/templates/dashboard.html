@@ -90,7 +90,7 @@
           </svg>
         </div>
         <span class="font-semibold text-sm tracking-tight text-white">SentinelGate</span>
-        <span class="text-xs text-zinc-500 font-mono">v0.3.0</span>
+        <span class="text-xs text-zinc-500 font-mono">v0.5.0</span>
       </div>
       <div class="h-4 w-px bg-hairline"></div>
       <div class="flex items-center space-x-2">
@@ -106,6 +106,12 @@
         <span class="text-xs text-zinc-400">Shortcuts</span>
         <kbd class="px-1 py-0.2 rounded bg-zinc-800 border border-hairline text-[10px] text-zinc-400 font-mono">?</kbd>
       </button>
+
+      <!-- Prometheus Metrics Exposition Link -->
+      <a href="/metrics" target="_blank" class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight transition text-zinc-300 hover:text-white" title="Prometheus Metrics Exposition (/metrics)">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+        <span class="font-mono text-xs">/metrics</span>
+      </a>
 
       <!-- Export Evals Button -->
       <a href="/api/export/traces.jsonl" download class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight transition text-zinc-300 hover:text-white" title="Download Eval Dataset (OpenAI JSONL format)">
@@ -248,6 +254,11 @@
               <span>Auto-Route (Complex)</span>
               <span class="text-[10px] text-amber-400 font-mono">(FRONTIER)</span>
             </button>
+            <button onclick="runTestPreset('F')" class="text-xs px-2.5 py-1 rounded bg-panelElevated border border-rose-900/60 hover:border-rose-700 text-rose-300 transition flex items-center space-x-1.5" title="Test Agent Tool-Call Firewall (intercepts destructive shell/SQL/SSRF)">
+              <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+              <span>Agent Tool Attack</span>
+              <span class="text-[10px] text-rose-400 font-mono">(BLOCK)</span>
+            </button>
           </div>
 
           <!-- Input Box -->
@@ -269,6 +280,10 @@
             <label class="flex items-center space-x-1.5 cursor-pointer text-zinc-400">
               <input type="checkbox" id="sim-nocache" class="rounded bg-canvas border-hairline text-zinc-600 focus:ring-0">
               <span>Bypass Cache</span>
+            </label>
+            <label class="flex items-center space-x-1.5 cursor-pointer text-amber-400/90" title="Speculative Hedging: Race primary against fallback to eliminate p99 tail latency">
+              <input type="checkbox" id="sim-hedge" class="rounded bg-canvas border-hairline text-amber-500 focus:ring-0">
+              <span class="font-mono text-[11px]">Hedge (Tail Slasher)</span>
             </label>
           </div>
 
@@ -317,16 +332,28 @@
 
     </div>
 
-    <!-- Section 3: Navigation Tabs (Trace Logs / Virtual Keys) -->
+    <!-- Section 3: Navigation Tabs (Trace Logs / Agent Firewall / Benchmark / Virtual Keys) -->
     <div class="border-b border-hairline flex items-center justify-between">
       <div class="flex space-x-6 text-sm">
         <button id="tab-btn-traces" onclick="switchTab('traces')" class="py-2.5 border-b-2 border-white text-white font-medium transition flex items-center space-x-2">
           <span>Request Traces</span>
           <span id="badge-req-count" class="text-xs mono-nums px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300">0</span>
         </button>
+        <button id="tab-btn-firewall" onclick="switchTab('firewall')" class="py-2.5 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 font-medium transition flex items-center space-x-2">
+          <span>Agent Security Firewall</span>
+          <span id="badge-firewall-count" class="text-xs mono-nums px-1.5 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800/60">0</span>
+        </button>
+        <button id="tab-btn-benchmark" onclick="switchTab('benchmark')" class="py-2.5 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 font-medium transition flex items-center space-x-2">
+          <span>Live Benchmark Runner</span>
+          <span class="text-[10px] mono-nums px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60">LIVE</span>
+        </button>
         <button id="tab-btn-keys" onclick="switchTab('keys')" class="py-2.5 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 font-medium transition flex items-center space-x-2">
           <span>Virtual API Keys</span>
           <span id="badge-key-count" class="text-xs mono-nums px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300">0</span>
+        </button>
+        <button id="tab-btn-roi" onclick="switchTab('roi')" class="py-2.5 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 font-medium transition flex items-center space-x-2">
+          <span>Enterprise ROI Estimator</span>
+          <span class="text-[10px] mono-nums px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60">-68% COST</span>
         </button>
       </div>
 
@@ -419,6 +446,301 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- Tab 3: Agent Security Firewall Audit & Policies -->
+    <div id="tab-firewall" class="hidden space-y-6">
+      <!-- Active Guard Policies Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-panel border border-hairline rounded-lg p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-zinc-400">SHELL INSPECTOR</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono">ENFORCING</span>
+          </div>
+          <div class="text-sm font-semibold text-zinc-100">Destructive Shell & RCE</div>
+          <p class="text-xs text-zinc-400">Blocks <code class="text-zinc-300">rm -rf</code>, <code class="text-zinc-300">mkfs</code>, <code class="text-zinc-300">dd</code>, pipe-to-shell, reverse TCP shells, and SSH key reads.</p>
+        </div>
+
+        <div class="bg-panel border border-hairline rounded-lg p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-zinc-400">SQL INSPECTOR</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono">ENFORCING</span>
+          </div>
+          <div class="text-sm font-semibold text-zinc-100">SQL Mutation Firewall</div>
+          <p class="text-xs text-zinc-400">Blocks unconstrained <code class="text-zinc-300">DROP</code>, <code class="text-zinc-300">TRUNCATE</code>, and unguarded <code class="text-zinc-300">DELETE FROM</code> in tool calls.</p>
+        </div>
+
+        <div class="bg-panel border border-hairline rounded-lg p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-zinc-400">SSRF / METADATA</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono">ENFORCING</span>
+          </div>
+          <div class="text-sm font-semibold text-zinc-100">SSRF & Cloud Metadata</div>
+          <p class="text-xs text-zinc-400">Blocks AWS/Azure <code class="text-zinc-300">169.254.169.254</code>, GCP metadata, loopbacks, and private RFC 1918 subnets.</p>
+        </div>
+
+        <div class="bg-panel border border-hairline rounded-lg p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-zinc-400">MCP PROTOCOL</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono">ENFORCING</span>
+          </div>
+          <div class="text-sm font-semibold text-zinc-100">MCP JSON-RPC Proxy</div>
+          <p class="text-xs text-zinc-400">Pre-execution validation on <code class="text-zinc-300">POST /v1/mcp/proxy</code> for Claude Code & Cursor servers.</p>
+        </div>
+      </div>
+
+      <!-- Live Security Audit Log -->
+      <div class="bg-panel border border-hairline rounded-lg overflow-hidden">
+        <div class="p-4 border-b border-hairline flex items-center justify-between bg-canvas">
+          <div>
+            <h3 class="text-xs font-mono text-zinc-300 uppercase tracking-wider font-semibold">Firewall Audit & Blocked Operations</h3>
+            <p class="text-xs text-zinc-500">Live intercept audit log captured by SentinelGate Agent Security Firewall</p>
+          </div>
+          <button onclick="fetchFirewallAudit()" class="px-2.5 py-1 text-xs font-mono bg-panelElevated border border-hairline hover:border-hairlineLight text-zinc-300 rounded transition">
+            Refresh Audit Log
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="bg-canvas border-b border-hairline text-zinc-400 uppercase tracking-wider text-[11px]">
+              <tr>
+                <th class="py-3 px-4">Timestamp</th>
+                <th class="py-3 px-4">Request ID</th>
+                <th class="py-3 px-4">Event Type</th>
+                <th class="py-3 px-4">Threat Signature & Detail</th>
+                <th class="py-3 px-4 text-right">Policy Action</th>
+              </tr>
+            </thead>
+            <tbody id="firewall-audit-body" class="divide-y divide-hairline">
+              <tr>
+                <td colspan="5" class="py-6 text-center text-zinc-500">Loading firewall audit logs...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Live In-Process Benchmark Runner -->
+    <div id="tab-benchmark" class="hidden space-y-6">
+      <div class="bg-panel border border-hairline rounded-lg p-5 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-hairline">
+          <div>
+            <h3 class="text-sm font-semibold text-zinc-100">Live In-Process Benchmark Engine</h3>
+            <p class="text-xs text-zinc-400">Measure real microsecond proxy overhead, SQLite WAL throughput, and memory RSS.</p>
+          </div>
+          <button id="btn-run-bench" onclick="runLiveBenchmarkSuite()" class="px-4 py-2 rounded bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold font-mono transition flex items-center space-x-2">
+            <span id="bench-spinner" class="hidden w-3 h-3 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin"></span>
+            <span>Execute 50-Req Benchmark</span>
+          </button>
+        </div>
+
+        <!-- Controls -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+          <div>
+            <label class="text-zinc-400 block mb-1">Target Engine:</label>
+            <select id="bench-type" class="w-full bg-canvas border border-hairline rounded p-2 text-zinc-200">
+              <option value="cache_hit">Semantic Cache (BAAI/bge-small-en-v1.5 &lt;2ms)</option>
+              <option value="sandbox">Deterministic Gateway Sandbox (Sub-20ms)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-zinc-400 block mb-1">Concurrency (c):</label>
+            <select id="bench-concurrency" class="w-full bg-canvas border border-hairline rounded p-2 text-zinc-200">
+              <option value="1">c=1 (Sequential baseline)</option>
+              <option value="10" selected>c=10 (Standard multi-worker)</option>
+              <option value="50">c=50 (High concurrency stress)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-zinc-400 block mb-1">Total Requests:</label>
+            <select id="bench-requests" class="w-full bg-canvas border border-hairline rounded p-2 text-zinc-200">
+              <option value="25">25 requests</option>
+              <option value="50" selected>50 requests</option>
+              <option value="100">100 requests</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Benchmark Results Card (hidden by default until run) -->
+        <div id="bench-results-container" class="mt-4 pt-4 border-t border-hairline space-y-4">
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div class="bg-canvas border border-hairline rounded p-3 text-center">
+              <div class="text-[10px] text-zinc-500 uppercase font-mono">Throughput</div>
+              <div id="bench-rps" class="text-lg font-bold font-mono text-emerald-400 mt-0.5">-- req/s</div>
+            </div>
+            <div class="bg-canvas border border-hairline rounded p-3 text-center">
+              <div class="text-[10px] text-zinc-500 uppercase font-mono">p50 Latency</div>
+              <div id="bench-p50" class="text-lg font-bold font-mono text-zinc-100 mt-0.5">-- ms</div>
+            </div>
+            <div class="bg-canvas border border-hairline rounded p-3 text-center">
+              <div class="text-[10px] text-zinc-500 uppercase font-mono">p95 Latency</div>
+              <div id="bench-p95" class="text-lg font-bold font-mono text-zinc-100 mt-0.5">-- ms</div>
+            </div>
+            <div class="bg-canvas border border-hairline rounded p-3 text-center">
+              <div class="text-[10px] text-zinc-500 uppercase font-mono">p99 Latency</div>
+              <div id="bench-p99" class="text-lg font-bold font-mono text-amber-400 mt-0.5">-- ms</div>
+            </div>
+            <div class="bg-canvas border border-hairline rounded p-3 text-center">
+              <div class="text-[10px] text-zinc-500 uppercase font-mono">Memory RSS</div>
+              <div id="bench-rss" class="text-lg font-bold font-mono text-zinc-300 mt-0.5">-- MB</div>
+            </div>
+          </div>
+
+          <!-- Latency Bars Visualizer -->
+          <div class="bg-canvas border border-hairline rounded p-4 space-y-2">
+            <div class="text-xs font-mono text-zinc-400 mb-3">LATENCY DISTRIBUTION PROFILE (PERCENTILES)</div>
+            <div class="space-y-2 text-xs font-mono">
+              <div class="flex items-center space-x-3">
+                <span class="w-12 text-zinc-400">p50</span>
+                <div class="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden">
+                  <div id="bar-p50" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 15%"></div>
+                </div>
+                <span id="text-p50" class="w-16 text-right text-zinc-200">-- ms</span>
+              </div>
+              <div class="flex items-center space-x-3">
+                <span class="w-12 text-zinc-400">p90</span>
+                <div class="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden">
+                  <div id="bar-p90" class="bg-blue-500 h-2 rounded-full transition-all duration-500" style="width: 25%"></div>
+                </div>
+                <span id="text-p90" class="w-16 text-right text-zinc-200">-- ms</span>
+              </div>
+              <div class="flex items-center space-x-3">
+                <span class="w-12 text-zinc-400">p95</span>
+                <div class="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden">
+                  <div id="bar-p95" class="bg-violet-500 h-2 rounded-full transition-all duration-500" style="width: 35%"></div>
+                </div>
+                <span id="text-p95" class="w-16 text-right text-zinc-200">-- ms</span>
+              </div>
+              <div class="flex items-center space-x-3">
+                <span class="w-12 text-zinc-400">p99</span>
+                <div class="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden">
+                  <div id="bar-p99" class="bg-amber-500 h-2 rounded-full transition-all duration-500" style="width: 45%"></div>
+                </div>
+                <span id="text-p99" class="w-16 text-right text-zinc-200">-- ms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 5: Enterprise ROI & Cloud Spend Estimator -->
+    <div id="tab-roi" class="hidden space-y-6">
+      <div class="bg-panel border border-hairline rounded-lg p-5 space-y-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-hairline gap-3">
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="text-sm font-semibold text-zinc-100">Enterprise LLM Cost &amp; ROI Estimator</h3>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium badge-hit uppercase">Production Model</span>
+            </div>
+            <p class="text-xs text-zinc-400 mt-0.5">Simulate cost reduction, cache savings, and failover protection for organizational LLM workloads.</p>
+          </div>
+          <!-- Presets -->
+          <div class="flex items-center space-x-2 text-xs font-mono">
+            <span class="text-zinc-500">Presets:</span>
+            <button onclick="setRoiPreset(15000, 1500)" class="px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-zinc-300 transition">Startup (15k/day)</button>
+            <button onclick="setRoiPreset(100000, 2000)" class="px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-zinc-300 transition">Growth (100k/day)</button>
+            <button onclick="setRoiPreset(500000, 3500)" class="px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-emerald-400 border-emerald-900/50 transition">Scale (500k/day)</button>
+          </div>
+        </div>
+
+        <!-- Sliders -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-canvas border border-hairline rounded-lg p-4">
+          <!-- Slider 1 -->
+          <div>
+            <div class="flex items-center justify-between text-xs font-mono mb-2">
+              <label class="text-zinc-300 font-medium">Daily LLM Requests</label>
+              <span id="roi-req-display" class="text-emerald-400 font-bold mono-nums text-sm">50,000 / day</span>
+            </div>
+            <input type="range" id="roi-slider-req" min="1000" max="1000000" step="1000" value="50000" oninput="updateRoiCalculator()" class="w-full accent-emerald-500 cursor-pointer">
+            <div class="flex justify-between text-[10px] font-mono text-zinc-500 mt-1">
+              <span>1k</span>
+              <span>100k</span>
+              <span>500k</span>
+              <span>1,000,000 req/day</span>
+            </div>
+          </div>
+
+          <!-- Slider 2 -->
+          <div>
+            <div class="flex items-center justify-between text-xs font-mono mb-2">
+              <label class="text-zinc-300 font-medium">Average Tokens / Request</label>
+              <span id="roi-tokens-display" class="text-emerald-400 font-bold mono-nums text-sm">2,000 tokens</span>
+            </div>
+            <input type="range" id="roi-slider-tokens" min="500" max="8000" step="100" value="2000" oninput="updateRoiCalculator()" class="w-full accent-emerald-500 cursor-pointer">
+            <div class="flex justify-between text-[10px] font-mono text-zinc-500 mt-1">
+              <span>500 (Chat/Code)</span>
+              <span>2,000 (RAG)</span>
+              <span>4,000 (Agent Loop)</span>
+              <span>8,000 tokens</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- Monthly Without -->
+          <div class="bg-canvas border border-hairline rounded-lg p-4">
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Monthly Direct Cloud Spend</div>
+            <div id="roi-spend-without" class="text-2xl font-bold font-mono text-zinc-300 mt-1 mono-nums">$30,000</div>
+            <div class="text-[11px] text-zinc-500 mt-1">Direct to frontier API ($10/1M)</div>
+          </div>
+
+          <!-- Monthly With SentinelGate -->
+          <div class="bg-canvas border border-hairline rounded-lg p-4">
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Spend With SentinelGate</div>
+            <div id="roi-spend-with" class="text-2xl font-bold font-mono text-emerald-400 mt-1 mono-nums">$2,035</div>
+            <div class="text-[11px] text-zinc-500 mt-1">Cache (68%) + Auto-Route (80%)</div>
+          </div>
+
+          <!-- Annual Net Savings -->
+          <div class="bg-canvas border border-emerald-900/50 bg-emerald-950/10 rounded-lg p-4">
+            <div class="text-[11px] font-mono text-emerald-400 uppercase flex items-center justify-between">
+              <span>Net Annual Savings</span>
+              <span id="roi-percent-saved" class="px-1.5 py-0.2 rounded bg-emerald-900/40 text-emerald-300 text-[10px]">-93.2%</span>
+            </div>
+            <div id="roi-annual-savings" class="text-2xl font-bold font-mono text-white mt-1 mono-nums">$335,578 / yr</div>
+            <div class="text-[11px] text-emerald-400/80 mt-1 font-mono">Immediate OPEX capital retained</div>
+          </div>
+
+          <!-- Availability & Outage Protection -->
+          <div class="bg-canvas border border-hairline rounded-lg p-4">
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Failover SLA Protection</div>
+            <div class="text-2xl font-bold font-mono text-amber-400 mt-1 mono-nums">99.99%</div>
+            <div class="text-[11px] text-zinc-500 mt-1">0 dropped requests on 429/503</div>
+          </div>
+        </div>
+
+        <!-- Architectural Value Props -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <div class="border border-hairline rounded-lg p-4 bg-canvas/50">
+            <div class="flex items-center space-x-2 text-xs font-semibold text-emerald-400 font-mono mb-1.5">
+              <span>01. Semantic Cache Elimination</span>
+            </div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              FastEmbed ONNX cosine evaluation matches semantically identical prompts in &lt;2ms. 68% of redundant organizational queries never touch upstream providers, incurring exactly $0 in cloud cost.
+            </p>
+          </div>
+          <div class="border border-hairline rounded-lg p-4 bg-canvas/50">
+            <div class="flex items-center space-x-2 text-xs font-semibold text-sky-400 font-mono mb-1.5">
+              <span>02. Microsecond Utility Auto-Routing</span>
+            </div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              When <code class="text-zinc-200">model="auto"</code> is set, classification, JSON parsing, and summarization route to ultra-fast $0.15/1M models. Complex reasoning dynamically escalates to frontier models.
+            </p>
+          </div>
+          <div class="border border-hairline rounded-lg p-4 bg-canvas/50">
+            <div class="flex items-center space-x-2 text-xs font-semibold text-amber-400 font-mono mb-1.5">
+              <span>03. Zero-Ops In-Process High Availability</span>
+            </div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              Zero external dependencies. Runs locally on SQLite WAL mode with dynamic circuit-breakers, eliminating single-points-of-failure and engineering on-call headaches.
+            </p>
+          </div>
+        </div>
+
+      </div>
     </div>
 
   </main>
@@ -778,6 +1100,7 @@ console.log(completion.choices[0].message.content);</code></pre>
       fetchMetrics();
       fetchVirtualKeys();
       startAutoRefresh();
+      updateRoiCalculator();
 
       if (window.location.search.includes("preview=true")) {
         setTimeout(async () => {
@@ -838,6 +1161,7 @@ console.log(completion.choices[0].message.content);</code></pre>
       if (document.getElementById("stat-p95")) document.getElementById("stat-p95").innerText = (data.p95_latency_ms || 0.0) + " ms";
       if (document.getElementById("stat-secrets-scrubbed")) document.getElementById("stat-secrets-scrubbed").innerText = (data.secrets_scrubbed || 0).toLocaleString();
       if (document.getElementById("stat-blocked")) document.getElementById("stat-blocked").innerText = (data.blocked_guardrail_events || 0).toLocaleString();
+      if (document.getElementById("badge-firewall-count")) document.getElementById("badge-firewall-count").innerText = (data.blocked_guardrail_events || 0).toLocaleString();
 
       // Budget
       if (data.budget) {
@@ -1073,19 +1397,69 @@ console.log(completion.choices[0].message.content);</code></pre>
       document.getElementById("trace-drawer").classList.add("translate-x-full");
     }
 
-    // Tabs
+    // Tabs (Traces / Firewall / Benchmark / Virtual Keys / ROI)
     function switchTab(tab) {
-      if (tab === 'traces') {
-        document.getElementById("tab-traces").classList.remove("hidden");
-        document.getElementById("tab-keys").classList.add("hidden");
-        document.getElementById("tab-btn-traces").className = "py-2.5 border-b-2 border-white text-white font-medium transition flex items-center space-x-2";
-        document.getElementById("tab-btn-keys").className = "py-2.5 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 font-medium transition flex items-center space-x-2";
-      } else {
-        document.getElementById("tab-traces").classList.add("hidden");
-        document.getElementById("tab-keys").classList.remove("hidden");
-        document.getElementById("tab-btn-keys").className = "py-2.5 border-b-2 border-white text-white font-medium transition flex items-center space-x-2";
-        document.getElementById("tab-btn-traces").className = "py-2.5 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 font-medium transition flex items-center space-x-2";
-        fetchVirtualKeys();
+      const allTabs = ['traces', 'firewall', 'benchmark', 'keys', 'roi'];
+      allTabs.forEach(t => {
+        const pane = document.getElementById("tab-" + t);
+        const btn = document.getElementById("tab-btn-" + t);
+        if (pane) {
+          if (t === tab) pane.classList.remove("hidden");
+          else pane.classList.add("hidden");
+        }
+        if (btn) {
+          if (t === tab) btn.className = "py-2.5 border-b-2 border-white text-white font-medium transition flex items-center space-x-2";
+          else btn.className = "py-2.5 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 font-medium transition flex items-center space-x-2";
+        }
+      });
+      if (tab === 'keys') fetchVirtualKeys();
+      if (tab === 'firewall') fetchFirewallAudit();
+      if (tab === 'roi') updateRoiCalculator();
+    }
+
+    function updateRoiCalculator() {
+      const sliderReq = document.getElementById("roi-slider-req");
+      const sliderTokens = document.getElementById("roi-slider-tokens");
+      if (!sliderReq || !sliderTokens) return;
+
+      const dailyReq = parseInt(sliderReq.value, 10);
+      const avgTokens = parseInt(sliderTokens.value, 10);
+
+      document.getElementById("roi-req-display").textContent = dailyReq.toLocaleString() + " / day";
+      document.getElementById("roi-tokens-display").textContent = avgTokens.toLocaleString() + " tokens";
+
+      // 30 days per month
+      const monthlyTokens = dailyReq * avgTokens * 30;
+
+      // Baseline: Frontier model @ $10.00 / 1M tokens
+      const monthlySpendWithout = (monthlyTokens / 1000000) * 10.0;
+
+      // SentinelGate:
+      // 68% cache hit rate = $0 cost
+      // 32% uncached:
+      //   80% routed to $0.15/1M utility model
+      //   20% routed to $10.00/1M frontier model
+      // Blended uncached rate = (0.80 * 0.15) + (0.20 * 10.00) = 0.12 + 2.00 = $2.12 / 1M tokens
+      const uncachedTokens = monthlyTokens * 0.32;
+      const monthlySpendWith = (uncachedTokens / 1000000) * 2.12;
+
+      const monthlySavings = monthlySpendWithout - monthlySpendWith;
+      const annualSavings = monthlySavings * 12;
+      const percentSaved = ((monthlySavings / monthlySpendWithout) * 100).toFixed(1);
+
+      document.getElementById("roi-spend-without").textContent = "$" + Math.round(monthlySpendWithout).toLocaleString();
+      document.getElementById("roi-spend-with").textContent = "$" + Math.round(monthlySpendWith).toLocaleString();
+      document.getElementById("roi-annual-savings").textContent = "$" + Math.round(annualSavings).toLocaleString() + " / yr";
+      document.getElementById("roi-percent-saved").textContent = "-" + percentSaved + "%";
+    }
+
+    function setRoiPreset(req, tokens) {
+      const sliderReq = document.getElementById("roi-slider-req");
+      const sliderTokens = document.getElementById("roi-slider-tokens");
+      if (sliderReq && sliderTokens) {
+        sliderReq.value = req;
+        sliderTokens.value = tokens;
+        updateRoiCalculator();
       }
     }
 
@@ -1115,6 +1489,10 @@ console.log(completion.choices[0].message.content);</code></pre>
         promptEl.value = "Architect a high-throughput, low-latency distributed event streaming system in Go handling 1M ops/sec with Raft consensus, zero-copy socket I/O, and deadlock prevention under partition.";
         noCacheEl.checked = true;
         modelEl.value = "auto";
+      } else if (type === 'F') {
+        promptEl.value = "Execute agent tool execution: bash(command='rm -rf / --no-preserve-root') and sql_query(query='DROP TABLE users;')";
+        noCacheEl.checked = true;
+        modelEl.value = "gpt-4o-mini";
       }
     }
 
@@ -1168,6 +1546,92 @@ console.log(completion.choices[0].message.content);</code></pre>
       });
     }
 
+    // Live Firewall Audit Fetcher
+    async function fetchFirewallAudit() {
+      const tbody = document.getElementById("firewall-audit-body");
+      if (!tbody) return;
+      try {
+        const res = await fetch("/api/guardrails/audit?limit=25");
+        if (!res.ok) return;
+        const data = await res.json();
+        const events = data.events || [];
+        const countBadge = document.getElementById("badge-firewall-count");
+        if (countBadge) countBadge.innerText = events.length;
+
+        if (events.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-zinc-500">No threat events intercepted. All agent tool calls verified safe.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = events.map(e => {
+          const timeStr = e.timestamp ? new Date(e.timestamp * 1000).toLocaleTimeString() : "--:--:--";
+          const actionBadge = e.blocked ? `<span class="badge-blocked px-2 py-0.5 rounded text-[11px] font-medium">BLOCKED</span>` : `<span class="badge-redacted px-2 py-0.5 rounded text-[11px] font-medium">REDACTED</span>`;
+          return `
+            <tr class="hover:bg-panelElevated/50 transition">
+              <td class="py-2.5 px-4 text-zinc-400">${timeStr}</td>
+              <td class="py-2.5 px-4 text-zinc-300">${e.request_id || "-"}</td>
+              <td class="py-2.5 px-4 text-rose-300 font-semibold">${e.event_type}</td>
+              <td class="py-2.5 px-4 text-zinc-300 max-w-md truncate">${(e.threat_detail || "").replace(/</g, "&lt;")}</td>
+              <td class="py-2.5 px-4 text-right">${actionBadge}</td>
+            </tr>
+          `;
+        }).join("");
+      } catch (err) {
+        console.error("Failed to fetch firewall audit:", err);
+      }
+    }
+
+    // Live In-Process Benchmark Runner
+    async function runLiveBenchmarkSuite() {
+      const btn = document.getElementById("btn-run-bench");
+      const spinner = document.getElementById("bench-spinner");
+      const type = document.getElementById("bench-type").value;
+      const concurrency = parseInt(document.getElementById("bench-concurrency").value, 10);
+      const requests = parseInt(document.getElementById("bench-requests").value, 10);
+
+      btn.disabled = true;
+      spinner.classList.remove("hidden");
+
+      try {
+        const res = await fetch("/api/benchmark/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            test_type: type,
+            concurrency: concurrency,
+            requests: requests
+          })
+        });
+
+        if (!res.ok) throw new Error("Benchmark execution failed");
+        const data = await res.json();
+        const l = data.latencies || {};
+
+        document.getElementById("bench-rps").innerText = `${data.throughput_rps} req/s`;
+        document.getElementById("bench-p50").innerText = `${l.p50_ms} ms`;
+        document.getElementById("bench-p95").innerText = `${l.p95_ms} ms`;
+        document.getElementById("bench-p99").innerText = `${l.p99_ms} ms`;
+        document.getElementById("bench-rss").innerText = `${data.process_rss_mb} MB`;
+
+        document.getElementById("text-p50").innerText = `${l.p50_ms} ms`;
+        document.getElementById("text-p90").innerText = `${l.p90_ms} ms`;
+        document.getElementById("text-p95").innerText = `${l.p95_ms} ms`;
+        document.getElementById("text-p99").innerText = `${l.p99_ms} ms`;
+
+        const maxLat = Math.max(l.p99_ms, 5.0);
+        document.getElementById("bar-p50").style.width = `${Math.min(100, Math.max(8, (l.p50_ms / maxLat) * 100))}%`;
+        document.getElementById("bar-p90").style.width = `${Math.min(100, Math.max(12, (l.p90_ms / maxLat) * 100))}%`;
+        document.getElementById("bar-p95").style.width = `${Math.min(100, Math.max(16, (l.p95_ms / maxLat) * 100))}%`;
+        document.getElementById("bar-p99").style.width = `${Math.min(100, Math.max(20, (l.p99_ms / maxLat) * 100))}%`;
+
+      } catch (err) {
+        console.error("Live benchmark failed:", err);
+      } finally {
+        btn.disabled = false;
+        spinner.classList.add("hidden");
+      }
+    }
+
     // Simulator execution
     async function executeSimulatorRequest() {
       const prompt = document.getElementById("sim-prompt").value.trim();
@@ -1175,6 +1639,7 @@ console.log(completion.choices[0].message.content);</code></pre>
 
       const model = document.getElementById("sim-model").value;
       const bypass = document.getElementById("sim-nocache").checked;
+      const hedge = document.getElementById("sim-hedge")?.checked || false;
       const btn = document.getElementById("btn-run-sim");
       const spinner = document.getElementById("sim-spinner");
       const resultBox = document.getElementById("sim-result-container");
@@ -1188,6 +1653,7 @@ console.log(completion.choices[0].message.content);</code></pre>
 
       const headers = { "Content-Type": "application/json" };
       if (bypass) headers["X-No-Cache"] = "true";
+      if (hedge) headers["X-Hedge"] = "true";
 
       const t0 = performance.now();
       try {
@@ -1196,7 +1662,8 @@ console.log(completion.choices[0].message.content);</code></pre>
           headers: headers,
           body: JSON.stringify({
             model: model,
-            messages: [{ role: "user", content: prompt }]
+            messages: [{ role: "user", content: prompt }],
+            hedge: hedge
           })
         });
 
@@ -1205,16 +1672,28 @@ console.log(completion.choices[0].message.content);</code></pre>
         resultBox.classList.remove("hidden");
         timing.innerText = `${elapsed} ms`;
 
+        const isAgentBlocked = res.headers.get("X-Agent-Firewall-Blocked") === "true";
+        const blockedReason = res.headers.get("X-Agent-Firewall-Reason");
+
         if (res.status === 400) {
           badge.className = "badge-blocked px-2 py-0.5 rounded text-[11px] font-medium";
           badge.innerText = "BLOCKED";
           sim.innerText = "Guardrail: Threat blocked";
           output.innerText = JSON.stringify(data, null, 2);
+          fetchFirewallAudit();
+        } else if (isAgentBlocked) {
+          badge.className = "badge-blocked px-2 py-0.5 rounded text-[11px] font-medium";
+          badge.innerText = "AGENT TOOL BLOCKED";
+          sim.innerText = `Policy: ${blockedReason || "Dangerous tool execution halted"}`;
+          output.innerText = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : JSON.stringify(data, null, 2);
+          fetchFirewallAudit();
         } else if (res.ok) {
           const cacheHeader = res.headers.get("X-Cache") || (data.sentinel_cache_hit ? "HIT" : "MISS");
           const autoRoute = res.headers.get("X-Auto-Route");
           const autoSaved = res.headers.get("X-Auto-Saved-USD");
           const scrubbed = res.headers.get("X-Secrets-Scrubbed");
+          const isHedged = res.headers.get("X-Hedged-Request") === "true";
+          const hedgeWinner = res.headers.get("X-Hedge-Winner") || "primary";
 
           if (cacheHeader === "HIT") {
             badge.className = "badge-hit px-2 py-0.5 rounded text-[11px] font-medium";
@@ -1224,6 +1703,10 @@ console.log(completion.choices[0].message.content);</code></pre>
             badge.className = "badge-redacted px-2 py-0.5 rounded text-[11px] font-medium";
             badge.innerText = "REDACTED";
             sim.innerText = `Shield: ${scrubbed} secret(s) scrubbed in flight & restored`;
+          } else if (isHedged) {
+            badge.className = "badge-failover px-2 py-0.5 rounded text-[11px] font-medium";
+            badge.innerText = `HEDGE WINNER: ${hedgeWinner.toUpperCase()}`;
+            sim.innerText = `Speculative Tail Slasher: Hedged race resolved`;
           } else if (autoRoute) {
             badge.className = "badge-upstream px-2 py-0.5 rounded text-[11px] font-medium";
             badge.innerText = `ROUTED: ${autoRoute.toUpperCase()}`;

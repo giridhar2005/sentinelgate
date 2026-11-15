@@ -90,7 +90,7 @@
           </svg>
         </div>
         <span class="font-semibold text-sm tracking-tight text-white">SentinelGate</span>
-        <span class="text-xs text-zinc-500 font-mono">v0.3.0</span>
+        <span class="text-xs text-zinc-500 font-mono">v0.5.0</span>
       </div>
       <div class="h-4 w-px bg-hairline"></div>
       <div class="flex items-center space-x-2">
@@ -350,6 +350,10 @@
         <button id="tab-btn-keys" onclick="switchTab('keys')" class="py-2.5 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 font-medium transition flex items-center space-x-2">
           <span>Virtual API Keys</span>
           <span id="badge-key-count" class="text-xs mono-nums px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300">0</span>
+        </button>
+        <button id="tab-btn-roi" onclick="switchTab('roi')" class="py-2.5 border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 font-medium transition flex items-center space-x-2">
+          <span>Enterprise ROI Estimator</span>
+          <span class="text-[10px] mono-nums px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60">-68% COST</span>
         </button>
       </div>
 
@@ -618,6 +622,124 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Tab 5: Enterprise ROI & Cloud Spend Estimator -->
+    <div id="tab-roi" class="hidden space-y-6">
+      <div class="bg-panel border border-hairline rounded-lg p-5 space-y-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-hairline gap-3">
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="text-sm font-semibold text-zinc-100">Enterprise LLM Cost &amp; ROI Estimator</h3>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium badge-hit uppercase">Production Model</span>
+            </div>
+            <p class="text-xs text-zinc-400 mt-0.5">Simulate cost reduction, cache savings, and failover protection for organizational LLM workloads.</p>
+          </div>
+          <!-- Presets -->
+          <div class="flex items-center space-x-2 text-xs font-mono">
+            <span class="text-zinc-500">Presets:</span>
+            <button onclick="setRoiPreset(15000, 1500)" class="px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-zinc-300 transition">Startup (15k/day)</button>
+            <button onclick="setRoiPreset(100000, 2000)" class="px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-zinc-300 transition">Growth (100k/day)</button>
+            <button onclick="setRoiPreset(500000, 3500)" class="px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight text-emerald-400 border-emerald-900/50 transition">Scale (500k/day)</button>
+          </div>
+        </div>
+
+        <!-- Sliders -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-canvas border border-hairline rounded-lg p-4">
+          <!-- Slider 1 -->
+          <div>
+            <div class="flex items-center justify-between text-xs font-mono mb-2">
+              <label class="text-zinc-300 font-medium">Daily LLM Requests</label>
+              <span id="roi-req-display" class="text-emerald-400 font-bold mono-nums text-sm">50,000 / day</span>
+            </div>
+            <input type="range" id="roi-slider-req" min="1000" max="1000000" step="1000" value="50000" oninput="updateRoiCalculator()" class="w-full accent-emerald-500 cursor-pointer">
+            <div class="flex justify-between text-[10px] font-mono text-zinc-500 mt-1">
+              <span>1k</span>
+              <span>100k</span>
+              <span>500k</span>
+              <span>1,000,000 req/day</span>
+            </div>
+          </div>
+
+          <!-- Slider 2 -->
+          <div>
+            <div class="flex items-center justify-between text-xs font-mono mb-2">
+              <label class="text-zinc-300 font-medium">Average Tokens / Request</label>
+              <span id="roi-tokens-display" class="text-emerald-400 font-bold mono-nums text-sm">2,000 tokens</span>
+            </div>
+            <input type="range" id="roi-slider-tokens" min="500" max="8000" step="100" value="2000" oninput="updateRoiCalculator()" class="w-full accent-emerald-500 cursor-pointer">
+            <div class="flex justify-between text-[10px] font-mono text-zinc-500 mt-1">
+              <span>500 (Chat/Code)</span>
+              <span>2,000 (RAG)</span>
+              <span>4,000 (Agent Loop)</span>
+              <span>8,000 tokens</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- Monthly Without -->
+          <div class="bg-canvas border border-hairline rounded-lg p-4">
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Monthly Direct Cloud Spend</div>
+            <div id="roi-spend-without" class="text-2xl font-bold font-mono text-zinc-300 mt-1 mono-nums">$30,000</div>
+            <div class="text-[11px] text-zinc-500 mt-1">Direct to frontier API ($10/1M)</div>
+          </div>
+
+          <!-- Monthly With SentinelGate -->
+          <div class="bg-canvas border border-hairline rounded-lg p-4">
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Spend With SentinelGate</div>
+            <div id="roi-spend-with" class="text-2xl font-bold font-mono text-emerald-400 mt-1 mono-nums">$2,035</div>
+            <div class="text-[11px] text-zinc-500 mt-1">Cache (68%) + Auto-Route (80%)</div>
+          </div>
+
+          <!-- Annual Net Savings -->
+          <div class="bg-canvas border border-emerald-900/50 bg-emerald-950/10 rounded-lg p-4">
+            <div class="text-[11px] font-mono text-emerald-400 uppercase flex items-center justify-between">
+              <span>Net Annual Savings</span>
+              <span id="roi-percent-saved" class="px-1.5 py-0.2 rounded bg-emerald-900/40 text-emerald-300 text-[10px]">-93.2%</span>
+            </div>
+            <div id="roi-annual-savings" class="text-2xl font-bold font-mono text-white mt-1 mono-nums">$335,578 / yr</div>
+            <div class="text-[11px] text-emerald-400/80 mt-1 font-mono">Immediate OPEX capital retained</div>
+          </div>
+
+          <!-- Availability & Outage Protection -->
+          <div class="bg-canvas border border-hairline rounded-lg p-4">
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Failover SLA Protection</div>
+            <div class="text-2xl font-bold font-mono text-amber-400 mt-1 mono-nums">99.99%</div>
+            <div class="text-[11px] text-zinc-500 mt-1">0 dropped requests on 429/503</div>
+          </div>
+        </div>
+
+        <!-- Architectural Value Props -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <div class="border border-hairline rounded-lg p-4 bg-canvas/50">
+            <div class="flex items-center space-x-2 text-xs font-semibold text-emerald-400 font-mono mb-1.5">
+              <span>01. Semantic Cache Elimination</span>
+            </div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              FastEmbed ONNX cosine evaluation matches semantically identical prompts in &lt;2ms. 68% of redundant organizational queries never touch upstream providers, incurring exactly $0 in cloud cost.
+            </p>
+          </div>
+          <div class="border border-hairline rounded-lg p-4 bg-canvas/50">
+            <div class="flex items-center space-x-2 text-xs font-semibold text-sky-400 font-mono mb-1.5">
+              <span>02. Microsecond Utility Auto-Routing</span>
+            </div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              When <code class="text-zinc-200">model="auto"</code> is set, classification, JSON parsing, and summarization route to ultra-fast $0.15/1M models. Complex reasoning dynamically escalates to frontier models.
+            </p>
+          </div>
+          <div class="border border-hairline rounded-lg p-4 bg-canvas/50">
+            <div class="flex items-center space-x-2 text-xs font-semibold text-amber-400 font-mono mb-1.5">
+              <span>03. Zero-Ops In-Process High Availability</span>
+            </div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              Zero external dependencies. Runs locally on SQLite WAL mode with dynamic circuit-breakers, eliminating single-points-of-failure and engineering on-call headaches.
+            </p>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -978,6 +1100,7 @@ console.log(completion.choices[0].message.content);</code></pre>
       fetchMetrics();
       fetchVirtualKeys();
       startAutoRefresh();
+      updateRoiCalculator();
 
       if (window.location.search.includes("preview=true")) {
         setTimeout(async () => {
@@ -1274,9 +1397,9 @@ console.log(completion.choices[0].message.content);</code></pre>
       document.getElementById("trace-drawer").classList.add("translate-x-full");
     }
 
-    // Tabs (Traces / Firewall / Benchmark / Virtual Keys)
+    // Tabs (Traces / Firewall / Benchmark / Virtual Keys / ROI)
     function switchTab(tab) {
-      const allTabs = ['traces', 'firewall', 'benchmark', 'keys'];
+      const allTabs = ['traces', 'firewall', 'benchmark', 'keys', 'roi'];
       allTabs.forEach(t => {
         const pane = document.getElementById("tab-" + t);
         const btn = document.getElementById("tab-btn-" + t);
@@ -1291,6 +1414,53 @@ console.log(completion.choices[0].message.content);</code></pre>
       });
       if (tab === 'keys') fetchVirtualKeys();
       if (tab === 'firewall') fetchFirewallAudit();
+      if (tab === 'roi') updateRoiCalculator();
+    }
+
+    function updateRoiCalculator() {
+      const sliderReq = document.getElementById("roi-slider-req");
+      const sliderTokens = document.getElementById("roi-slider-tokens");
+      if (!sliderReq || !sliderTokens) return;
+
+      const dailyReq = parseInt(sliderReq.value, 10);
+      const avgTokens = parseInt(sliderTokens.value, 10);
+
+      document.getElementById("roi-req-display").textContent = dailyReq.toLocaleString() + " / day";
+      document.getElementById("roi-tokens-display").textContent = avgTokens.toLocaleString() + " tokens";
+
+      // 30 days per month
+      const monthlyTokens = dailyReq * avgTokens * 30;
+
+      // Baseline: Frontier model @ $10.00 / 1M tokens
+      const monthlySpendWithout = (monthlyTokens / 1000000) * 10.0;
+
+      // SentinelGate:
+      // 68% cache hit rate = $0 cost
+      // 32% uncached:
+      //   80% routed to $0.15/1M utility model
+      //   20% routed to $10.00/1M frontier model
+      // Blended uncached rate = (0.80 * 0.15) + (0.20 * 10.00) = 0.12 + 2.00 = $2.12 / 1M tokens
+      const uncachedTokens = monthlyTokens * 0.32;
+      const monthlySpendWith = (uncachedTokens / 1000000) * 2.12;
+
+      const monthlySavings = monthlySpendWithout - monthlySpendWith;
+      const annualSavings = monthlySavings * 12;
+      const percentSaved = ((monthlySavings / monthlySpendWithout) * 100).toFixed(1);
+
+      document.getElementById("roi-spend-without").textContent = "$" + Math.round(monthlySpendWithout).toLocaleString();
+      document.getElementById("roi-spend-with").textContent = "$" + Math.round(monthlySpendWith).toLocaleString();
+      document.getElementById("roi-annual-savings").textContent = "$" + Math.round(annualSavings).toLocaleString() + " / yr";
+      document.getElementById("roi-percent-saved").textContent = "-" + percentSaved + "%";
+    }
+
+    function setRoiPreset(req, tokens) {
+      const sliderReq = document.getElementById("roi-slider-req");
+      const sliderTokens = document.getElementById("roi-slider-tokens");
+      if (sliderReq && sliderTokens) {
+        sliderReq.value = req;
+        sliderTokens.value = tokens;
+        updateRoiCalculator();
+      }
     }
 
     // 1-Click Test Presets

@@ -520,6 +520,41 @@ class ProviderRouter:
             user_content = "Default prompt"
 
         lower = user_content.lower()
+        prompt_tokens = max(1, sum(len(str(m.get("content", ""))) // 4 for m in messages))
+
+        if "rm -rf" in lower or "agent tool attack" in lower or "drop table" in lower or "bash(" in lower:
+            return {
+                "id": f"chatcmpl-sandbox-{uuid.uuid4().hex[:12]}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": model,
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": f"call_sandbox_{uuid.uuid4().hex[:8]}",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "bash",
+                                        "arguments": json.dumps({"command": "rm -rf / --no-preserve-root"}),
+                                    },
+                                }
+                            ],
+                        },
+                        "finish_reason": "tool_calls",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": 15,
+                    "total_tokens": prompt_tokens + 15,
+                },
+            }
+
         if "raft" in lower:
             text = (
                 "Raft is a leader-based consensus algorithm designed for distributed state machine replication. "

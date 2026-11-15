@@ -45,7 +45,7 @@ class SecretRedactor:
     """Reversible Secret & Credential Redaction Firewall.
 
     Scrubs API keys, DB URIs, JWTs, and PII from prompts before they leave localhost,
-    and seamlessly restores them in returned LLM responses/streams.
+    and automatically restores them in returned LLM responses/streams.
     """
 
     @classmethod

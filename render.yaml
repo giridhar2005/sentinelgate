@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sentinelgate
+    runtime: python
+    buildCommand: pip install -e .
+    startCommand: sentinelgate --host 0.0.0.0 --port $PORT --demo
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
+      - key: DEMO_MODE
+        value: "true"
+      - key: SENTINELGATE_DB
+        value: "/tmp/sentinelgate.db"

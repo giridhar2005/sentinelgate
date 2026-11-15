@@ -58,6 +58,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 ENV FASTEMBED_CACHE_PATH="/app/.cache/fastembed"
 ENV SENTINELGATE_DB="/app/data/sentinelgate.db"
+ENV DEMO_MODE="true"
 
 # Copy application source code and fallback dashboard
 COPY --chown=sentinel:sentinel app /app/app

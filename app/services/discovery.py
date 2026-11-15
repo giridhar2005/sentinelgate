@@ -135,7 +135,7 @@ def format_startup_banner(info: Dict[str, Any], host: str = "127.0.0.1", port: i
 
     lines = [
         "┌──────────────────────────────────────────────────────────────────┐",
-        "│  SentinelGate v0.3.0 · Zero-Config LLM Gateway                  │",
+        "│  SentinelGate v0.5.0 · AI Infrastructure Gateway                 │",
         "├──────────────────────────────────────────────────────────────────┤",
         f"│  Proxy Endpoint:  {base_url:<46} │",
         f"│  HUD Dashboard:   {dash_url:<46} │",
@@ -179,7 +179,14 @@ def format_startup_banner(info: Dict[str, Any], host: str = "127.0.0.1", port: i
 
     lines.append('│  Smart Router:   model="auto" enabled (sub-ms prompt classifier) │')
     lines.append("│  Secret Shield:  Reversible Redaction firewall active           │")
+    lines.append("│  Agent Shield:   Pre-Execution Tool-Call & MCP Firewall         │")
+    lines.append("│  Telemetry:      W3C Traceparent + Non-Blocking Async Queue     │")
     lines.append("│  State Engine:   In-Process SQLite (WAL mode + FastEmbed ONNX)   │")
+    lines.append("├──────────────────────────────────────────────────────────────────┤")
+    lines.append("│  Quick Verification:                                             │")
+    lines.append(f"│  curl {base_url}/chat/completions \\                             │")
+    lines.append('│    -H "Content-Type: application/json" \\                         │')
+    lines.append('│    -d \'{"model":"auto","messages":[{"role":"user","content":"hi"}]}\'│')
     lines.append("└──────────────────────────────────────────────────────────────────┘")
 
     return "\n".join(lines)
