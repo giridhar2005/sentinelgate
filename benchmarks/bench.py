@@ -7,7 +7,6 @@ and RAM usage, exporting raw metrics to JSON for CI/README generation.
 from __future__ import annotations
 
 import argparse
-import asyncio
 import datetime
 import json
 import os

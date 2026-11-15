@@ -25,6 +25,7 @@
 <p align="center">
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml/badge.svg" alt="CodeQL Status"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/Coverage-81%25-brightgreen.svg?style=flat-square" alt="Test Coverage 81%"></a>
   <a href="https://github.com/giridhar2005/sentinelgate/releases"><img src="https://img.shields.io/github/v/release/giridhar2005/sentinelgate?style=flat-square&color=emerald&label=%F0%9F%8C%B8%20release" alt="Release"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a>
@@ -149,6 +150,7 @@ Choosing an LLM gateway is a question of operational trade-offs. SentinelGate is
 <!-- BENCHMARK:START -->
 | Systems Performance Dimension | Measured Telemetry | Protocol & Environment |
 | :--- | :--- | :--- |
+| **Test Suite Verification** | **76 / 76 Tests Passed (81% Coverage)** | `pytest -v --cov=app --cov=sentinelgate` |
 | **In-Process Cache Overhead (Min)** | **3.28 ms** | Memory-mapped SQLite WAL (`PRAGMA mmap_size=256MB`) |
 | **Semantic Cache Latency (Avg)** | **6.51 ms** | Local `BAAI/bge-small-en-v1.5` ONNX runtime on CPU |
 | **Latency p50 / p95 / p99** | **4.82 ms / 55.94 ms / 87.58 ms** | Sequential query stream (10 unique semantic pairs) |

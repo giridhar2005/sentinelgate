@@ -22,9 +22,13 @@ logger = logging.getLogger("sentinelgate")
 
 
 def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None) -> FastAPI:
-    cfg_file = config_path or os.getenv("SENTINELGATE_CONFIG", "config.yaml")
+    cfg_file: str = config_path if config_path is not None else os.getenv("SENTINELGATE_CONFIG", "config.yaml")
     config: AppConfig = load_config(cfg_file)
-    active_db = db_path or os.getenv("SENTINELGATE_DB", config.cache.db_path)
+    active_db: str = (
+        db_path
+        if db_path is not None
+        else (os.getenv("SENTINELGATE_DB") or config.cache.db_path or "sentinelgate.db")
+    )
 
     # Initialize SQLite schema with WAL mode
     init_db(active_db)

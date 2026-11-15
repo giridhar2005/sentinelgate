@@ -5,7 +5,6 @@ Verifies compatibility with Claude Code CLI and Anthropic SDK.
 
 from __future__ import annotations
 
-import json
 import pytest
 from fastapi.testclient import TestClient
 

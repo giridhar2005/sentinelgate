@@ -45,6 +45,7 @@ htmlcov/
 # Environment files & Secrets
 .env
 .env.local
+config.yaml
 
 # Fastembed & HuggingFace caches
 .cache/

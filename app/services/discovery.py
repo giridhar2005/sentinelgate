@@ -65,7 +65,9 @@ class ProviderDiscovery:
         # Ollama local check
         ollama_online = ollama_data is not None and isinstance(ollama_data, dict)
         ollama_models = (
-            [m.get("name") for m in ollama_data.get("models", [])] if ollama_online else []
+            [m.get("name") for m in (ollama_data.get("models", []) if ollama_data else [])]
+            if ollama_online
+            else []
         )
         local_status["ollama"] = {
             "active": ollama_online,
@@ -78,7 +80,9 @@ class ProviderDiscovery:
         # LM Studio local check
         lmstudio_online = lmstudio_data is not None and isinstance(lmstudio_data, dict)
         lmstudio_models = (
-            [m.get("id") for m in lmstudio_data.get("data", [])] if lmstudio_online else []
+            [m.get("id") for m in (lmstudio_data.get("data", []) if lmstudio_data else [])]
+            if lmstudio_online
+            else []
         )
         local_status["lmstudio"] = {
             "active": lmstudio_online,

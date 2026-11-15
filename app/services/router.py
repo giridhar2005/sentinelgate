@@ -35,6 +35,7 @@ class ProviderRouter:
         self.chaos_enabled: bool = False
         self.chaos_target_provider: str = "openai"
         self.chaos_status_code: int = 429
+        self.demo_mode: Optional[bool] = None
         self.discovery_info: Dict[str, Any] = {}
         self.last_routing_metadata: Dict[str, Any] = {}
         self.hedged_triggered_count: int = 0
@@ -150,7 +151,10 @@ class ProviderRouter:
     def _load_config(self) -> AppConfig:
         path = os.getenv("SENTINELGATE_CONFIG", self.config_path)
         if not os.path.exists(path):
-            return AppConfig()
+            if path == "config.yaml" and os.path.exists("config.example.yaml"):
+                path = "config.example.yaml"
+            else:
+                return AppConfig()
         try:
             with open(path, "r", encoding="utf-8") as f:
                 raw = yaml.safe_load(f) or {}
@@ -882,7 +886,7 @@ class ProviderRouter:
         self,
         request_data: Dict[str, Any],
         hedge_delay_sec: float = 0.45,
-    ) -> Tuple[Dict[str, Any], str, str, Dict[str, Any]]:
+    ) -> Tuple[Union[Dict[str, Any], AsyncGenerator[str, None]], str, str, Dict[str, Any]]:
         """Speculative Latency Hedging (Google Tail at Scale p99 Slasher).
 
         Races the primary upstream request against a concurrent secondary hedge if the primary

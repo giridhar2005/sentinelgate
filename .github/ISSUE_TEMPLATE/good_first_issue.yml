@@ -1,0 +1,41 @@
+name: 🌸 Good First Issue / Starter Contribution
+description: Propose or claim a beginner-friendly contribution (new secret patterns, CLI flags, providers)
+title: "[Good First Issue]: "
+labels: ["good first issue", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for contributing to SentinelGate! This template is designed for small, scoped enhancements that are ideal for first-time contributors.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Contribution Category
+      options:
+        - "New Secret Redaction Pattern (e.g. Azure / GCP / HuggingFace tokens)"
+        - "New Local Model Runtime Probe (e.g. vLLM / LocalAI / Jan)"
+        - "New Heuristic Tool Guard Pattern (e.g. dangerous PowerShell commands)"
+        - "Documentation / Examples / Client SDK guides"
+        - "Benchmarking or Developer Experience improvements"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Implementation
+      description: What specific change or pattern do you want to implement?
+      placeholder: Describe the scoped addition and expected behavior.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Contributor Checklist
+      options:
+        - label: I have verified the existing test suite passes (`pytest -v`).
+          required: true
+        - label: I will adhere to the Zero-Bloat architectural rules (no Redis/Postgres/node_modules).
+          required: true

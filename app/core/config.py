@@ -81,7 +81,10 @@ def expand_env_vars(val: Any) -> Any:
 def load_config(config_path: str = "config.yaml") -> AppConfig:
     resolved_path = os.getenv("SENTINELGATE_CONFIG", config_path)
     if not os.path.exists(resolved_path):
-        return AppConfig()
+        if resolved_path == "config.yaml" and os.path.exists("config.example.yaml"):
+            resolved_path = "config.example.yaml"
+        else:
+            return AppConfig()
     try:
         with open(resolved_path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f) or {}

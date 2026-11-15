@@ -117,6 +117,7 @@ class OTLPSpan:
         """Convert to OpenTelemetry v1 OTLP JSON dictionary."""
         kv_attrs = []
         for k, v in self.attributes.items():
+            val_node: Dict[str, Any]
             if isinstance(v, bool):
                 val_node = {"boolValue": v}
             elif isinstance(v, int):

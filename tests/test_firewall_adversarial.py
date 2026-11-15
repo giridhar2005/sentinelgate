@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import json
-import pytest
-
-from app.services.agent_guard import AgentToolGuard
 from app.routers.mcp import validate_mcp_target
+from app.services.agent_guard import AgentToolGuard
 
 
 def test_adversarial_shell_base64_decode_pipe():
@@ -94,7 +91,7 @@ def test_adversarial_ssrf_ipv6_and_obfuscated_ips():
 
 def test_threat_model_known_limitations_boundary():
     """Document and verify known limitations as described in docs/SECURITY.md.
-    
+
     Demonstrates that polymorphic python execution does not trigger literal shell regex,
     confirming that SentinelGate is a first-mile heuristic filter and NOT a full OS sandbox.
     """

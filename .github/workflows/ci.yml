@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   lint:
-    name: Lint & Style (Ruff)
+    name: Lint & Type Check (Ruff & Mypy)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -28,13 +28,18 @@ jobs:
         run: uv python install 3.11
 
       - name: Install Dependencies
-        run: uv sync
+        run: |
+          uv sync
+          uv pip install -e . types-PyYAML mypy
 
       - name: Run Ruff Lint Checks
         run: uv run ruff check .
 
+      - name: Run Mypy Type Check
+        run: uv run mypy app sentinelgate
+
   test:
-    name: Test Suite (Python ${{ matrix.python-version }})
+    name: Test Suite & Benchmarks (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -63,5 +68,11 @@ jobs:
           uv run sentinelgate --help
           uv run python -m sentinelgate --help
 
-      - name: Run Pytest Offline Suite
-        run: uv run pytest -v
+      - name: Run Pytest Suite with Coverage
+        run: uv run pytest -v --cov=app --cov=sentinelgate
+
+      - name: Verify Gateway Benchmark Execution
+        run: uv run python benchmarks/bench.py --output benchmarks/results.json
+
+      - name: Verify Speculative Hedging Benchmark Execution
+        run: uv run python benchmarks/bench_hedging.py --output benchmarks/hedging_results.json
