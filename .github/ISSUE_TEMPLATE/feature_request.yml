@@ -1,4 +1,4 @@
-name: Feature Request
+name: "✨ Feature Request"
 description: Propose an architecture improvement, new provider adapter, or gateway feature
 title: "[Feature]: "
 labels: ["enhancement", "triage"]

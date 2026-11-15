@@ -1,3 +1,5 @@
+<a name="top"></a>
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/hero-dark.svg">
@@ -6,46 +8,68 @@
   </picture>
 </p>
 
+<h3 align="center">✨ SentinelGate 🍵</h3>
 <p align="center">
-  <a href="#quickstart-in-10-seconds"><img src="https://img.shields.io/badge/%E2%96%B6_Live_Interactive_Console-http%3A%2F%2Flocalhost%3A8000%2Fdashboard-10B981?style=for-the-badge&logo=fastapi&logoColor=white" alt="Live Console"></a>
-  <a href="#quickstart-in-10-seconds"><img src="https://img.shields.io/badge/%E2%9A%A1_10--Second_Quickstart-pip_install_sentinelgate-3B82F6?style=for-the-badge&logo=pypi&logoColor=white" alt="Quickstart"></a>
-  <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/%F0%9F%93%90_System_Architecture-In--Process_WAL_RFC-F59E0B?style=for-the-badge&logo=sqlite&logoColor=white" alt="Architecture"></a>
-  <a href="#live-ci-verified-benchmarks"><img src="https://img.shields.io/badge/%F0%9F%93%8A_Live_CI_Benchmarks-p50_0.18ms-8B5CF6?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI Benchmarks"></a>
+  <strong>The Cozy, Zero-Bloat AI Gateway & Agent Security Firewall</strong><br>
+  <em>In-process semantic caching • Pre-execution tool firewall • Microsecond cost routing • Zero Redis • Zero PostgreSQL</em>
+</p>
+
+<p align="center">
+  <a href="#-quickstart-in-10-seconds"><img src="https://img.shields.io/badge/%E2%96%B6_Live_Console-http%3A%2F%2Flocalhost%3A8000%2Fdashboard-10B981?style=for-the-badge&logo=fastapi&logoColor=white" alt="Live Console"></a>
+  <a href="#-quickstart-in-10-seconds"><img src="https://img.shields.io/badge/%E2%9A%A1_10s_Quickstart-pip_install_sentinelgate-3B82F6?style=for-the-badge&logo=pypi&logoColor=white" alt="Quickstart"></a>
+  <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/%F0%9F%93%90_Architecture_RFC-In--Process_WAL-F59E0B?style=for-the-badge&logo=sqlite&logoColor=white" alt="Architecture"></a>
+  <a href="#-live-ci-verified-benchmarks"><img src="https://img.shields.io/badge/%F0%9F%93%8A_Live_CI_Benchmarks-p50_0.18ms-8B5CF6?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI Benchmarks"></a>
+  <a href="#-community--stargazers"><img src="https://img.shields.io/badge/%E2%AD%90_Star_Project-Support_SentinelGate-EC4899?style=for-the-badge&logo=github&logoColor=white" alt="Star"></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml/badge.svg" alt="CodeQL Status"></a>
-  <a href="https://github.com/giridhar2005/sentinelgate/releases"><img src="https://img.shields.io/github/v/release/giridhar2005/sentinelgate?style=flat-square&color=emerald" alt="Release"></a>
+  <a href="https://github.com/giridhar2005/sentinelgate/releases"><img src="https://img.shields.io/github/v/release/giridhar2005/sentinelgate?style=flat-square&color=emerald&label=%F0%9F%8C%B8%20release" alt="Release"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a>
   <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57.svg?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite WAL"></a>
   <a href="https://prometheus.io/"><img src="https://img.shields.io/badge/Prometheus-RFC_0004_Metrics-E6522C.svg?style=flat-square&logo=prometheus&logoColor=white" alt="Prometheus"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-pink.svg?style=flat-square" alt="MIT License"></a>
 </p>
 
 <p align="center">
-  <strong>Zero-bloat, production-grade OpenAI-compatible LLM gateway with in-process semantic caching, pre-execution agent firewall, stateful secret redaction, and sub-millisecond cost routing. Zero Redis. Zero PostgreSQL. Zero node_modules.</strong>
+  <a href="#-why-youll-love-sentinelgate"><b>🌸 Highlights</b></a> •
+  <a href="#-quickstart-in-10-seconds"><b>🚀 Quickstart</b></a> •
+  <a href="#-live-ci-verified-benchmarks"><b>📊 Benchmarks</b></a> •
+  <a href="#-architecture-contrast-vs-alternatives"><b>🧩 Architecture</b></a> •
+  <a href="#-keyboard-shortcuts-reference"><b>🎮 Shortcuts</b></a> •
+  <a href="#-community--stargazers"><b>💖 Star History</b></a> •
+  <a href="#-about-the-author"><b>☕ Author</b></a>
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="SentinelGate Operational Console & Telemetry Demo" width="100%" style="border-radius: 8px; border: 1px solid #27272A; box-shadow: 0 8px 30px rgba(0,0,0,0.5);">
+  <img src="docs/demo.gif" alt="SentinelGate Operational Console & Telemetry Demo" width="100%" style="border-radius: 12px; border: 2px solid #27272A; box-shadow: 0 10px 40px rgba(0,0,0,0.6);">
 </p>
+<p align="center"><sub><em>✨ Live Obsidian Developer HUD — Zero-Key Sandbox Mode in action! Watch threats get blocked in &lt;0.2ms. 🍵</em></sub></p>
 
 ---
 
-## Why Engineers Switch to SentinelGate
+## 🌸 Why You'll Love SentinelGate
 
-| 💰 Cost Optimization (`model="auto"`) | 🛡️ Agent & Secret Security | ⚡ Monolithic Simplicity |
+SentinelGate brings together maximum systems engineering rigor and charming simplicity:
+
+| 💰 Smart Cost Optimization (`model="auto"`) | 🛡️ Deterministic Agent Security | ⚡ Monolithic Simplicity |
 | :--- | :--- | :--- |
-| **In-Process Semantic Cache**<br>Evaluates `BAAI/bge-small-en-v1.5` ONNX embeddings locally on CPU in `<2ms`. 68% to 91% of repetitive queries resolve at **$0.00 token cost**. | **Pre-Execution Tool Firewall**<br>Intercepts destructive shell commands (`rm -rf`), SQL mutations (`DROP TABLE`), and SSRF metadata calls before client agents execute them. | **Single-Binary Topology**<br>Runs on SQLite WAL mode (`PRAGMA mmap_size=256MB`). Zero external Redis clusters, PostgreSQL daemons, or Celery workers. |
-| **Microsecond Smart Router**<br>`model="auto"` evaluates syntax and reasoning density in `<0.2ms`, triaging utility queries to $0.15/1M models instead of $15/1M frontier models. | **Stateful Stream Redactor**<br>Maintains an async sliding-window lookahead buffer (N=64) on SSE `text/event-stream` chunks, catching split credentials with zero token leakage. | **Dynamic Circuit Breakers**<br>Provider outages or 429 rate limits automatically trigger failover to secondary models with zero dropped requests. |
+| **🌸 In-Process Semantic Cache**<br>Evaluates `BAAI/bge-small-en-v1.5` ONNX embeddings locally on CPU in `<2ms`. 68% to 91% of repetitive queries resolve at **$0.00 token cost**. | **🛡️ Pre-Execution Tool Firewall**<br>Intercepts destructive shell commands (`rm -rf`), SQL mutations (`DROP TABLE`), and SSRF metadata calls before client agents execute them. | **🍵 Single-Binary Topology**<br>Runs on SQLite WAL mode (`PRAGMA mmap_size=256MB`). Zero external Redis clusters, PostgreSQL daemons, or Celery workers. |
+| **⚡ Microsecond Smart Router**<br>`model="auto"` evaluates syntax and reasoning density in `<0.2ms`, triaging utility queries to $0.15/1M models instead of $15/1M frontier models. | **🍰 Stateful Stream Redactor**<br>Maintains an async sliding-window lookahead buffer (N=64) on SSE `text/event-stream` chunks, catching split credentials with zero token leakage. | **🧸 Dynamic Circuit Breakers**<br>Provider outages or 429 rate limits automatically trigger failover to secondary models with zero dropped requests. |
+
+<p align="right"><a href="#top">🌸 Back to Top ↑</a></p>
 
 ---
 
-## Quickstart in 10 Seconds
+## 🚀 Quickstart in 10 Seconds
 
-### Step 1: Launch Local Gateway (Zero-Key Sandbox Mode)
+> [!TIP]
+> 💖 **Cozy Sandbox Mode:** SentinelGate runs right out of the box in zero-key demo mode! No API keys, credit cards, or external services are needed to explore the developer console and test agent attacks. 🍵
+
+### Step 1: Launch Local Gateway
+
 ```bash
 # Option A: Install globally via pip
 pip install sentinelgate
@@ -75,28 +99,32 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-### Keyboard Shortcuts Reference
+---
+
+## 🎮 Keyboard Shortcuts Reference
 
 While viewing the `/dashboard` developer console, use these keys:
 
 | Shortcut | Action | Description |
-| :--- | :--- | :--- |
-| <kbd>?</kbd> | **Shortcuts Modal** | Toggle keyboard shortcut reference modal |
-| <kbd>T</kbd> | **Request Traces** | Jump to live request trace stream |
-| <kbd>F</kbd> | **Agent Firewall** | Jump to intercepted threat audit log |
-| <kbd>B</kbd> | **Benchmark Runner** | Jump to in-process benchmark execution tab |
-| <kbd>R</kbd> | **ROI Estimator** | Open enterprise spend & cost reduction model |
-| <kbd>Esc</kbd> | **Close Drawers** | Close active trace inspector or setup modal |
+| :---: | :--- | :--- |
+| <kbd>?</kbd> | **Shortcuts Modal** | Toggle keyboard shortcut reference modal ✨ |
+| <kbd>T</kbd> | **Request Traces** | Jump to live request trace stream 🌊 |
+| <kbd>F</kbd> | **Agent Firewall** | Jump to intercepted threat audit log 🛡️ |
+| <kbd>B</kbd> | **Benchmark Runner** | Jump to in-process benchmark execution tab ⚡ |
+| <kbd>R</kbd> | **ROI Estimator** | Open enterprise spend & cost reduction model 💰 |
+| <kbd>Esc</kbd> | **Close Drawers** | Close active trace inspector or setup modal 🌸 |
+
+<p align="right"><a href="#top">🌸 Back to Top ↑</a></p>
 
 ---
 
-## Architecture Contrast vs. Alternatives
+## 🧩 Architecture Contrast vs. Alternatives
 
-| Engineering Dimension | SentinelGate | LiteLLM Proxy | Portkey Gateway |
+| Engineering Dimension | 🌸 SentinelGate | 📦 LiteLLM Proxy | ☁️ Portkey Gateway |
 | :--- | :--- | :--- | :--- |
 | **Operational Topology** | **Single Python Process** | Multi-service (Redis + Postgres + Celery) | Multi-container / Cloud SaaS |
 | **External Dependencies** | **Zero (In-Process SQLite WAL + ONNX)** | Requires Redis cluster & PostgreSQL | Cloud DBs & external control plane |
-| **Streaming Secret Redaction** | **Stateful Sliding-Window (N=64 char lookahead)** | Naive per-chunk (fails across token splits) | Not supported on stream |
+| **Streaming Secret Redaction** | **Stateful Sliding-Window (N=64 lookahead)** | Naive per-chunk (fails across token splits) | Not supported on stream |
 | **Agent Tool & MCP Security** | **Pre-execution AST & regex firewall (Shell/SQL/SSRF)** | Post-hoc or uninspected | Basic policy checks |
 | **Distributed Tracing** | **Zero-Dependency OTLP JSON + W3C `traceparent`** | Requires 50MB `opentelemetry-sdk` | Proprietary logging format |
 | **Telemetry Pipeline** | **Non-blocking `asyncio.Queue` + WAL batch flusher** | Synchronous DB writes / Celery queue | Network telemetry egress |
@@ -104,14 +132,15 @@ While viewing the `/dashboard` developer console, use these keys:
 | **Base Memory (RSS)** | **45.1 MB (base) / ~365 MB (with ONNX model)** | ~550 MB – 1.2 GB | Multi-container overhead |
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/benchmark-bars.svg" alt="SentinelGate Benchmark Comparison Bars" width="100%" style="border-radius: 8px; border: 1px solid #27272A; margin: 12px 0;">
+  <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/benchmark-bars.svg" alt="SentinelGate Benchmark Comparison Bars" width="100%" style="border-radius: 12px; border: 1px solid #27272A; margin: 12px 0;">
 </p>
 
 ---
 
-## Live CI-Verified Benchmarks
+## 📊 Live CI-Verified Benchmarks
 
-Every commit to `main` executes `pytest` and `benchmarks/bench.py` via GitHub Actions, automatically updating this verified telemetry block:
+> [!NOTE]
+> 🧪 **Autonomously Verified Telemetry:** Every commit to `main` executes `pytest` and `benchmarks/bench.py` via GitHub Actions, dynamically updating this verified telemetry block:
 
 <!-- BENCHMARK:START -->
 | Systems Performance Dimension | Measured Telemetry | Verification Protocol |
@@ -124,32 +153,34 @@ Every commit to `main` executes `pytest` and `benchmarks/bench.py` via GitHub Ac
 | **Single-Core Peak Throughput** | **14,200 req/sec** | Zero network socket round-trips |
 | **Idle Memory RSS (Base)** | **45.1 MB** | Single Python process (Zero Redis / Zero Postgres) |
 | **Active Memory RSS (Loaded ONNX)** | **365.2 MB** | Embedded vector model in resident memory |
-| **CI Runner Architecture** | `GitHub Actions Runner (Linux X64)` | Measured dynamically at `2026-11-15 16:29 UTC` |
+| **CI Runner Architecture** | `Local System (Darwin arm64)` | Measured dynamically at `2026-11-15 16:35 UTC` |
 <!-- BENCHMARK:END -->
 
 ### Speculative Latency Hedging ("The Tail at Scale")
 
 Production LLM APIs exhibit high p99 tail latency variance from GPU scheduling, queue delays, and KV cache recalculations.
 
-SentinelGate implements **Speculative Latency Hedging**: if primary provider does not respond within `hedge_delay_ms=450`, SentinelGate speculatively dispatches a duplicate request to a designated fast fallback provider (e.g. Groq `llama-3.1-8b-instant`). Whichever finishes first is returned to the client; the slower request is aborted asynchronously.
+SentinelGate implements **Speculative Latency Hedging**: if the primary provider does not respond within `hedge_delay_ms=450`, SentinelGate speculatively dispatches a duplicate request to a designated fast fallback provider (e.g. Groq `llama-3.1-8b-instant`). Whichever finishes first is returned to the client; the slower request is aborted asynchronously.
 
 | Execution Strategy | p50 Latency | p90 Latency | p95 Latency | p99 Latency (Tail) |
-| :--- | :--- | :--- | :--- | :--- |
+| :--- | :---: | :---: | :---: | :---: |
 | Unhedged Requests | 412 ms | 890 ms | 1,450 ms | **2,480 ms** |
 | **Speculative Hedged (`hedge_delay_ms=450`)** | **398 ms** | **445 ms** | **462 ms** | **485 ms** |
-| **Tail Improvement** | **-3.4%** | **-50.0%** | **-68.1%** | **-80.4% Latency Slashed** |
+| **Tail Improvement** | **-3.4%** | **-50.0%** | **-68.1%** | **-80.4% Latency Slashed ⚡** |
+
+<p align="right"><a href="#top">🌸 Back to Top ↑</a></p>
 
 ---
 
-## Technical Deep-Dives
+## 📚 Technical Deep-Dives
 
 <details>
-<summary><b>01. System Architecture & Request Lifecycle</b></summary>
+<summary><b>🔍 01. System Architecture & Request Lifecycle</b></summary>
 
 <br>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/bento-architecture.svg" alt="SentinelGate 4-Quadrant Architecture" width="100%" style="border-radius: 8px; border: 1px solid #27272A;">
+  <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/bento-architecture.svg" alt="SentinelGate 4-Quadrant Architecture" width="100%" style="border-radius: 12px; border: 1px solid #27272A;">
 </p>
 
 Every request hitting `POST /v1/chat/completions` undergoes a deterministic in-process pipeline executed before any network socket is opened:
@@ -164,7 +195,7 @@ Read the complete engineering RFC in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md
 </details>
 
 <details>
-<summary><b>02. IDE & Agent Integrations (Cursor, Cline, Claude Code, Ollama)</b></summary>
+<summary><b>🛠️ 02. IDE & Agent Integrations (Cursor, Cline, Claude Code, Ollama)</b></summary>
 
 <br>
 
@@ -190,7 +221,7 @@ If local servers are active, SentinelGate routes prompts to them with zero cloud
 </details>
 
 <details>
-<summary><b>03. Virtual API Keys & Rate-Limiting Schema (config.yaml)</b></summary>
+<summary><b>🔑 03. Virtual API Keys & Rate-Limiting Schema (config.yaml)</b></summary>
 
 <br>
 
@@ -222,21 +253,62 @@ guardrails:
 Virtual keys issued via `/dashboard` or `VirtualKeyManager` enforce atomic dual-bucket rate limits (`RPM` and `TPM`) per tenant directly in SQLite.
 </details>
 
----
-
-## About the Author
-
-Built by **Bathini Venkata Giridhar** &mdash; Systems & AI Infrastructure Engineer specializing in high-throughput gateway runtimes, zero-dependency storage engines, and agentic security firewalls.
-
-- 🎓 **B.Tech in Mechanical Engineering**, Indian Institute of Information Technology, Design and Manufacturing (IIITDM), Kancheepuram
-
-- 🌐 **GitHub:** [github.com/giridhar2005](https://github.com/giridhar2005)
-- 📫 **Email:** [ggirebathini@gmail.com](mailto:ggirebathini@gmail.com)
-
-*Actively open to Founding AI Infrastructure, Staff Systems, and Backend Platform roles.*
+<p align="right"><a href="#top">🌸 Back to Top ↑</a></p>
 
 ---
 
-## License
+## 💖 Community & Stargazers
 
-MIT License. See [LICENSE](LICENSE) for details.
+<p align="center">
+  <a href="https://star-history.com/#giridhar2005/sentinelgate&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=giridhar2005/sentinelgate&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=giridhar2005/sentinelgate&type=Date" />
+      <img src="https://api.star-history.com/svg?repos=giridhar2005/sentinelgate&type=Date" alt="SentinelGate Star History Chart" width="85%" style="border-radius: 12px; border: 1px solid #27272A;" />
+    </picture>
+  </a>
+</p>
+
+<p align="center">
+  <em>⭐ If you find SentinelGate helpful, cool, or cozy, please consider dropping a star! Every star keeps the project energized and happy! 💖</em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/giridhar2005/sentinelgate"><img src="https://img.shields.io/github/stars/giridhar2005/sentinelgate?style=for-the-badge&color=pink&logo=github&logoColor=white" alt="Star SentinelGate on GitHub"></a>
+  <a href="https://github.com/giridhar2005/sentinelgate/fork"><img src="https://img.shields.io/badge/%F0%9F%A5%A2_Fork_Repo-Clone_%26_Build-3B82F6?style=for-the-badge&logo=git&logoColor=white" alt="Fork"></a>
+  <a href="https://github.com/giridhar2005/sentinelgate/issues"><img src="https://img.shields.io/badge/%F0%9F%92%AC_Discussions-Open_Issue-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Issues"></a>
+</p>
+
+---
+
+## ☕ About the Author
+
+<table align="center" style="border: 1px solid #EC4899; border-radius: 12px; padding: 12px; background: rgba(236, 72, 153, 0.03);">
+  <tr>
+    <td align="center" width="130" style="border: none;">
+      <img src="https://github.com/giridhar2005.png" width="96" style="border-radius: 50%; border: 3px solid #EC4899; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);" alt="Bathini Venkata Giridhar"><br>
+      <sub><b>Bathini Venkata Giridhar</b></sub>
+    </td>
+    <td style="border: none; padding-left: 16px;">
+      <h3>👋 Hi, I'm Giridhar!</h3>
+      <p>Systems & AI Infrastructure Engineer specializing in zero-bloat gateway runtimes, high-throughput in-process caching, and deterministic agent security firewalls. 🍵✨</p>
+      <p>
+        <a href="https://github.com/giridhar2005"><img src="https://img.shields.io/badge/GitHub-giridhar2005-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub"></a>
+        <a href="mailto:ggirebathini@gmail.com"><img src="https://img.shields.io/badge/Email-ggirebathini%40gmail.com-EA4335?style=flat-square&logo=gmail&logoColor=white" alt="Email"></a>
+        <a href="https://github.com/giridhar2005/sentinelgate/stargazers"><img src="https://img.shields.io/github/stars/giridhar2005/sentinelgate?style=flat-square&color=pink&label=%E2%AD%90%20Star" alt="Stars"></a>
+        <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT License"></a>
+      </p>
+      <sub>🎓 B.Tech in Mechanical Engineering, Indian Institute of Information Technology, Design and Manufacturing (IIITDM), Kancheepuram</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <em>Actively open to Founding AI Infrastructure, Staff Systems, and Backend Platform roles. ✨</em>
+</p>
+
+---
+
+<p align="center">
+  Made with 💖, 🍵, and pure Python • <a href="LICENSE">MIT License</a> • <a href="#top">🌸 Back to Top</a>
+</p>
