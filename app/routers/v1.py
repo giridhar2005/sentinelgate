@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 import uuid
@@ -633,3 +634,237 @@ async def warm_cache(items: List[CacheWarmItem], request: Request):
 async def export_evals(request: Request, limit: Optional[int] = 100):
     app_evals = request.app.state.evals
     return JSONResponse(content={"dataset": app_evals.export_golden_dataset(limit=limit or 100)})
+
+
+@router.post("/messages")
+async def anthropic_messages(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    x_api_key: Optional[str] = Header(None),
+    authorization: Optional[str] = Header(None),
+    anthropic_version: Optional[str] = Header("2023-06-01"),
+):
+    """Anthropic Messages API Adapter (/v1/messages).
+
+    Translates Anthropic Messages requests to SentinelGate's internal router,
+    enabling drop-in compatibility with Claude Code CLI and the Anthropic SDK.
+    """
+    bearer_token = x_api_key or parse_bearer_token(authorization)
+    app_keys = getattr(request.app.state, "virtual_keys", None)
+    rate_limit_headers: Dict[str, str] = {}
+
+    if bearer_token and bearer_token.startswith("sg-") and app_keys:
+        is_valid, err_msg, rl_hdrs = app_keys.verify_and_rate_limit(
+            bearer_token, estimated_tokens=10
+        )
+        rate_limit_headers = rl_hdrs
+        if not is_valid:
+            status_code = 429 if "rate limit" in (err_msg or "").lower() else 401
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "type": "error",
+                    "error": {
+                        "type": "authentication_error" if status_code == 401 else "rate_limit_error",
+                        "message": err_msg or "Authentication failed.",
+                    },
+                },
+                headers=rate_limit_headers,
+            )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "type": "error",
+                "error": {
+                    "type": "invalid_request_error",
+                    "message": "Malformed JSON request body.",
+                },
+            },
+        )
+
+    requested_model = body.get("model", "auto")
+    raw_messages = body.get("messages", [])
+    system_prompt = body.get("system", "")
+    max_tokens = body.get("max_tokens", 2048)
+    temperature = body.get("temperature", 0.7)
+    stream = body.get("stream", False)
+    anthropic_tools = body.get("tools", [])
+
+    openai_messages: List[Dict[str, Any]] = []
+    if system_prompt:
+        if isinstance(system_prompt, list):
+            sys_text = " ".join(b.get("text", "") for b in system_prompt if isinstance(b, dict))
+        else:
+            sys_text = str(system_prompt)
+        if sys_text.strip():
+            openai_messages.append({"role": "system", "content": sys_text.strip()})
+
+    for m in raw_messages:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if isinstance(content, list):
+            text_val = "".join(
+                b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"
+            )
+        else:
+            text_val = str(content)
+        openai_messages.append({"role": role, "content": text_val})
+
+    if not openai_messages:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "type": "error",
+                "error": {
+                    "type": "invalid_request_error",
+                    "message": "Request must contain at least one message.",
+                },
+            },
+        )
+
+    user_prompt = ""
+    for m in reversed(openai_messages):
+        if m.get("role") == "user":
+            user_prompt = m.get("content", "")
+            break
+
+    openai_payload: Dict[str, Any] = {
+        "model": requested_model,
+        "messages": openai_messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "stream": stream,
+    }
+
+    if anthropic_tools:
+        openai_tools = []
+        for t in anthropic_tools:
+            openai_tools.append({
+                "type": "function",
+                "function": {
+                    "name": t.get("name", ""),
+                    "description": t.get("description", ""),
+                    "parameters": t.get("input_schema", {}),
+                },
+            })
+        openai_payload["tools"] = openai_tools
+
+    app_router = request.app.state.router
+    app_evals = getattr(request.app.state, "evals", None)
+    req_id = f"msg_{uuid.uuid4().hex[:16]}"
+    start_time = time.time()
+
+    if stream:
+        gen, chosen_provider, chosen_model = await app_router.execute_request(
+            openai_payload, stream=True
+        )
+
+        async def anthropic_stream():
+            msg_id = req_id
+            yield f"event: message_start\ndata: {json.dumps({'type': 'message_start', 'message': {'id': msg_id, 'type': 'message', 'role': 'assistant', 'model': chosen_model, 'content': [], 'stop_reason': None, 'stop_sequence': None, 'usage': {'input_tokens': max(1, len(user_prompt) // 4), 'output_tokens': 0}}})}\n\n"
+            yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}})}\n\n"
+            total_out_tokens = 0
+            async for chunk in gen:
+                for line in chunk.splitlines():
+                    if line.startswith("data: ") and line != "data: [DONE]":
+                        try:
+                            c_data = json.loads(line[6:])
+                            c_choices = c_data.get("choices", [])
+                            if c_choices:
+                                delta = c_choices[0].get("delta", {})
+                                text = delta.get("content", "")
+                                if text:
+                                    total_out_tokens += 1
+                                    yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': text}})}\n\n"
+                        except Exception:
+                            pass
+            yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
+            yield f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn', 'stop_sequence': None}, 'usage': {'output_tokens': total_out_tokens}})}\n\n"
+            yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
+
+        return StreamingResponse(
+            anthropic_stream(),
+            media_type="text/event-stream",
+            headers={
+                "X-Request-ID": req_id,
+                "anthropic-version": anthropic_version or "2023-06-01",
+                **rate_limit_headers,
+            },
+        )
+
+    # Non-streaming request
+    res_json, chosen_provider, chosen_model = await app_router.execute_request(
+        openai_payload, stream=False
+    )
+    latency_ms = (time.time() - start_time) * 1000.0
+
+    choices = res_json.get("choices", [])
+    content_blocks: List[Dict[str, Any]] = []
+    stop_reason = "end_turn"
+
+    if choices:
+        msg = choices[0].get("message", {})
+        if msg.get("content"):
+            content_blocks.append({"type": "text", "text": msg["content"]})
+        for tc in (msg.get("tool_calls") or []):
+            fn = tc.get("function", {})
+            try:
+                args = json.loads(fn.get("arguments", "{}"))
+            except Exception:
+                args = {}
+            content_blocks.append({
+                "type": "tool_use",
+                "id": tc.get("id", f"toolu_{uuid.uuid4().hex[:10]}"),
+                "name": fn.get("name", ""),
+                "input": args,
+            })
+            stop_reason = "tool_use"
+
+    usage = res_json.get("usage", {})
+    in_tokens = usage.get("prompt_tokens", max(1, len(user_prompt) // 4))
+    out_tokens = usage.get("completion_tokens", max(1, sum(len(str(b)) for b in content_blocks) // 4))
+
+    anthropic_resp = {
+        "id": req_id,
+        "type": "message",
+        "role": "assistant",
+        "model": chosen_model,
+        "content": content_blocks,
+        "stop_reason": stop_reason,
+        "stop_sequence": None,
+        "usage": {
+            "input_tokens": in_tokens,
+            "output_tokens": out_tokens,
+        },
+    }
+
+    if app_evals:
+        app_evals.log_request(
+            request_id=req_id,
+            model=requested_model,
+            provider=chosen_provider,
+            latency_ms=latency_ms,
+            cache_hit=False,
+            prompt_tokens=in_tokens,
+            completion_tokens=out_tokens,
+            cost_usd=0.0,
+            cost_saved_usd=0.0,
+            status="SUCCESS",
+            prompt_snippet=user_prompt[:250],
+            response_snippet=str(content_blocks)[:250],
+        )
+
+    return JSONResponse(
+        content=anthropic_resp,
+        headers={
+            "X-Request-ID": req_id,
+            "X-Provider-Used": chosen_provider,
+            "X-Latency-Ms": f"{latency_ms:.2f}",
+            "anthropic-version": anthropic_version or "2023-06-01",
+            **rate_limit_headers,
+        },
+    )

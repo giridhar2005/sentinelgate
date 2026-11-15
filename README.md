@@ -208,7 +208,7 @@ Read the complete engineering RFC in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md
 In your editor settings, set:
 - **Base URL:** `http://localhost:8000/v1`
 - **API Key:** `sentinel-local` (or your issued virtual key `sg-...`)
-- **Model:** `auto` (or explicit `gpt-4o-mini`, `claude-3-5-haiku`)
+- **Model:** `auto` (or explicit `gpt-4o-mini`, `claude-3-5-sonnet`)
 
 ### Claude Code CLI
 ```bash
