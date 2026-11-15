@@ -45,6 +45,7 @@ class CreateKeyRequest(BaseModel):
     daily_budget_usd: Optional[float] = 10.0
     monthly_budget_usd: Optional[float] = 300.0
     rate_limit_rpm: Optional[int] = 60
+    rate_limit_tpm: Optional[int] = 60000
 
 
 class CacheWarmItem(BaseModel):
@@ -72,7 +73,10 @@ async def chat_completions(
     start_time = time.time()
     t_perf_start = time.perf_counter()
     req_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
-    user_prompt = " ".join([str(m.get("content", "")) for m in req.messages if m.get("role") == "user"]) or "User prompt"
+    user_prompt = (
+        " ".join([str(m.get("content", "")) for m in req.messages if m.get("role") == "user"])
+        or "User prompt"
+    )
 
     # Access app services
     app_router = request.app.state.router
@@ -81,14 +85,27 @@ async def chat_completions(
     app_budget = request.app.state.budget
     app_keys = request.app.state.virtual_keys
 
-    # 1. Virtual Key Authentication & Rate Limiting
+    # 1. Virtual Key Authentication & Dual-Bucket Rate Limiting (RPM + TPM)
+    rate_limit_headers: Dict[str, str] = {}
+    estimated_prompt_tokens = max(1, len(user_prompt) // 4)
     bearer_token = parse_bearer_token(authorization)
     if bearer_token and bearer_token.startswith("sg-"):
-        is_valid, err_msg = app_keys.verify_and_rate_limit(bearer_token)
+        is_valid, err_msg, rl_hdrs = app_keys.verify_and_rate_limit(
+            bearer_token, estimated_tokens=estimated_prompt_tokens
+        )
+        rate_limit_headers = rl_hdrs
         if not is_valid:
-            status_code = 429 if "Rate limit" in (err_msg or "") else 401
+            status_code = 429 if "rate limit" in (err_msg or "").lower() else 401
             code = "rate_limit_exceeded" if status_code == 429 else "invalid_api_key"
-            return make_openai_error(err_msg or "Authentication failed", error_type="auth_error", code=code, status_code=status_code)
+            err_resp = make_openai_error(
+                err_msg or "Authentication failed",
+                error_type="auth_error",
+                code=code,
+                status_code=status_code,
+            )
+            for k, v in rate_limit_headers.items():
+                err_resp.headers[k] = v
+            return err_resp
 
     # 2. Pre-Flight Guardrails
     t_guard_start = time.perf_counter()
@@ -96,7 +113,11 @@ async def chat_completions(
     # Secret Redaction / Blocking Firewall
     guard_cfg = getattr(request.app.state.config, "guardrails", None)
     configured_action = getattr(guard_cfg, "secret_action", "redact") if guard_cfg else "redact"
-    if guard_cfg and getattr(guard_cfg, "block_secrets", False) and "secret_action" not in guard_cfg.model_fields_set:
+    if (
+        guard_cfg
+        and getattr(guard_cfg, "block_secrets", False)
+        and "secret_action" not in guard_cfg.model_fields_set
+    ):
         configured_action = "block"
     secret_action = request.headers.get("X-Secret-Action", configured_action).lower()
 
@@ -131,7 +152,9 @@ async def chat_completions(
                 status_code=400,
             )
     elif secret_action == "redact":
-        sanitized_messages, secret_mapping, scrubbed_count = SecretRedactor.redact_messages(req.messages)
+        sanitized_messages, secret_mapping, scrubbed_count = SecretRedactor.redact_messages(
+            req.messages
+        )
         if scrubbed_count > 0:
             app_evals.log_guardrail_event(
                 req_id,
@@ -208,7 +231,9 @@ async def chat_completions(
             out_tokens = usage.get("completion_tokens", 0)
             cost_saved = app_router.get_model_cost(provider, internal_model, in_tokens, out_tokens)
 
-            resp_snippet = final_resp.get("choices", [{}])[0].get("message", {}).get("content", "")[:300]
+            resp_snippet = (
+                final_resp.get("choices", [{}])[0].get("message", {}).get("content", "")[:300]
+            )
             timing = {
                 "guardrail_ms": round(guard_ms, 2),
                 "embedding_ms": round(cache_lookup_ms * 0.7, 2),
@@ -242,6 +267,11 @@ async def chat_completions(
             }
             if scrubbed_count > 0:
                 headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
+            headers.update(rate_limit_headers)
+            if bearer_token and bearer_token.startswith("sg-"):
+                app_keys.record_token_adjustment(
+                    bearer_token, (in_tokens + out_tokens) - estimated_prompt_tokens
+                )
             return JSONResponse(content=final_resp, headers=headers)
 
     # 6. Daily Budget Circuit Breaker Check
@@ -255,17 +285,24 @@ async def chat_completions(
         )
 
     # 7. Upstream Direct REST Execution
+    hedge_meta: Dict[str, Any] = {}
     try:
         use_hedge = (req.hedge or (x_hedge and x_hedge.lower() == "true")) and not req.stream
         if use_hedge:
-            upstream_res, chosen_provider, chosen_model = await app_router.execute_hedged_request(active_req)
+            res_tuple = await app_router.execute_hedged_request(active_req)
+            if len(res_tuple) == 4:
+                upstream_res, chosen_provider, chosen_model, hedge_meta = res_tuple
+            else:
+                upstream_res, chosen_provider, chosen_model = res_tuple[:3]
         else:
             upstream_res, chosen_provider, chosen_model = await app_router.execute_request(
                 active_req, stream=bool(req.stream)
             )
     except Exception as e:
         logger.error(f"Execution failed for {requested_model}: {e}")
-        return make_openai_error(f"All upstream providers failed: {e}", error_type="upstream_error", status_code=502)
+        return make_openai_error(
+            f"All upstream providers failed: {e}", error_type="upstream_error", status_code=502
+        )
 
     # 8. Handle SSE Streaming Response
     if req.stream:
@@ -276,7 +313,11 @@ async def chat_completions(
                 async for chunk in upstream_res:
                     if not ttft_logged["done"]:
                         ttft_ms = (time.time() - start_time) * 1000.0
-                        stream_status = "FAILOVER" if chosen_provider != provider else ("REDACTED" if scrubbed_count > 0 else "UPSTREAM")
+                        stream_status = (
+                            "FAILOVER"
+                            if chosen_provider != provider
+                            else ("REDACTED" if scrubbed_count > 0 else "UPSTREAM")
+                        )
                         app_evals.log_request(
                             request_id=req_id,
                             model=requested_model,
@@ -307,12 +348,17 @@ async def chat_completions(
         }
         if scrubbed_count > 0:
             stream_headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
+        stream_headers.update(rate_limit_headers)
         if requested_model == "auto":
             auto_meta = getattr(app_router, "last_routing_metadata", {})
             stream_headers["X-Auto-Route"] = f"{chosen_provider}/{chosen_model}"
             if auto_meta:
-                stream_headers["X-Auto-Complexity"] = f"{auto_meta.get('classification', 'simple')} ({auto_meta.get('score', 0)}/100)"
-        return StreamingResponse(event_generator(), media_type="text/event-stream", headers=stream_headers)
+                stream_headers["X-Auto-Complexity"] = (
+                    f"{auto_meta.get('classification', 'simple')} ({auto_meta.get('score', 0)}/100)"
+                )
+        return StreamingResponse(
+            event_generator(), media_type="text/event-stream", headers=stream_headers
+        )
 
     # 9. Non-Streaming Post-Processing
     if JSONSelfHealer.is_json_requested(active_req):
@@ -406,12 +452,21 @@ async def chat_completions(
     }
     if scrubbed_count > 0:
         headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
+    if hedge_meta:
+        headers["X-Hedged-Request"] = "true"
+        headers["X-Hedge-Winner"] = str(hedge_meta.get("winner", "primary"))
+        headers["X-Hedge-Triggered"] = "true" if hedge_meta.get("hedged_triggered") else "false"
+    headers.update(rate_limit_headers)
+    if bearer_token and bearer_token.startswith("sg-"):
+        app_keys.record_token_adjustment(bearer_token, (in_tok + out_tok) - estimated_prompt_tokens)
     if requested_model == "auto":
         headers["X-Auto-Route"] = f"{chosen_provider}/{chosen_model}"
         headers["X-Auto-Saved-USD"] = f"{auto_saved_usd:.6f}"
         auto_meta = getattr(app_router, "last_routing_metadata", {})
         if auto_meta:
-            headers["X-Auto-Complexity"] = f"{auto_meta.get('classification', 'simple')} ({auto_meta.get('score', 0)}/100)"
+            headers["X-Auto-Complexity"] = (
+                f"{auto_meta.get('classification', 'simple')} ({auto_meta.get('score', 0)}/100)"
+            )
     return JSONResponse(content=final_resp, headers=headers)
 
 
@@ -443,6 +498,7 @@ async def create_key(req: CreateKeyRequest, request: Request):
         daily_budget_usd=req.daily_budget_usd or 10.0,
         monthly_budget_usd=req.monthly_budget_usd or 300.0,
         rate_limit_rpm=req.rate_limit_rpm or 60,
+        rate_limit_tpm=req.rate_limit_tpm or 60000,
     )
     return JSONResponse(content=new_k)
 
@@ -474,11 +530,13 @@ async def warm_cache(items: List[CacheWarmItem], request: Request):
                 "object": "chat.completion",
                 "created": int(time.time()),
                 "model": item.model or "gpt-4o-mini",
-                "choices": [{
-                    "index": 0,
-                    "message": {"role": "assistant", "content": item.response},
-                    "finish_reason": "stop",
-                }],
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": item.response},
+                        "finish_reason": "stop",
+                    }
+                ],
                 "usage": {
                     "prompt_tokens": len(item.prompt) // 4,
                     "completion_tokens": len(item.response) // 4,

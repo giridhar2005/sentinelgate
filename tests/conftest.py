@@ -17,8 +17,18 @@ def test_app():
 
     test_config = {
         "server": {"host": "0.0.0.0", "port": 8000},
-        "cache": {"enabled": True, "similarity_threshold": 0.90, "ttl_seconds": 3600, "db_path": db_path},
-        "guardrails": {"pii_masking": True, "block_secrets": True, "prompt_injection_block": True, "context_compaction": True},
+        "cache": {
+            "enabled": True,
+            "similarity_threshold": 0.90,
+            "ttl_seconds": 3600,
+            "db_path": db_path,
+        },
+        "guardrails": {
+            "pii_masking": True,
+            "block_secrets": True,
+            "prompt_injection_block": True,
+            "context_compaction": True,
+        },
         "budget": {"enabled": True, "daily_limit_usd": 10.0},
         "evals": {"enabled": True, "sample_rate": 0.0},  # Deterministic test runs
         "providers": {

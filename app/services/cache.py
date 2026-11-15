@@ -30,6 +30,7 @@ class SemanticCache:
     def _init_embedder(self):
         try:
             from fastembed import TextEmbedding
+
             self.embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
             logger.info("FastEmbed BAAI/bge-small-en-v1.5 ONNX runtime initialized.")
         except Exception as e:

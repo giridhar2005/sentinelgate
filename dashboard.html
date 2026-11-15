@@ -107,6 +107,12 @@
         <kbd class="px-1 py-0.2 rounded bg-zinc-800 border border-hairline text-[10px] text-zinc-400 font-mono">?</kbd>
       </button>
 
+      <!-- Prometheus Metrics Exposition Link -->
+      <a href="/metrics" target="_blank" class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight transition text-zinc-300 hover:text-white" title="Prometheus Metrics Exposition (/metrics)">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+        <span class="font-mono text-xs">/metrics</span>
+      </a>
+
       <!-- Export Evals Button -->
       <a href="/api/export/traces.jsonl" download class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-panelElevated border border-hairline hover:border-hairlineLight transition text-zinc-300 hover:text-white" title="Download Eval Dataset (OpenAI JSONL format)">
         <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -269,6 +275,10 @@
             <label class="flex items-center space-x-1.5 cursor-pointer text-zinc-400">
               <input type="checkbox" id="sim-nocache" class="rounded bg-canvas border-hairline text-zinc-600 focus:ring-0">
               <span>Bypass Cache</span>
+            </label>
+            <label class="flex items-center space-x-1.5 cursor-pointer text-amber-400/90" title="Speculative Hedging: Race primary against fallback to eliminate p99 tail latency">
+              <input type="checkbox" id="sim-hedge" class="rounded bg-canvas border-hairline text-amber-500 focus:ring-0">
+              <span class="font-mono text-[11px]">Hedge (Tail Slasher)</span>
             </label>
           </div>
 
@@ -1175,6 +1185,7 @@ console.log(completion.choices[0].message.content);</code></pre>
 
       const model = document.getElementById("sim-model").value;
       const bypass = document.getElementById("sim-nocache").checked;
+      const hedge = document.getElementById("sim-hedge")?.checked || false;
       const btn = document.getElementById("btn-run-sim");
       const spinner = document.getElementById("sim-spinner");
       const resultBox = document.getElementById("sim-result-container");
@@ -1188,6 +1199,7 @@ console.log(completion.choices[0].message.content);</code></pre>
 
       const headers = { "Content-Type": "application/json" };
       if (bypass) headers["X-No-Cache"] = "true";
+      if (hedge) headers["X-Hedge"] = "true";
 
       const t0 = performance.now();
       try {
@@ -1196,7 +1208,8 @@ console.log(completion.choices[0].message.content);</code></pre>
           headers: headers,
           body: JSON.stringify({
             model: model,
-            messages: [{ role: "user", content: prompt }]
+            messages: [{ role: "user", content: prompt }],
+            hedge: hedge
           })
         });
 
@@ -1215,6 +1228,8 @@ console.log(completion.choices[0].message.content);</code></pre>
           const autoRoute = res.headers.get("X-Auto-Route");
           const autoSaved = res.headers.get("X-Auto-Saved-USD");
           const scrubbed = res.headers.get("X-Secrets-Scrubbed");
+          const isHedged = res.headers.get("X-Hedged-Request") === "true";
+          const hedgeWinner = res.headers.get("X-Hedge-Winner") || "primary";
 
           if (cacheHeader === "HIT") {
             badge.className = "badge-hit px-2 py-0.5 rounded text-[11px] font-medium";
@@ -1224,6 +1239,10 @@ console.log(completion.choices[0].message.content);</code></pre>
             badge.className = "badge-redacted px-2 py-0.5 rounded text-[11px] font-medium";
             badge.innerText = "REDACTED";
             sim.innerText = `Shield: ${scrubbed} secret(s) scrubbed in flight & restored`;
+          } else if (isHedged) {
+            badge.className = "badge-failover px-2 py-0.5 rounded text-[11px] font-medium";
+            badge.innerText = `HEDGE WINNER: ${hedgeWinner.toUpperCase()}`;
+            sim.innerText = `Speculative Tail Slasher: Hedged race resolved`;
           } else if (autoRoute) {
             badge.className = "badge-upstream px-2 py-0.5 rounded text-[11px] font-medium";
             badge.innerText = `ROUTED: ${autoRoute.toUpperCase()}`;

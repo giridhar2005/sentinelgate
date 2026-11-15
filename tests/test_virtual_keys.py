@@ -94,7 +94,9 @@ def test_budget_circuit_breaker(test_app):
             json={
                 "id": "chatcmpl-budget-1",
                 "object": "chat.completion",
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Costly generation"}}],
+                "choices": [
+                    {"index": 0, "message": {"role": "assistant", "content": "Costly generation"}}
+                ],
                 "usage": {"prompt_tokens": 1000, "completion_tokens": 1000, "total_tokens": 2000},
             },
         )

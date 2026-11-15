@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-baseline space-x-2">
             <span className="font-semibold tracking-tight text-white text-base">SentinelGate</span>
             <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
-              v0.3.0
+              v0.4.0
             </span>
           </div>
 
@@ -93,6 +93,18 @@ export const Header: React.FC<HeaderProps> = ({
             <Key className="w-3.5 h-3.5 text-zinc-400" />
             <span>Virtual Keys</span>
           </button>
+
+          {/* Prometheus Metrics */}
+          <a
+            href="/metrics"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded font-mono bg-[#111113] border border-[#27272A] text-zinc-300 hover:text-white hover:border-zinc-600 transition"
+            title="Prometheus Metrics Exposition"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            <span>/metrics</span>
+          </a>
 
           {/* Export Evals Dropdown */}
           <a

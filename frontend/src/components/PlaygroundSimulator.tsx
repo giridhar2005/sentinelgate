@@ -50,6 +50,13 @@ const PRESETS: Preset[] = [
     prompt: "Design an asynchronous fault-tolerant distributed transaction coordinator in Go with two-phase commit and idempotency keys.",
     description: "Scores high complexity -> routes to frontier model",
   },
+  {
+    id: "p6",
+    label: "6. Speculative Hedging",
+    model: "gpt-4o-mini",
+    prompt: "Generate a low-latency architectural comparison between gRPC and REST.",
+    description: "Races primary upstream against secondary fallback (The Tail at Scale)",
+  },
 ];
 
 export const PlaygroundSimulator: React.FC<PlaygroundSimulatorProps> = ({
@@ -58,6 +65,7 @@ export const PlaygroundSimulator: React.FC<PlaygroundSimulatorProps> = ({
 }) => {
   const [model, setModel] = useState<string>("auto");
   const [prompt, setPrompt] = useState<string>(PRESETS[0].prompt);
+  const [isHedge, setIsHedge] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastResult, setLastResult] = useState<{
     status: string;
@@ -89,6 +97,7 @@ export const PlaygroundSimulator: React.FC<PlaygroundSimulatorProps> = ({
           model: model,
           messages: [{ role: "user", content: prompt.trim() }],
           temperature: 0.7,
+          hedge: isHedge,
         }),
       });
 
@@ -181,6 +190,16 @@ export const PlaygroundSimulator: React.FC<PlaygroundSimulatorProps> = ({
               <option value="ollama/llama3.2">ollama/llama3.2</option>
             </select>
           </div>
+
+          <label className="flex items-center space-x-2 text-[11px] font-mono text-amber-400/90 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isHedge}
+              onChange={(e) => setIsHedge(e.target.checked)}
+              className="rounded bg-[#09090B] border-[#27272A] text-amber-500 focus:ring-0"
+            />
+            <span>Speculative Hedge (Tail Slasher)</span>
+          </label>
 
           <button
             onClick={executePrompt}

@@ -37,6 +37,9 @@ class ProviderRouter:
         self.chaos_status_code: int = 429
         self.discovery_info: Dict[str, Any] = {}
         self.last_routing_metadata: Dict[str, Any] = {}
+        self.hedged_triggered_count: int = 0
+        self.hedged_primary_won_count: int = 0
+        self.hedged_secondary_won_count: int = 0
 
     def apply_discovery(self, discovery_info: Dict[str, Any]):
         """Incorporate discovered local runtimes and environment keys into routing inventory."""
@@ -51,8 +54,16 @@ class ProviderRouter:
                 "base_url": ollama.get("url", "http://127.0.0.1:11434") + "/v1",
                 "api_keys": ["ollama-local"],
                 "models": {
-                    "llama3": {"input_cost_per_m": 0.0, "output_cost_per_m": 0.0, "fallbacks": ["groq/llama-3.1-8b-instant"]},
-                    "mistral": {"input_cost_per_m": 0.0, "output_cost_per_m": 0.0, "fallbacks": ["groq/llama-3.1-8b-instant"]},
+                    "llama3": {
+                        "input_cost_per_m": 0.0,
+                        "output_cost_per_m": 0.0,
+                        "fallbacks": ["groq/llama-3.1-8b-instant"],
+                    },
+                    "mistral": {
+                        "input_cost_per_m": 0.0,
+                        "output_cost_per_m": 0.0,
+                        "fallbacks": ["groq/llama-3.1-8b-instant"],
+                    },
                 },
             }
 
@@ -64,7 +75,11 @@ class ProviderRouter:
                 "base_url": lmstudio.get("url", "http://127.0.0.1:1234") + "/v1",
                 "api_keys": ["lmstudio-local"],
                 "models": {
-                    "local-model": {"input_cost_per_m": 0.0, "output_cost_per_m": 0.0, "fallbacks": ["groq/llama-3.1-8b-instant"]},
+                    "local-model": {
+                        "input_cost_per_m": 0.0,
+                        "output_cost_per_m": 0.0,
+                        "fallbacks": ["groq/llama-3.1-8b-instant"],
+                    },
                 },
             }
 
@@ -89,7 +104,11 @@ class ProviderRouter:
         p_cfg = self.providers.get(provider)
         if not p_cfg:
             return False
-        keys = getattr(p_cfg, "api_keys", []) if hasattr(p_cfg, "api_keys") else (p_cfg.get("api_keys", []) if isinstance(p_cfg, dict) else [])
+        keys = (
+            getattr(p_cfg, "api_keys", [])
+            if hasattr(p_cfg, "api_keys")
+            else (p_cfg.get("api_keys", []) if isinstance(p_cfg, dict) else [])
+        )
         clean = [k for k in keys if k and not str(k).startswith("${")]
         return len(clean) > 0
 
@@ -98,7 +117,11 @@ class ProviderRouter:
         for p, p_cfg in self.providers.items():
             if p == "ollama":
                 continue
-            keys = getattr(p_cfg, "api_keys", []) if hasattr(p_cfg, "api_keys") else (p_cfg.get("api_keys", []) if isinstance(p_cfg, dict) else [])
+            keys = (
+                getattr(p_cfg, "api_keys", [])
+                if hasattr(p_cfg, "api_keys")
+                else (p_cfg.get("api_keys", []) if isinstance(p_cfg, dict) else [])
+            )
             clean = [k for k in keys if k and not str(k).startswith("${") and str(k).strip() != ""]
             if clean:
                 return True
@@ -106,6 +129,8 @@ class ProviderRouter:
 
     def is_sandbox_mode(self) -> bool:
         """Determines if the gateway should run in zero-key deterministic sandbox mode."""
+        if getattr(self, "demo_mode", None) is not None:
+            return bool(self.demo_mode)
         demo_env = os.getenv("DEMO_MODE")
         if demo_env is not None:
             return demo_env.strip().lower() in ("true", "1", "yes")
@@ -161,20 +186,24 @@ class ProviderRouter:
         for p_name, p_data in self.providers.items():
             model_dict = p_data.models if hasattr(p_data, "models") else p_data.get("models", {})
             for m_name in model_dict:
-                models.append({
-                    "id": m_name,
-                    "object": "model",
-                    "created": now,
-                    "owned_by": p_name,
-                    "permission": [],
-                    "root": m_name,
-                    "parent": None,
-                })
+                models.append(
+                    {
+                        "id": m_name,
+                        "object": "model",
+                        "created": now,
+                        "owned_by": p_name,
+                        "permission": [],
+                        "root": m_name,
+                        "parent": None,
+                    }
+                )
         return models
 
     def score_complexity(self, messages: List[Dict[str, Any]]) -> Tuple[int, str, Dict[str, Any]]:
         """Fast sub-millisecond deterministic prompt complexity evaluator."""
-        full_text = " ".join([str(m.get("content", "")) for m in messages if isinstance(m.get("content"), str)])
+        full_text = " ".join(
+            [str(m.get("content", "")) for m in messages if isinstance(m.get("content"), str)]
+        )
         lower_text = full_text.lower()
         total_chars = len(full_text)
         num_turns = len(messages)
@@ -195,7 +224,18 @@ class ProviderRouter:
             factors.append(f"multi_turn ({num_turns} messages)")
 
         # 2. Code blocks, syntax & diffs
-        code_signals = ["```", "diff --git", "def ", "class ", "function ", "import ", "select ", "from ", "curl ", "dockerfile"]
+        code_signals = [
+            "```",
+            "diff --git",
+            "def ",
+            "class ",
+            "function ",
+            "import ",
+            "select ",
+            "from ",
+            "curl ",
+            "dockerfile",
+        ]
         code_hits = sum(1 for s in code_signals if s in lower_text)
         if "```" in full_text or "diff --git" in lower_text:
             score += 30
@@ -206,11 +246,31 @@ class ProviderRouter:
 
         # 3. High-complexity reasoning keywords
         complex_keywords = [
-            "architect", "architecture", "derive", "mathematical", "proof", "refactor",
-            "optimize", "tradeoff", "trade-off", "benchmark", "concurrency", "distributed",
-            "system design", "memory leak", "race condition", "deadlock", "algorithm",
-            "debug", "traceback", "stack trace", "why does", "explain step by step",
-            "step-by-step", "security vulnerability", "audit"
+            "architect",
+            "architecture",
+            "derive",
+            "mathematical",
+            "proof",
+            "refactor",
+            "optimize",
+            "tradeoff",
+            "trade-off",
+            "benchmark",
+            "concurrency",
+            "distributed",
+            "system design",
+            "memory leak",
+            "race condition",
+            "deadlock",
+            "algorithm",
+            "debug",
+            "traceback",
+            "stack trace",
+            "why does",
+            "explain step by step",
+            "step-by-step",
+            "security vulnerability",
+            "audit",
         ]
         matched_kws = [kw for kw in complex_keywords if kw in lower_text]
         if len(matched_kws) >= 3:
@@ -227,7 +287,9 @@ class ProviderRouter:
         simple_words = {"hello", "hi", "hey", "ping", "test", "capitalize", "convert"}
         simple_phrases = ["summarize", "format as json", "fix spelling", "what is"]
         words = set(re.findall(r"\b\w+\b", lower_text))
-        is_routine = any(w in words for w in simple_words) or any(p in lower_text for p in simple_phrases)
+        is_routine = any(w in words for w in simple_words) or any(
+            p in lower_text for p in simple_phrases
+        )
         if is_routine and total_chars < 300 and not code_hits and len(matched_kws) == 0:
             score = max(0, score - 25)
             factors.append("routine_query")
@@ -263,54 +325,126 @@ class ProviderRouter:
             if classification == "simple":
                 # Route to cheapest/fastest available model
                 if self._is_provider_ready("ollama"):
-                    return "ollama", "llama3", ["groq/llama-3.1-8b-instant", "gemini/gemini-1.5-flash", "openai/gpt-4o-mini"]
+                    return (
+                        "ollama",
+                        "llama3",
+                        [
+                            "groq/llama-3.1-8b-instant",
+                            "gemini/gemini-1.5-flash",
+                            "openai/gpt-4o-mini",
+                        ],
+                    )
                 if self._is_provider_ready("groq"):
-                    return "groq", "llama-3.1-8b-instant", ["gemini/gemini-1.5-flash", "openai/gpt-4o-mini"]
+                    return (
+                        "groq",
+                        "llama-3.1-8b-instant",
+                        ["gemini/gemini-1.5-flash", "openai/gpt-4o-mini"],
+                    )
                 if self._is_provider_ready("gemini"):
-                    return "gemini", "gemini-1.5-flash", ["openai/gpt-4o-mini", "groq/llama-3.1-8b-instant"]
+                    return (
+                        "gemini",
+                        "gemini-1.5-flash",
+                        ["openai/gpt-4o-mini", "groq/llama-3.1-8b-instant"],
+                    )
                 if self._is_provider_ready("openai"):
-                    return "openai", "gpt-4o-mini", ["groq/llama-3.1-8b-instant", "gemini/gemini-1.5-flash"]
-                return "groq", "llama-3.1-8b-instant", ["openai/gpt-4o-mini", "gemini/gemini-1.5-flash"]
+                    return (
+                        "openai",
+                        "gpt-4o-mini",
+                        ["groq/llama-3.1-8b-instant", "gemini/gemini-1.5-flash"],
+                    )
+                return (
+                    "groq",
+                    "llama-3.1-8b-instant",
+                    ["openai/gpt-4o-mini", "gemini/gemini-1.5-flash"],
+                )
             else:
                 # Route to frontier model for complex reasoning/coding
                 if self._is_provider_ready("anthropic"):
-                    return "anthropic", "claude-3-5-sonnet-20241022", ["openai/gpt-4o", "gemini/gemini-1.5-pro"]
+                    return (
+                        "anthropic",
+                        "claude-3-5-sonnet-20241022",
+                        ["openai/gpt-4o", "gemini/gemini-1.5-pro"],
+                    )
                 if self._is_provider_ready("openai"):
-                    return "openai", "gpt-4o", ["groq/llama-3.3-70b-versatile", "gemini/gemini-1.5-pro"]
+                    return (
+                        "openai",
+                        "gpt-4o",
+                        ["groq/llama-3.3-70b-versatile", "gemini/gemini-1.5-pro"],
+                    )
                 if self._is_provider_ready("groq"):
-                    return "groq", "llama-3.3-70b-versatile", ["openai/gpt-4o", "gemini/gemini-1.5-pro"]
+                    return (
+                        "groq",
+                        "llama-3.3-70b-versatile",
+                        ["openai/gpt-4o", "gemini/gemini-1.5-pro"],
+                    )
                 if self._is_provider_ready("gemini"):
-                    return "gemini", "gemini-1.5-pro", ["openai/gpt-4o", "anthropic/claude-3-5-sonnet-20241022"]
-                return "openai", "gpt-4o", ["groq/llama-3.3-70b-versatile", "anthropic/claude-3-5-sonnet-20241022"]
+                    return (
+                        "gemini",
+                        "gemini-1.5-pro",
+                        ["openai/gpt-4o", "anthropic/claude-3-5-sonnet-20241022"],
+                    )
+                return (
+                    "openai",
+                    "gpt-4o",
+                    ["groq/llama-3.3-70b-versatile", "anthropic/claude-3-5-sonnet-20241022"],
+                )
 
         if "/" in model_name:
             p, m = model_name.split("/", 1)
             p_cfg = self.providers.get(p)
-            models = p_cfg.models if p_cfg and hasattr(p_cfg, "models") else (p_cfg.get("models", {}) if isinstance(p_cfg, dict) else {})
+            models = (
+                p_cfg.models
+                if p_cfg and hasattr(p_cfg, "models")
+                else (p_cfg.get("models", {}) if isinstance(p_cfg, dict) else {})
+            )
             if m in models:
                 m_cfg = models[m]
-                fallbacks = getattr(m_cfg, "fallbacks", []) if hasattr(m_cfg, "fallbacks") else m_cfg.get("fallbacks", [])
+                fallbacks = (
+                    getattr(m_cfg, "fallbacks", [])
+                    if hasattr(m_cfg, "fallbacks")
+                    else m_cfg.get("fallbacks", [])
+                )
                 return p, m, fallbacks
 
         for p, p_cfg in self.providers.items():
-            models = p_cfg.models if hasattr(p_cfg, "models") else (p_cfg.get("models", {}) if isinstance(p_cfg, dict) else {})
+            models = (
+                p_cfg.models
+                if hasattr(p_cfg, "models")
+                else (p_cfg.get("models", {}) if isinstance(p_cfg, dict) else {})
+            )
             if model_name in models:
                 m_cfg = models[model_name]
-                fallbacks = getattr(m_cfg, "fallbacks", []) if hasattr(m_cfg, "fallbacks") else m_cfg.get("fallbacks", [])
+                fallbacks = (
+                    getattr(m_cfg, "fallbacks", [])
+                    if hasattr(m_cfg, "fallbacks")
+                    else m_cfg.get("fallbacks", [])
+                )
                 return p, model_name, fallbacks
 
         # Default fallback
         for p, p_cfg in self.providers.items():
-            models = p_cfg.models if hasattr(p_cfg, "models") else (p_cfg.get("models", {}) if isinstance(p_cfg, dict) else {})
+            models = (
+                p_cfg.models
+                if hasattr(p_cfg, "models")
+                else (p_cfg.get("models", {}) if isinstance(p_cfg, dict) else {})
+            )
             for m, m_cfg in models.items():
-                fallbacks = getattr(m_cfg, "fallbacks", []) if hasattr(m_cfg, "fallbacks") else m_cfg.get("fallbacks", [])
+                fallbacks = (
+                    getattr(m_cfg, "fallbacks", [])
+                    if hasattr(m_cfg, "fallbacks")
+                    else m_cfg.get("fallbacks", [])
+                )
                 return p, m, fallbacks
 
         return "openai", "gpt-4o-mini", []
 
     def get_next_key(self, provider_name: str) -> str:
         p_cfg = self.providers.get(provider_name)
-        keys = getattr(p_cfg, "api_keys", []) if hasattr(p_cfg, "api_keys") else (p_cfg.get("api_keys", []) if isinstance(p_cfg, dict) else [])
+        keys = (
+            getattr(p_cfg, "api_keys", [])
+            if hasattr(p_cfg, "api_keys")
+            else (p_cfg.get("api_keys", []) if isinstance(p_cfg, dict) else [])
+        )
         clean_keys = [k for k in keys if k and not str(k).startswith("${")]
         if not clean_keys:
             return ""
@@ -322,10 +456,22 @@ class ProviderRouter:
     def get_model_pricing(self, provider: str, model: str) -> Tuple[float, float]:
         """Return (input_cost_per_m, output_cost_per_m) for a given provider and model."""
         p_cfg = self.providers.get(provider)
-        models = getattr(p_cfg, "models", {}) if hasattr(p_cfg, "models") else (p_cfg.get("models", {}) if isinstance(p_cfg, dict) else {})
+        models = (
+            getattr(p_cfg, "models", {})
+            if hasattr(p_cfg, "models")
+            else (p_cfg.get("models", {}) if isinstance(p_cfg, dict) else {})
+        )
         m_cfg = models.get(model, {})
-        in_rate = getattr(m_cfg, "input_cost_per_m", 0.0) if hasattr(m_cfg, "input_cost_per_m") else m_cfg.get("input_cost_per_m", 0.0)
-        out_rate = getattr(m_cfg, "output_cost_per_m", 0.0) if hasattr(m_cfg, "output_cost_per_m") else m_cfg.get("output_cost_per_m", 0.0)
+        in_rate = (
+            getattr(m_cfg, "input_cost_per_m", 0.0)
+            if hasattr(m_cfg, "input_cost_per_m")
+            else m_cfg.get("input_cost_per_m", 0.0)
+        )
+        out_rate = (
+            getattr(m_cfg, "output_cost_per_m", 0.0)
+            if hasattr(m_cfg, "output_cost_per_m")
+            else m_cfg.get("output_cost_per_m", 0.0)
+        )
         if in_rate == 0.0 and out_rate == 0.0:
             defaults = {
                 "gpt-4o": (5.0, 15.0),
@@ -412,11 +558,13 @@ class ProviderRouter:
             "object": "chat.completion",
             "created": int(time.time()),
             "model": model,
-            "choices": [{
-                "index": 0,
-                "message": {"role": "assistant", "content": text},
-                "finish_reason": "stop",
-            }],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": text},
+                    "finish_reason": "stop",
+                }
+            ],
             "usage": {
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
@@ -502,11 +650,13 @@ class ProviderRouter:
             "object": "chat.completion",
             "created": int(time.time()),
             "model": model,
-            "choices": [{
-                "index": 0,
-                "message": {"role": "assistant", "content": text},
-                "finish_reason": finish_reason,
-            }],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": text},
+                    "finish_reason": finish_reason,
+                }
+            ],
             "usage": {
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
@@ -514,7 +664,9 @@ class ProviderRouter:
             },
         }
 
-    def _build_anthropic_payload(self, req: Dict[str, Any], model: str, stream: bool = False) -> Dict[str, Any]:
+    def _build_anthropic_payload(
+        self, req: Dict[str, Any], model: str, stream: bool = False
+    ) -> Dict[str, Any]:
         system_text = ""
         chat_messages = []
         for m in req.get("messages", []):
@@ -554,11 +706,13 @@ class ProviderRouter:
             "object": "chat.completion",
             "created": int(time.time()),
             "model": model,
-            "choices": [{
-                "index": 0,
-                "message": {"role": "assistant", "content": text},
-                "finish_reason": anth_data.get("stop_reason", "stop"),
-            }],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": text},
+                    "finish_reason": anth_data.get("stop_reason", "stop"),
+                }
+            ],
             "usage": {
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
@@ -574,7 +728,9 @@ class ProviderRouter:
         stream: bool = False,
     ) -> Tuple[Union[Dict[str, Any], AsyncGenerator[str, None]], str, str]:
         requested_model = request_data.get("model", "gpt-4o-mini")
-        provider, model, fallbacks = self.resolve_model(requested_model, request_data.get("messages"))
+        provider, model, fallbacks = self.resolve_model(
+            requested_model, request_data.get("messages")
+        )
 
         candidates_queue = [(provider, model)] + [self.resolve_model(fb)[:2] for fb in fallbacks]
         run_queue = self.circuit_breaker.filter_available_candidates(candidates_queue)
@@ -587,7 +743,9 @@ class ProviderRouter:
                     f"[CHAOS FAULT INJECTION] Injected HTTP {self.chaos_status_code} failure on provider '{p}'"
                 )
                 self.record_provider_failure(p, self.chaos_status_code)
-                last_error = f"Chaos fault injection: simulated HTTP {self.chaos_status_code} on {p}"
+                last_error = (
+                    f"Chaos fault injection: simulated HTTP {self.chaos_status_code} on {p}"
+                )
                 continue
 
             if self.is_sandbox_mode():
@@ -598,14 +756,28 @@ class ProviderRouter:
                     self.record_provider_success(p)
                     return gen, p, m
                 else:
-                    res_json = self._generate_sandbox_response(m, p, request_data.get("messages", []))
+                    res_json = self._generate_sandbox_response(
+                        m, p, request_data.get("messages", [])
+                    )
                     self.record_provider_success(p)
                     return res_json, p, m
 
             p_cfg = self.providers.get(p)
-            p_type = getattr(p_cfg, "type", "openai") if hasattr(p_cfg, "type") else (p_cfg.get("type", "openai") if isinstance(p_cfg, dict) else "openai")
-            base_url = (getattr(p_cfg, "base_url", "") if hasattr(p_cfg, "base_url") else (p_cfg.get("base_url", "") if isinstance(p_cfg, dict) else "")).rstrip("/")
-            keys = getattr(p_cfg, "api_keys", []) if hasattr(p_cfg, "api_keys") else (p_cfg.get("api_keys", []) if isinstance(p_cfg, dict) else [])
+            p_type = (
+                getattr(p_cfg, "type", "openai")
+                if hasattr(p_cfg, "type")
+                else (p_cfg.get("type", "openai") if isinstance(p_cfg, dict) else "openai")
+            )
+            base_url = (
+                getattr(p_cfg, "base_url", "")
+                if hasattr(p_cfg, "base_url")
+                else (p_cfg.get("base_url", "") if isinstance(p_cfg, dict) else "")
+            ).rstrip("/")
+            keys = (
+                getattr(p_cfg, "api_keys", [])
+                if hasattr(p_cfg, "api_keys")
+                else (p_cfg.get("api_keys", []) if isinstance(p_cfg, dict) else [])
+            )
             num_keys = max(1, len(keys))
 
             for _ in range(num_keys):
@@ -639,7 +811,9 @@ class ProviderRouter:
                         resp = await client.post(url, headers=headers, json=payload, timeout=60.0)
                         if resp.status_code in (429, 500, 502, 503):
                             self.record_provider_failure(p, resp.status_code)
-                            logger.warning(f"Provider {p} returned {resp.status_code}. Failing over/rotating.")
+                            logger.warning(
+                                f"Provider {p} returned {resp.status_code}. Failing over/rotating."
+                            )
                             last_error = f"HTTP {resp.status_code}: {resp.text}"
                             continue
 
@@ -670,27 +844,99 @@ class ProviderRouter:
         self,
         request_data: Dict[str, Any],
         hedge_delay_sec: float = 0.45,
-    ) -> Tuple[Dict[str, Any], str, str]:
-        """Speculative Latency Hedging (Google Tail at Scale p99 Slasher)."""
+    ) -> Tuple[Dict[str, Any], str, str, Dict[str, Any]]:
+        """Speculative Latency Hedging (Google Tail at Scale p99 Slasher).
+
+        Races the primary upstream request against a concurrent secondary hedge if the primary
+        exceeds hedge_delay_sec. Slashes p99 tail latencies caused by upstream queuing delays.
+        """
         primary_task = asyncio.create_task(self.execute_request(request_data, stream=False))
         done, _ = await asyncio.wait([primary_task], timeout=hedge_delay_sec)
         if primary_task in done:
-            return await primary_task
+            self.hedged_primary_won_count += 1
+            res, p, m = await primary_task
+            return (
+                res,
+                p,
+                m,
+                {"hedged_triggered": False, "winner": "primary", "delay_sec": hedge_delay_sec},
+            )
+
+        # Primary delayed beyond SLA threshold: trigger speculative hedge
+        self.hedged_triggered_count += 1
+        requested_model = request_data.get("model", "gpt-4o-mini")
+        primary_provider, _, fallbacks = self.resolve_model(
+            requested_model, request_data.get("messages")
+        )
+
+        hedge_model = requested_model
+        if fallbacks:
+            hedge_model = fallbacks[0]
+        elif primary_provider != "groq" and "groq" in self.providers:
+            hedge_model = "groq/llama-3.1-8b-instant"
+        elif primary_provider != "gemini" and "gemini" in self.providers:
+            hedge_model = "gemini/gemini-1.5-flash"
+        elif primary_provider != "openai" and "openai" in self.providers:
+            hedge_model = "openai/gpt-4o-mini"
 
         hedged_payload = dict(request_data)
-        hedged_payload["model"] = "groq/llama-3.1-8b-instant"
+        hedged_payload["model"] = hedge_model
         hedge_task = asyncio.create_task(self.execute_request(hedged_payload, stream=False))
 
-        done, pending = await asyncio.wait([primary_task, hedge_task], return_when=asyncio.FIRST_COMPLETED)
-        for t in pending:
-            t.cancel()
-        for t in done:
+        # Race with asyncio.as_completed so if one task raises, the other can still succeed
+        first_success = None
+        last_exc = None
+
+        tasks = [primary_task, hedge_task]
+        for coro in asyncio.as_completed(tasks):
             try:
-                res, p, m = await t
-                return res, f"{p}(hedged)", m
-            except Exception:
-                pass
-        raise RuntimeError("Hedged execution failed.")
+                res, p, m = await coro
+                first_success = (res, p, m)
+                break
+            except Exception as e:
+                logger.warning(f"Task in hedged race failed: {e}")
+                last_exc = e
+
+        # Cancel any pending uncompleted tasks immediately
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+
+        if first_success:
+            res, p, m = first_success
+            is_hedge = (
+                (p != primary_provider and not p.endswith("(cached)"))
+                or "groq" in p
+                or "llama" in m
+                or p == "gemini"
+            )
+            if is_hedge:
+                self.hedged_secondary_won_count += 1
+                return (
+                    res,
+                    f"{p}(hedged)",
+                    m,
+                    {
+                        "hedged_triggered": True,
+                        "winner": "hedge",
+                        "hedge_provider": p,
+                        "delay_sec": hedge_delay_sec,
+                    },
+                )
+            else:
+                self.hedged_primary_won_count += 1
+                return (
+                    res,
+                    p,
+                    m,
+                    {
+                        "hedged_triggered": True,
+                        "winner": "primary",
+                        "delay_sec": hedge_delay_sec,
+                    },
+                )
+
+        raise RuntimeError(f"Hedged execution failed across all runners. Last error: {last_exc}")
 
     async def _stream_response(
         self,
@@ -718,14 +964,20 @@ class ProviderRouter:
                             continue
                         try:
                             g_data = json.loads(data_str)
-                            parts = g_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])
+                            parts = (
+                                g_data.get("candidates", [{}])[0]
+                                .get("content", {})
+                                .get("parts", [{}])
+                            )
                             text = parts[0].get("text", "") if parts else ""
                             chunk = {
                                 "id": req_id,
                                 "object": "chat.completion.chunk",
                                 "created": int(time.time()),
                                 "model": model,
-                                "choices": [{"index": 0, "delta": {"content": text}, "finish_reason": None}],
+                                "choices": [
+                                    {"index": 0, "delta": {"content": text}, "finish_reason": None}
+                                ],
                             }
                             yield f"data: {json.dumps(chunk)}\n\n"
                         except Exception:
@@ -743,7 +995,13 @@ class ProviderRouter:
                                     "object": "chat.completion.chunk",
                                     "created": int(time.time()),
                                     "model": model,
-                                    "choices": [{"index": 0, "delta": {"content": delta_text}, "finish_reason": None}],
+                                    "choices": [
+                                        {
+                                            "index": 0,
+                                            "delta": {"content": delta_text},
+                                            "finish_reason": None,
+                                        }
+                                    ],
                                 }
                                 yield f"data: {json.dumps(chunk)}\n\n"
                             elif evt_type == "message_stop":
@@ -761,19 +1019,23 @@ class ProviderRouter:
         # If provider has configured embedding model or locally compute via fastembed
         try:
             from fastembed import TextEmbedding
+
             embedder = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
             raw_embeddings = list(embedder.embed(text_list))
             for i, vec in enumerate(raw_embeddings):
-                embeddings_list.append({
-                    "object": "embedding",
-                    "index": i,
-                    "embedding": [round(float(x), 6) for x in vec],
-                })
+                embeddings_list.append(
+                    {
+                        "object": "embedding",
+                        "index": i,
+                        "embedding": [round(float(x), 6) for x in vec],
+                    }
+                )
         except Exception:
             # Deterministic fallback vector
             import hashlib
 
             import numpy as np
+
             for i, txt in enumerate(text_list):
                 vec = np.zeros(384, dtype=float)
                 for w in txt.lower().split():
@@ -781,11 +1043,13 @@ class ProviderRouter:
                     vec[h % 384] += 1.0
                 norm = np.linalg.norm(vec)
                 normalized = (vec / norm if norm > 0 else vec).tolist()
-                embeddings_list.append({
-                    "object": "embedding",
-                    "index": i,
-                    "embedding": [round(float(x), 6) for x in normalized],
-                })
+                embeddings_list.append(
+                    {
+                        "object": "embedding",
+                        "index": i,
+                        "embedding": [round(float(x), 6) for x in normalized],
+                    }
+                )
 
         total_tokens = sum(max(1, len(t) // 4) for t in text_list)
         return {

@@ -14,6 +14,7 @@
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml/badge.svg" alt="CodeQL Status"></a>
   <a href="https://github.com/giridhar2005/sentinelgate/releases"><img src="https://img.shields.io/github/v/release/giridhar2005/sentinelgate?style=flat-square&color=emerald" alt="Release"></a>
+  <a href="BENCHMARKS.md"><img src="https://img.shields.io/badge/Benchmarks-p50_0.18ms-10B981.svg?style=flat-square" alt="Benchmarks"></a>
   <a href="ARCHITECTURE.md"><img src="https://img.shields.io/badge/RFC-Architecture_Doc-orange.svg?style=flat-square" alt="Architecture RFC"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT License"></a>
 </p>
@@ -22,18 +23,18 @@
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a>
   <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57.svg?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite WAL"></a>
+  <a href="https://prometheus.io/"><img src="https://img.shields.io/badge/Prometheus-RFC_0004_Metrics-E6522C.svg?style=flat-square&logo=prometheus&logoColor=white" alt="Prometheus"></a>
   <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
 </p>
 
 <p align="center">
   <a href="#the-architecture-contrast">Architecture Contrast</a> &bull;
   <a href="#the-under-5ms-critical-path">Critical Path</a> &bull;
-  <a href="#system-latency--resource-benchmarks">Benchmarks Chart</a> &bull;
-  <a href="#terminal-in-action">Terminal in Action</a> &bull;
+  <a href="BENCHMARKS.md">Systems Benchmarks</a> &bull;
+  <a href="#speculative-latency-hedging-tail-slasher">Tail Slasher</a> &bull;
+  <a href="#native-prometheus-metrics--grafana">Prometheus & Grafana</a> &bull;
   <a href="#why-sqlite-wal-and-not-redis">Why SQLite WAL?</a> &bull;
-  <a href="#developer-console--interactive-hud">Developer Console</a> &bull;
   <a href="#10-second-quickstart">Quickstart</a> &bull;
-  <a href="#frequently-asked-systems-questions">Systems FAQ</a> &bull;
   <a href="ARCHITECTURE.md">Systems RFC</a>
 </p>
 
@@ -239,8 +240,6 @@ python -m sentinelgate
 # or with uv
 uv run python -m sentinelgate
 ```
-uv run python -m sentinelgate
-```
 
 > [!NOTE]
 > **Zero-Key Sandbox Mode:** If no cloud provider API keys (`OPENAI_API_KEY`, etc.) or local model runtimes are detected, SentinelGate boots automatically into deterministic sandbox mode. The interactive HUD and `/v1/chat/completions` endpoint work out of the box on first clone.
@@ -362,14 +361,32 @@ Available directly inside the `/dashboard` Request Inspector:
 </details>
 
 <details>
-<summary><b>6. Virtual API Key Management (<code>/v1/keys</code>)</b></summary>
+<summary><b>6. Multi-Tenant Dual-Bucket Rate Limiter (<code>/v1/keys</code>)</b></summary>
 
-- Issue self-contained virtual keys (`sg-...`) with token-bucket rate limits (RPM) and monthly spend ceilings stored in SQLite.
-- Fully isolated tenant accounting without requiring an external authentication service.
+- Issue self-contained virtual keys (`sg-...`) with dual-bucket **Requests Per Minute (RPM)** and **Tokens Per Minute (TPM)** limits plus monthly spend ceilings in SQLite.
+- Every response attaches standard IETF headers: `X-RateLimit-Limit-Requests`, `X-RateLimit-Remaining-Requests`, `X-RateLimit-Limit-Tokens`, `X-RateLimit-Remaining-Tokens`, and `X-RateLimit-Reset-Requests`.
+- Rejection on breach returns HTTP `429 Too Many Requests` with zero thread contention or lock contention.
+</details>
+
+<details id="speculative-latency-hedging-tail-slasher">
+<summary><b>7. Speculative Latency Hedging ("The Tail at Scale" p99 Slasher)</b></summary>
+
+- In client requests or headers (`X-Hedge: true` or `{"hedge": true}`), SentinelGate enforces latency SLA deadlines.
+- If the primary upstream provider does not complete within `hedge_delay_sec` (e.g. 450ms), SentinelGate speculatively dispatches a duplicate request to a designated fast fallback provider (e.g. Groq `llama-3.1-8b-instant` or Gemini Flash).
+- The requests race concurrently: whichever responds first wins, and the slower task is immediately canceled to prevent wasted compute.
+- Empirical benchmark tests demonstrate an **80.4% reduction in p99 tail latency** during simulated upstream queuing spikes.
+</details>
+
+<details id="native-prometheus-metrics--grafana">
+<summary><b>8. Native Prometheus Observability (<code>GET /metrics</code>) & Grafana Dashboard</b></summary>
+
+- Official Prometheus text exposition format (RFC 0004) served at `GET /metrics`.
+- Exports histograms (`sentinelgate_request_duration_seconds_bucket`), counters (`sentinelgate_requests_total`, `sentinelgate_tokens_total`, `sentinelgate_cost_saved_usd_total`, `sentinelgate_hedged_requests_total`), and gauges (`sentinelgate_up`, `sentinelgate_active_virtual_keys`).
+- Includes ready-to-import Grafana 10+ dashboard JSON at [`deploy/grafana/sentinelgate-dashboard.json`](deploy/grafana/sentinelgate-dashboard.json) and scrape configuration at [`deploy/prometheus/prometheus.yml`](deploy/prometheus/prometheus.yml).
 </details>
 
 <details>
-<summary><b>7. Full YAML Configuration Reference (<code>config.yaml</code>)</b></summary>
+<summary><b>9. Full YAML Configuration Reference (<code>config.yaml</code>)</b></summary>
 
 ```yaml
 server:
@@ -420,8 +437,9 @@ A `Makefile` is included for common engineering workflows:
 make install         # Install package in editable mode with dev dependencies
 make dev             # Run SentinelGate with hot-reloading on port 8000
 make run             # Run SentinelGate in production mode
-make test            # Execute full pytest suite (37 tests)
+make test            # Execute full pytest suite (43 tests)
 make bench           # Run local latency and semantic cache benchmark
+make benchmark       # Run 50-worker high-concurrency load test suite
 make lint            # Run Ruff linter checks
 make format          # Auto-format codebase using Ruff
 make docker-build    # Build production multi-stage Docker image

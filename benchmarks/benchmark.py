@@ -76,11 +76,16 @@ async def run_benchmark():
                     "object": "chat.completion",
                     "created": int(time.time()),
                     "model": "gpt-4o-mini",
-                    "choices": [{
-                        "index": 0,
-                        "message": {"role": "assistant", "content": "Simulated upstream response."},
-                        "finish_reason": "stop",
-                    }],
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "Simulated upstream response.",
+                            },
+                            "finish_reason": "stop",
+                        }
+                    ],
                     "usage": {"prompt_tokens": 15, "completion_tokens": 20, "total_tokens": 35},
                 },
             )
@@ -93,7 +98,12 @@ async def run_benchmark():
                     "id": "chatcmpl-groq-mock",
                     "object": "chat.completion",
                     "model": "llama-3.1-8b-instant",
-                    "choices": [{"index": 0, "message": {"role": "assistant", "content": "Groq simulated response."}}],
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {"role": "assistant", "content": "Groq simulated response."},
+                        }
+                    ],
                     "usage": {"prompt_tokens": 15, "completion_tokens": 20, "total_tokens": 35},
                 },
             )
@@ -128,6 +138,7 @@ async def run_benchmark():
 
     # Percentiles
     import numpy as np
+
     latencies.sort()
     p50 = float(np.percentile(latencies, 50))
     p90 = float(np.percentile(latencies, 90))
@@ -144,7 +155,9 @@ async def run_benchmark():
     print("=" * 65)
     print(f"Total Requests Processed : {len(requests_pool)}")
     print(f"Wall Clock Time          : {total_time:.2f} s")
-    print(f"Cache Hit Rate           : {cache_hits}/{len(requests_pool)} ({cache_hits / len(requests_pool) * 100:.1f}%)")
+    print(
+        f"Cache Hit Rate           : {cache_hits}/{len(requests_pool)} ({cache_hits / len(requests_pool) * 100:.1f}%)"
+    )
     print(f"Avg Semantic Cache Latency: {avg_cached:.2f} ms")
     print(f"Avg Uncached Latency     : {avg_uncached:.2f} ms")
     print(f"Semantic Cache Speedup   : {speedup:.1f}x faster")
@@ -160,7 +173,9 @@ async def run_benchmark():
     print("| Metric | SentinelGate Result |")
     print("|---|---|")
     print(f"| **Total Requests** | {len(requests_pool)} |")
-    print(f"| **Cache Hit Rate** | **{cache_hits / len(requests_pool) * 100:.1f}%** ({cache_hits}/{len(requests_pool)}) |")
+    print(
+        f"| **Cache Hit Rate** | **{cache_hits / len(requests_pool) * 100:.1f}%** ({cache_hits}/{len(requests_pool)}) |"
+    )
     print(f"| **Average Semantic Cache Latency** | **{avg_cached:.2f} ms** |")
     print(f"| **Average Uncached Latency** | {avg_uncached:.2f} ms |")
     print(f"| **Semantic Cache Speedup** | **{speedup:.1f}x faster** |")

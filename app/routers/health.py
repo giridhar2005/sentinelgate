@@ -14,7 +14,7 @@ async def health_check():
         content={
             "status": "healthy",
             "service": "SentinelGate",
-            "version": "0.3.0",
+            "version": "0.4.0",
             "timestamp": time.time(),
         }
     )

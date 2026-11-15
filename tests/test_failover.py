@@ -16,7 +16,9 @@ def test_provider_key_rotation(test_app):
                 "id": "chatcmpl-rot-1",
                 "object": "chat.completion",
                 "model": "gpt-4o-mini",
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Rotated response"}}],
+                "choices": [
+                    {"index": 0, "message": {"role": "assistant", "content": "Rotated response"}}
+                ],
                 "usage": {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10},
             },
         )
@@ -59,7 +61,9 @@ def test_429_automatic_failover(test_app):
                 "id": "chatcmpl-fallback-429",
                 "object": "chat.completion",
                 "model": "llama-3.1-8b-instant",
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Groq 429 fallback"}}],
+                "choices": [
+                    {"index": 0, "message": {"role": "assistant", "content": "Groq 429 fallback"}}
+                ],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
             },
         )
@@ -68,7 +72,10 @@ def test_429_automatic_failover(test_app):
     resp = client.post(
         "/v1/chat/completions",
         headers={"X-No-Cache": "true"},
-        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Failover 429 test"}]},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Failover 429 test"}],
+        },
     )
 
     assert resp.status_code == 200
@@ -95,7 +102,9 @@ def test_503_automatic_failover(test_app):
                 "id": "chatcmpl-fallback-503",
                 "object": "chat.completion",
                 "model": "llama-3.1-8b-instant",
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": "503 recovered"}}],
+                "choices": [
+                    {"index": 0, "message": {"role": "assistant", "content": "503 recovered"}}
+                ],
             },
         )
     )
@@ -103,7 +112,10 @@ def test_503_automatic_failover(test_app):
     resp = client.post(
         "/v1/chat/completions",
         headers={"X-No-Cache": "true"},
-        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Failover 503 test"}]},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Failover 503 test"}],
+        },
     )
 
     assert resp.status_code == 200
@@ -129,7 +141,9 @@ def test_circuit_breaker_cooldown_and_health(test_app):
                 "id": "chatcmpl-groq-cb",
                 "object": "chat.completion",
                 "model": "llama-3.1-8b-instant",
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Groq CB responder"}}],
+                "choices": [
+                    {"index": 0, "message": {"role": "assistant", "content": "Groq CB responder"}}
+                ],
             },
         )
     )

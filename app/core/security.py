@@ -5,7 +5,12 @@ from typing import Any, Dict, Optional
 from fastapi.responses import JSONResponse
 
 
-def make_openai_error(message: str, error_type: str = "invalid_request_error", code: Optional[str] = None, status_code: int = 400) -> JSONResponse:
+def make_openai_error(
+    message: str,
+    error_type: str = "invalid_request_error",
+    code: Optional[str] = None,
+    status_code: int = 400,
+) -> JSONResponse:
     """Format standard OpenAI REST API error response."""
     payload: Dict[str, Any] = {
         "error": {

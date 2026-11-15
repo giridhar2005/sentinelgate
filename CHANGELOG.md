@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-11-15
+
+### Added
+- **Speculative Latency Hedging ("The Tail at Scale"):**
+  - Implemented speculative request hedging in `execute_hedged_request` (`X-Hedge: true` or `req.hedge = True`).
+  - Automatically races primary upstream providers against fast fallback providers if primary latency breaches `hedge_delay_sec` (450ms).
+  - Eliminates p99 tail latency spikes with zero dropped requests; canceled tasks clean up immediately to prevent wasted compute.
+  - Returns headers `X-Hedged-Request`, `X-Hedge-Winner`, and `X-Hedge-Triggered`.
+- **Production Prometheus Metrics Exposition (`GET /metrics`):**
+  - Native Prometheus RFC 0004 text exposition endpoint serving operational telemetry directly from SQLite WAL and router circuit breakers.
+  - Histograms (`sentinelgate_request_duration_seconds_bucket`), counters (`sentinelgate_requests_total`, `sentinelgate_tokens_total`, `sentinelgate_cost_saved_usd_total`, `sentinelgate_hedged_requests_total`), and gauges (`sentinelgate_up`, `sentinelgate_active_virtual_keys`).
+  - Pre-built enterprise Grafana 10+ dashboard JSON at `deploy/grafana/sentinelgate-dashboard.json`.
+  - Prometheus scrape target configuration at `deploy/prometheus/prometheus.yml`.
+- **Dual-Bucket Sliding Window Rate Limiter (RPM + TPM):**
+  - Simultaneous enforcement of Requests Per Minute (RPM) and Tokens Per Minute (TPM) per tenant virtual key in SQLite WAL.
+  - Response headers: `X-RateLimit-Limit-Requests`, `X-RateLimit-Remaining-Requests`, `X-RateLimit-Limit-Tokens`, `X-RateLimit-Remaining-Tokens`, `X-RateLimit-Reset-Requests`, and `X-RateLimit-Reset-Tokens`.
+  - Post-execution token adjustment ensures billing and limits match true upstream token usage.
+- **High-Concurrency Benchmarking Suite & Systems Report (`BENCHMARKS.md`):**
+  - Added `benchmarks/load_test.py` and `benchmarks/run_benchmarks.sh` simulating 50-worker concurrent loads.
+  - Published comprehensive `BENCHMARKS.md` comparing in-process SQLite WAL (0.18ms, 0 network hops) against Redis TCP (1.42ms) and remote cloud gateways (18.5ms).
+  - Added `make benchmark` target to `Makefile`.
+- **Interactive Console & Playground Enhancements:**
+  - Added Speculative Hedging toggle to `/dashboard` Playground Console and React TS frontend.
+  - Added direct `/metrics` Prometheus link pill in the top navigation bar.
+  - Added TPM limit configuration in the Virtual Keys management modal.
+
+---
+
 ## [0.3.0] - 2026-11-14
 
 ### Added

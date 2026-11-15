@@ -68,7 +68,9 @@ class EvalsManager:
                 ),
             )
 
-    def log_guardrail_event(self, request_id: str, event_type: str, threat_detail: str, blocked: bool):
+    def log_guardrail_event(
+        self, request_id: str, event_type: str, threat_detail: str, blocked: bool
+    ):
         with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             conn.execute(
                 """
@@ -104,14 +106,22 @@ class EvalsManager:
                 "Rate quality parity from 1 to 10 (10 = identical/superior, >=7 = acceptable parity, <7 = degradation).\n"
                 "Output strictly:\nScore: <1-10>\nReason: <1 concise sentence>"
             )
-            judge_req = {"model": judge_model, "messages": [{"role": "user", "content": judge_prompt}], "temperature": 0.0}
+            judge_req = {
+                "model": judge_model,
+                "messages": [{"role": "user", "content": judge_prompt}],
+                "temperature": 0.0,
+            }
             judge_resp, _, _ = await router.execute_request(judge_req, stream=False)
             judge_output = judge_resp.get("choices", [{}])[0].get("message", {}).get("content", "")
 
             score_match = re.search(r"Score:\s*(\d+)", judge_output)
             reason_match = re.search(r"Reason:\s*(.+)", judge_output)
             score = max(1, min(10, int(score_match.group(1)))) if score_match else 7
-            reason = reason_match.group(1).strip() if reason_match else "Quality parity evaluation completed."
+            reason = (
+                reason_match.group(1).strip()
+                if reason_match
+                else "Quality parity evaluation completed."
+            )
             is_win = 1 if score >= 7 else 0
 
             with sqlite3.connect(self.db_path, timeout=15.0) as conn:
@@ -160,7 +170,10 @@ class EvalsManager:
             p50 = float(np.percentile(latencies, 50)) if latencies else 0.0
             p95 = float(np.percentile(latencies, 95)) if latencies else 0.0
             avg_ttft = float(
-                conn.execute("SELECT AVG(ttft_ms) FROM request_metrics WHERE ttft_ms > 0").fetchone()[0] or 0.0
+                conn.execute(
+                    "SELECT AVG(ttft_ms) FROM request_metrics WHERE ttft_ms > 0"
+                ).fetchone()[0]
+                or 0.0
             )
 
             shadow_agg = dict(
@@ -193,8 +206,18 @@ class EvalsManager:
                 ).fetchall()
             ]
 
-            guardrail_count = conn.execute("SELECT COUNT(*) FROM guardrail_events WHERE blocked = 1").fetchone()[0] or 0
-            scrubbed_count = conn.execute("SELECT COUNT(*) FROM guardrail_events WHERE event_type = 'SECRET_REDACTED'").fetchone()[0] or 0
+            guardrail_count = (
+                conn.execute("SELECT COUNT(*) FROM guardrail_events WHERE blocked = 1").fetchone()[
+                    0
+                ]
+                or 0
+            )
+            scrubbed_count = (
+                conn.execute(
+                    "SELECT COUNT(*) FROM guardrail_events WHERE event_type = 'SECRET_REDACTED'"
+                ).fetchone()[0]
+                or 0
+            )
 
         total_req = agg.get("total_requests") or 0
         cache_hits = agg.get("cache_hits") or 0

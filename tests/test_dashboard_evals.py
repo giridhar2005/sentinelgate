@@ -60,11 +60,17 @@ def test_cache_warming_endpoint(test_app):
     # Exact query should hit cache immediately
     q_resp = client.post(
         "/v1/chat/completions",
-        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "What is SentinelGate?"}]},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "What is SentinelGate?"}],
+        },
     )
     assert q_resp.status_code == 200
     assert q_resp.headers.get("X-Cache") == "HIT"
-    assert "zero-bloat OpenAI-compatible LLM Gateway" in q_resp.json()["choices"][0]["message"]["content"]
+    assert (
+        "zero-bloat OpenAI-compatible LLM Gateway"
+        in q_resp.json()["choices"][0]["message"]["content"]
+    )
 
 
 def test_export_traces_endpoints(test_app):

@@ -10,14 +10,16 @@ logger = logging.getLogger("sentinelgate.guardrails")
 
 # Secret & Credential Leak Patterns
 SECRET_PATTERNS = [
-    re.compile(r"sk-[a-zA-Z0-9_-]{20,}", re.IGNORECASE),                         # OpenAI / Standard API key
-    re.compile(r"sk-ant-[a-zA-Z0-9_-]{20,}", re.IGNORECASE),                   # Anthropic API key
-    re.compile(r"AKIA[0-9A-Z]{16}", re.IGNORECASE),                            # AWS Access Key
-    re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}", re.IGNORECASE),# JWT token
-    re.compile(r"gh[pousr]_[a-zA-Z0-9]{36}", re.IGNORECASE),                   # GitHub Token
-    re.compile(r"(?:postgres(?:ql)?|mongodb(?:\+srv)?|mysql|redis):\/\/[^\s\"'>]+", re.IGNORECASE), # Database URIs
-    re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),                                      # SSN
-    re.compile(r"\b(?:\d{4}[ -]?){3}\d{4}\b"),                                 # Credit Card
+    re.compile(r"sk-[a-zA-Z0-9_-]{20,}", re.IGNORECASE),  # OpenAI / Standard API key
+    re.compile(r"sk-ant-[a-zA-Z0-9_-]{20,}", re.IGNORECASE),  # Anthropic API key
+    re.compile(r"AKIA[0-9A-Z]{16}", re.IGNORECASE),  # AWS Access Key
+    re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}", re.IGNORECASE),  # JWT token
+    re.compile(r"gh[pousr]_[a-zA-Z0-9]{36}", re.IGNORECASE),  # GitHub Token
+    re.compile(
+        r"(?:postgres(?:ql)?|mongodb(?:\+srv)?|mysql|redis):\/\/[^\s\"'>]+", re.IGNORECASE
+    ),  # Database URIs
+    re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),  # SSN
+    re.compile(r"\b(?:\d{4}[ -]?){3}\d{4}\b"),  # Credit Card
 ]
 
 # Comprehensive Secret & PII Redaction Rules for Safe Local/Cloud Relay
@@ -26,7 +28,12 @@ SECRET_REDACTION_RULES = [
     ("KEY_ANTHROPIC", re.compile(r"\b(?:sk-ant-[a-zA-Z0-9_-]{20,})\b", re.IGNORECASE)),
     ("KEY_AWS", re.compile(r"\b(?:AKIA[0-9A-Z]{16})\b")),
     ("KEY_GITHUB", re.compile(r"\b(?:gh[pousr]_[a-zA-Z0-9]{36})\b")),
-    ("DB_URI", re.compile(r"\b(?:postgres(?:ql)?|mongodb(?:\+srv)?|mysql|redis):\/\/[^\s\"'`<>]+", re.IGNORECASE)),
+    (
+        "DB_URI",
+        re.compile(
+            r"\b(?:postgres(?:ql)?|mongodb(?:\+srv)?|mysql|redis):\/\/[^\s\"'`<>]+", re.IGNORECASE
+        ),
+    ),
     ("JWT", re.compile(r"\beyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]+\b")),
     ("SSN", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
     ("CREDIT_CARD", re.compile(r"\b(?:\d{4}[ -]?){3}\d{4}\b")),
@@ -53,6 +60,7 @@ class SecretRedactor:
 
         scrubbed = 0
         for tag, pattern in SECRET_REDACTION_RULES:
+
             def _replace(m):
                 nonlocal scrubbed
                 val = m.group(0)
@@ -112,12 +120,15 @@ class SecretRedactor:
                 delta["content"] = cls.restore_text(delta["content"], mapping)
         return resp
 
+
 # Prompt Injection & Jailbreak Override Patterns
 INJECTION_PATTERNS = [
     re.compile(r"ignore\s+(all\s+)?(previous|prior|above)\s+instructions", re.IGNORECASE),
     re.compile(r"disregard\s+(all\s+)?(previous|prior)\s+instructions", re.IGNORECASE),
     re.compile(r"system\s+override", re.IGNORECASE),
-    re.compile(r"reveal\s+(your\s+)?(internal\s+)?(system\s+)?(prompt|instructions)", re.IGNORECASE),
+    re.compile(
+        r"reveal\s+(your\s+)?(internal\s+)?(system\s+)?(prompt|instructions)", re.IGNORECASE
+    ),
     re.compile(r"output\s+(your\s+)?(entire\s+)?system\s+prompt", re.IGNORECASE),
     re.compile(r"you\s+are\s+now\s+in\s+DAN\s+mode", re.IGNORECASE),
     re.compile(r"bypass\s+(all\s+)?(safety|security)\s+filters", re.IGNORECASE),
@@ -153,7 +164,9 @@ class PIIGuardrail:
         return text
 
     @classmethod
-    def mask_messages(cls, messages: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+    def mask_messages(
+        cls, messages: List[Dict[str, Any]]
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
         mapping: Dict[str, str] = {}
         masked = []
         for m in messages:
@@ -173,7 +186,9 @@ class PIIGuardrail:
         return text
 
     @classmethod
-    def restore_in_response(cls, response_data: Dict[str, Any], mapping: Dict[str, str]) -> Dict[str, Any]:
+    def restore_in_response(
+        cls, response_data: Dict[str, Any], mapping: Dict[str, str]
+    ) -> Dict[str, Any]:
         if not mapping:
             return response_data
         resp = copy.deepcopy(response_data)
@@ -199,7 +214,10 @@ class SecurityInspector:
                 for pattern in SECRET_PATTERNS:
                     match = pattern.search(content)
                     if match:
-                        return False, f"Sensitive secret or API key credential detected: '{match.group(0)[:12]}...'"
+                        return (
+                            False,
+                            f"Sensitive secret or API key credential detected: '{match.group(0)[:12]}...'",
+                        )
         return True, None
 
     @classmethod
@@ -210,12 +228,16 @@ class SecurityInspector:
                 for pattern in INJECTION_PATTERNS:
                     match = pattern.search(content)
                     if match:
-                        return False, f"Prompt injection / system override detected: '{match.group(0)}'"
+                        return (
+                            False,
+                            f"Prompt injection / system override detected: '{match.group(0)}'",
+                        )
         return True, None
 
 
 class ContextCompactor:
     """Trims conversational filler in long dialogs (>8 turns) while preserving instructions."""
+
     FILLER = re.compile(r"^(ok|okay|thanks|thank you|got it|understood|sure)[\.!\s]*$", re.I)
 
     @classmethod
@@ -225,7 +247,8 @@ class ContextCompactor:
         sys_m = [m for m in messages if m.get("role") == "system"]
         chat_m = [m for m in messages if m.get("role") != "system"]
         culled = [
-            m for i, m in enumerate(chat_m)
+            m
+            for i, m in enumerate(chat_m)
             if i >= len(chat_m) - 4 or not cls.FILLER.match((m.get("content") or "").strip())
         ]
         return sys_m + culled[-max_turns:]
@@ -289,10 +312,12 @@ class JSONSelfHealer:
 
         repair_messages = list(request_data.get("messages", []))
         repair_messages.append({"role": "assistant", "content": content})
-        repair_messages.append({
-            "role": "user",
-            "content": f"CRITICAL: Your output was invalid JSON ({parse_error_msg}). Return ONLY valid, well-formed JSON.",
-        })
+        repair_messages.append(
+            {
+                "role": "user",
+                "content": f"CRITICAL: Your output was invalid JSON ({parse_error_msg}). Return ONLY valid, well-formed JSON.",
+            }
+        )
 
         repair_req = dict(request_data)
         repair_req["messages"] = repair_messages
@@ -300,7 +325,9 @@ class JSONSelfHealer:
 
         try:
             repaired_resp, _, _ = await router.execute_request(repair_req, stream=False)
-            repaired_content = repaired_resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+            repaired_content = (
+                repaired_resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+            )
             json.loads(repaired_content)
             repaired_resp["sentinel_json_repaired"] = True
             return repaired_resp

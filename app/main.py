@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import AppConfig, load_config
 from app.core.database import init_db
-from app.routers import dashboard, health, v1
+from app.routers import dashboard, health, metrics, v1
 from app.services.budget import BudgetManager, VirtualKeyManager
 from app.services.cache import SemanticCache
 from app.services.discovery import ProviderDiscovery, print_startup_banner
@@ -58,7 +58,7 @@ def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None)
     app = FastAPI(
         title="SentinelGate",
         description="Zero-bloat, production-grade OpenAI-compatible LLM Gateway with semantic caching and failover.",
-        version="0.3.0",
+        version="0.4.0",
         lifespan=lifespan,
     )
 
@@ -82,6 +82,7 @@ def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None)
     app.include_router(health.router)
     app.include_router(v1.router)
     app.include_router(dashboard.router)
+    app.include_router(metrics.router)
 
     # Mount compiled React assets if present
     for dist_dir in ["frontend/dist", "/app/frontend/dist"]:

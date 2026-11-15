@@ -53,7 +53,9 @@ class ProviderDiscovery:
             is_active = bool(key and not key.startswith("${"))
             cloud_status[p_name] = {
                 "active": is_active,
-                "preview": f"{key[:7]}...{key[-3:]}" if is_active and len(key) > 10 else ("configured" if is_active else None),
+                "preview": f"{key[:7]}...{key[-3:]}"
+                if is_active and len(key) > 10
+                else ("configured" if is_active else None),
             }
             if is_active:
                 active_count += 1
@@ -62,7 +64,9 @@ class ProviderDiscovery:
 
         # Ollama local check
         ollama_online = ollama_data is not None and isinstance(ollama_data, dict)
-        ollama_models = [m.get("name") for m in ollama_data.get("models", [])] if ollama_online else []
+        ollama_models = (
+            [m.get("name") for m in ollama_data.get("models", [])] if ollama_online else []
+        )
         local_status["ollama"] = {
             "active": ollama_online,
             "url": cls.OLLAMA_URL,
@@ -73,7 +77,9 @@ class ProviderDiscovery:
 
         # LM Studio local check
         lmstudio_online = lmstudio_data is not None and isinstance(lmstudio_data, dict)
-        lmstudio_models = [m.get("id") for m in lmstudio_data.get("data", [])] if lmstudio_online else []
+        lmstudio_models = (
+            [m.get("id") for m in lmstudio_data.get("data", [])] if lmstudio_online else []
+        )
         local_status["lmstudio"] = {
             "active": lmstudio_online,
             "url": cls.LMSTUDIO_URL,
@@ -86,7 +92,7 @@ class ProviderDiscovery:
         if demo_env is not None:
             sandbox_mode = demo_env.strip().lower() in ("true", "1", "yes")
         else:
-            sandbox_mode = (active_count == 0)
+            sandbox_mode = active_count == 0
 
         return {
             "cloud": cloud_status,
@@ -149,7 +155,9 @@ def format_startup_banner(info: Dict[str, Any], host: str = "127.0.0.1", port: i
     local = info.get("local", {})
     ollama = local.get("ollama", {})
     if ollama.get("active"):
-        models_str = f"({', '.join(ollama.get('models', [])[:2])})" if ollama.get("models") else "(online)"
+        models_str = (
+            f"({', '.join(ollama.get('models', [])[:2])})" if ollama.get("models") else "(online)"
+        )
         lines.append(f"│   ● Ollama       [Local Server: 127.0.0.1:11434 {models_str:<18}] │")
     else:
         lines.append("│   ○ Ollama       [Local Server Offline]                         │")
@@ -165,9 +173,11 @@ def format_startup_banner(info: Dict[str, Any], host: str = "127.0.0.1", port: i
         lines.append("│  Operating Mode: Zero-Key Sandbox (Deterministic Offline Sim)   │")
     else:
         active_num = info.get("active_count", 0)
-        lines.append(f"│  Operating Mode: Hybrid Live Gateway ({active_num} providers ready)        │")
+        lines.append(
+            f"│  Operating Mode: Hybrid Live Gateway ({active_num} providers ready)        │"
+        )
 
-    lines.append("│  Smart Router:   model=\"auto\" enabled (sub-ms prompt classifier) │")
+    lines.append('│  Smart Router:   model="auto" enabled (sub-ms prompt classifier) │')
     lines.append("│  Secret Shield:  Reversible Redaction firewall active           │")
     lines.append("│  State Engine:   In-Process SQLite (WAL mode + FastEmbed ONNX)   │")
     lines.append("└──────────────────────────────────────────────────────────────────┘")

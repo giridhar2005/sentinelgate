@@ -22,6 +22,7 @@ export const VirtualKeysModal: React.FC<VirtualKeysModalProps> = ({
   // New key form state
   const [name, setName] = useState<string>("");
   const [rpm, setRpm] = useState<number>(60);
+  const [tpm, setTpm] = useState<number>(60000);
   const [budget, setBudget] = useState<number>(50);
   const [isCreating, setIsCreating] = useState<boolean>(false);
 
@@ -60,6 +61,7 @@ export const VirtualKeysModal: React.FC<VirtualKeysModalProps> = ({
         body: JSON.stringify({
           name: name.trim(),
           rate_limit_rpm: Number(rpm),
+          rate_limit_tpm: Number(tpm),
           monthly_budget_usd: Number(budget),
         }),
       });
@@ -123,7 +125,7 @@ export const VirtualKeysModal: React.FC<VirtualKeysModalProps> = ({
           {/* Create Key Form */}
           <form onSubmit={handleCreateKey} className="bg-[#09090B] border border-[#27272A] rounded p-3 space-y-3">
             <div className="font-semibold text-zinc-300 text-xs">Issue New Scoped Virtual Key</div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
               <input
                 type="text"
                 placeholder="Key label (e.g. dev-cluster-1)"
@@ -138,7 +140,16 @@ export const VirtualKeysModal: React.FC<VirtualKeysModalProps> = ({
                 value={rpm}
                 onChange={(e) => setRpm(Number(e.target.value))}
                 min={1}
-                max={10000}
+                max={100000}
+                className="bg-[#111113] border border-[#27272A] rounded px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-zinc-500"
+              />
+              <input
+                type="number"
+                placeholder="TPM Limit"
+                value={tpm}
+                onChange={(e) => setTpm(Number(e.target.value))}
+                min={100}
+                max={10000000}
                 className="bg-[#111113] border border-[#27272A] rounded px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-zinc-500"
               />
               <input

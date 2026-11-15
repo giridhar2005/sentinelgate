@@ -56,7 +56,9 @@ def test_chaos_toggle_and_automatic_failover(test_app, monkeypatch):
     assert status_resp.json()["enabled"] is False
 
     # 2. Enable chaos targeting openai
-    toggle_resp = client.post("/api/chaos", json={"enabled": True, "target_provider": "openai", "status_code": 429})
+    toggle_resp = client.post(
+        "/api/chaos", json={"enabled": True, "target_provider": "openai", "status_code": 429}
+    )
     assert toggle_resp.status_code == 200
     assert toggle_resp.json()["enabled"] is True
     assert toggle_resp.json()["target_provider"] == "openai"

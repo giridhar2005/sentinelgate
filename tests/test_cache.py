@@ -16,11 +16,16 @@ def test_semantic_cache_hit_and_zero_cost(test_app):
                 "id": "chatcmpl-cache-1",
                 "object": "chat.completion",
                 "model": "gpt-4o-mini",
-                "choices": [{
-                    "index": 0,
-                    "message": {"role": "assistant", "content": "Superposition lets quantum bits be 0 and 1 simultaneously."},
-                    "finish_reason": "stop",
-                }],
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "Superposition lets quantum bits be 0 and 1 simultaneously.",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 15, "total_tokens": 25},
             },
         )
@@ -29,7 +34,10 @@ def test_semantic_cache_hit_and_zero_cost(test_app):
     # 1. First request: Cache Miss -> calls upstream
     r1 = client.post(
         "/v1/chat/completions",
-        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Explain quantum superposition clearly"}]},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Explain quantum superposition clearly"}],
+        },
     )
     assert r1.status_code == 200
     assert r1.headers.get("X-Cache") == "MISS"
@@ -38,7 +46,10 @@ def test_semantic_cache_hit_and_zero_cost(test_app):
     # 2. Second request: Semantically similar query -> Cache Hit ($0.00 cost, upstream NOT called again)
     r2 = client.post(
         "/v1/chat/completions",
-        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Explain quantum superposition clearly"}]},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Explain quantum superposition clearly"}],
+        },
     )
     assert r2.status_code == 200
     assert r2.headers.get("X-Cache") == "HIT"
@@ -57,7 +68,9 @@ def test_cache_bypass_headers(test_app):
             json={
                 "id": "chatcmpl-bypass",
                 "object": "chat.completion",
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": "Fresh response"}}],
+                "choices": [
+                    {"index": 0, "message": {"role": "assistant", "content": "Fresh response"}}
+                ],
             },
         )
     )
@@ -65,7 +78,10 @@ def test_cache_bypass_headers(test_app):
     # Seed cache
     client.post(
         "/v1/chat/completions",
-        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Hello cache bypass"}]},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Hello cache bypass"}],
+        },
     )
     assert upstream_mock.call_count == 1
 
@@ -73,7 +89,10 @@ def test_cache_bypass_headers(test_app):
     r_bypass1 = client.post(
         "/v1/chat/completions",
         headers={"X-No-Cache": "true"},
-        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Hello cache bypass"}]},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Hello cache bypass"}],
+        },
     )
     assert r_bypass1.status_code == 200
     assert r_bypass1.headers.get("X-Cache") == "MISS"
@@ -83,7 +102,10 @@ def test_cache_bypass_headers(test_app):
     r_bypass2 = client.post(
         "/v1/chat/completions",
         headers={"Cache-Control": "no-cache"},
-        json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Hello cache bypass"}]},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Hello cache bypass"}],
+        },
     )
     assert r_bypass2.status_code == 200
     assert r_bypass2.headers.get("X-Cache") == "MISS"

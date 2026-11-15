@@ -32,6 +32,9 @@ test:
 bench:
 	uv run python benchmarks/bench.py
 
+benchmark:
+	uv run python benchmarks/load_test.py --iterations 1000 --concurrency 50
+
 lint:
 	uv run ruff check .
 

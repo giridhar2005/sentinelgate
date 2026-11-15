@@ -38,7 +38,9 @@ class ProviderCircuitBreaker:
         if provider in self.statuses:
             self.statuses[provider] = {"failures": 0, "cooldown_until": 0.0}
 
-    def filter_available_candidates(self, candidates: List[tuple[str, str]]) -> List[tuple[str, str]]:
+    def filter_available_candidates(
+        self, candidates: List[tuple[str, str]]
+    ) -> List[tuple[str, str]]:
         """Return available candidates, or all candidates if all are in cooldown."""
         avail = [c for c in candidates if self.is_available(c[0])]
         return avail if avail else candidates

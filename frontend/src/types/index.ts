@@ -91,6 +91,11 @@ export interface MetricsSummary {
   budget?: BudgetInfo;
   providers?: Record<string, ProviderStatus>;
   chaos?: ChaosConfig;
+  hedging?: {
+    triggered: number;
+    primary_won: number;
+    secondary_won: number;
+  };
   shadow_evals?: {
     total_evals: number;
     total_wins: number;
@@ -105,6 +110,7 @@ export interface VirtualKey {
   key_val: string;
   name: string;
   rate_limit_rpm: number;
+  rate_limit_tpm?: number;
   monthly_budget_usd: number;
   spent_this_month_usd: number;
   created_at: string;

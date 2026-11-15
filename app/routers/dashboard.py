@@ -66,6 +66,11 @@ async def get_metrics(request: Request):
         "target_provider": getattr(gateway_router, "chaos_target_provider", "openai"),
         "status_code": getattr(gateway_router, "chaos_status_code", 429),
     }
+    summary["hedging"] = {
+        "triggered": getattr(gateway_router, "hedged_triggered_count", 0),
+        "primary_won": getattr(gateway_router, "hedged_primary_won_count", 0),
+        "secondary_won": getattr(gateway_router, "hedged_secondary_won_count", 0),
+    }
     return JSONResponse(content=summary)
 
 
@@ -90,9 +95,19 @@ async def get_chaos_status(request: Request):
 @router.post("/api/chaos")
 async def toggle_chaos(request: Request, body: Optional[ChaosConfigRequest] = None):
     gateway_router = request.app.state.router
-    new_state = (not gateway_router.chaos_enabled) if (body is None or body.enabled is None) else body.enabled
-    target = body.target_provider if (body and body.target_provider) else gateway_router.chaos_target_provider
-    status_code = body.status_code if (body and body.status_code) else gateway_router.chaos_status_code
+    new_state = (
+        (not gateway_router.chaos_enabled)
+        if (body is None or body.enabled is None)
+        else body.enabled
+    )
+    target = (
+        body.target_provider
+        if (body and body.target_provider)
+        else gateway_router.chaos_target_provider
+    )
+    status_code = (
+        body.status_code if (body and body.status_code) else gateway_router.chaos_status_code
+    )
 
     gateway_router.set_chaos(enabled=new_state, target_provider=target, status_code=status_code)
     return JSONResponse(
@@ -121,10 +136,14 @@ async def shadow_replay_estimator(request: Request, payload: ReplayRequest):
         "temperature": 0.7,
     }
     try:
-        cand_res, cand_provider, cand_model = await gateway_router.execute_request(req_data, stream=False)
+        cand_res, cand_provider, cand_model = await gateway_router.execute_request(
+            req_data, stream=False
+        )
         cand_lat_ms = (time.perf_counter() - t0) * 1000.0
     except Exception as e:
-        return JSONResponse(content={"error": f"Candidate model execution failed: {e}"}, status_code=502)
+        return JSONResponse(
+            content={"error": f"Candidate model execution failed: {e}"}, status_code=502
+        )
 
     cand_text = cand_res.get("choices", [{}])[0].get("message", {}).get("content", "")
     usage = cand_res.get("usage", {})
@@ -133,11 +152,15 @@ async def shadow_replay_estimator(request: Request, payload: ReplayRequest):
 
     # 2. Cost calculations
     orig_provider, orig_mod, _ = gateway_router.resolve_model(payload.original_model)
-    cand_cost = gateway_router.get_model_cost(cand_provider, cand_model, prompt_tokens, completion_tokens)
+    cand_cost = gateway_router.get_model_cost(
+        cand_provider, cand_model, prompt_tokens, completion_tokens
+    )
 
     orig_cost = payload.original_cost_usd
     if orig_cost is None or orig_cost <= 0.0:
-        orig_cost = gateway_router.get_model_cost(orig_provider, orig_mod, prompt_tokens, completion_tokens)
+        orig_cost = gateway_router.get_model_cost(
+            orig_provider, orig_mod, prompt_tokens, completion_tokens
+        )
 
     cost_saved_per_req = max(0.0, orig_cost - cand_cost)
     savings_percent = round((cost_saved_per_req / orig_cost * 100.0), 1) if orig_cost > 0 else 0.0
@@ -182,6 +205,7 @@ async def shadow_replay_estimator(request: Request, payload: ReplayRequest):
 async def export_traces_jsonl(request: Request, limit: int = 500):
     """Export captured SQLite traces in OpenAI Fine-Tuning & Evaluation JSONL format."""
     import sqlite3
+
     evals = request.app.state.evals
     with sqlite3.connect(evals.db_path, timeout=15.0) as conn:
         conn.row_factory = sqlite3.Row
@@ -226,6 +250,7 @@ async def export_traces_csv(request: Request, limit: int = 500):
     import csv
     import io
     import sqlite3
+
     evals = request.app.state.evals
     with sqlite3.connect(evals.db_path, timeout=15.0) as conn:
         conn.row_factory = sqlite3.Row
@@ -240,17 +265,37 @@ async def export_traces_csv(request: Request, limit: int = 500):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow([
-        "request_id", "timestamp", "model", "provider", "status",
-        "latency_ms", "cost_usd", "cost_saved_usd", "prompt_tokens",
-        "completion_tokens", "prompt_snippet",
-    ])
+    writer.writerow(
+        [
+            "request_id",
+            "timestamp",
+            "model",
+            "provider",
+            "status",
+            "latency_ms",
+            "cost_usd",
+            "cost_saved_usd",
+            "prompt_tokens",
+            "completion_tokens",
+            "prompt_snippet",
+        ]
+    )
     for r in rows:
-        writer.writerow([
-            r["request_id"], r["timestamp"], r["model"], r["provider"], r["status"],
-            r["latency_ms"], r["cost_usd"], r["cost_saved_usd"], r["prompt_tokens"],
-            r["completion_tokens"], (r["prompt_snippet"] or "").replace("\n", " ")[:120],
-        ])
+        writer.writerow(
+            [
+                r["request_id"],
+                r["timestamp"],
+                r["model"],
+                r["provider"],
+                r["status"],
+                r["latency_ms"],
+                r["cost_usd"],
+                r["cost_saved_usd"],
+                r["prompt_tokens"],
+                r["completion_tokens"],
+                (r["prompt_snippet"] or "").replace("\n", " ")[:120],
+            ]
+        )
 
     return Response(
         content=output.getvalue(),

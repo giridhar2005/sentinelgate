@@ -211,3 +211,36 @@ FastEmbed ONNX CPU        Read Replicas on Edge          Qdrant Vector Cluster  
 | **Tier 3 (> 10k RPS)** | Distributed Microservice | Sharded Redis 7.2 + Qdrant Vector Engine | `1.5ms` Redis, `4ms` Qdrant |
 
 SentinelGate deliberately targets **Tier 1**: the 99% of production teams who need a self-contained, auditable gateway without deploying Kubernetes clusters, Redis instances, or external vector databases.
+
+---
+
+## 8. Observability & Multi-Tenant Metering Architecture
+
+### Prometheus RFC 0004 Exposition Pipeline (`GET /metrics`)
+
+SentinelGate serves raw Prometheus exposition metrics directly to Kubernetes scraping agents and Grafana Cloud without heavyweight external telemetry libraries:
+
+```
+FastAPI Router (GET /metrics)
+      │
+      ├── Read SQLite WAL Telemetry (request_metrics, guardrail_events, virtual_keys)
+      ├── Query ProviderRouter In-Memory Circuit State (trip counts, hedged race outcomes)
+      │
+      ▼
+Prometheus Text Line Protocol (RFC 0004)
+      ├── sentinelgate_requests_total{model, provider, status}
+      ├── sentinelgate_request_duration_seconds_bucket{le}
+      ├── sentinelgate_tokens_total{type="prompt|completion"}
+      ├── sentinelgate_cost_saved_usd_total
+      ├── sentinelgate_hedged_requests_total{outcome}
+      └── sentinelgate_active_virtual_keys
+```
+
+### Dual-Bucket Sliding Window Limiter (RPM + TPM)
+
+Multi-tenant isolation requires simultaneous throttling of request frequencies (RPM) and token volumes (TPM). SentinelGate implements this with an atomic sliding-minute window in SQLite:
+
+$$\text{Remaining Requests} = \max(0, \text{Limit}_{\text{RPM}} - \text{Count}_{\text{minute}})$$
+$$\text{Remaining Tokens} = \max(0, \text{Limit}_{\text{TPM}} - (\text{Tokens}_{\text{minute}} + \text{Tokens}_{\text{estimated}}))$$
+
+If either threshold is breached, SentinelGate halts execution before contacting upstream cloud APIs, returning HTTP `429 Too Many Requests` with standard `X-RateLimit-*` headers.

@@ -81,11 +81,16 @@ async def main():
                     "object": "chat.completion",
                     "created": int(time.time()),
                     "model": "gpt-4o-mini",
-                    "choices": [{
-                        "index": 0,
-                        "message": {"role": "assistant", "content": "Simulated upstream response."},
-                        "finish_reason": "stop",
-                    }],
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "Simulated upstream response.",
+                            },
+                            "finish_reason": "stop",
+                        }
+                    ],
                     "usage": {"prompt_tokens": 12, "completion_tokens": 16, "total_tokens": 28},
                 },
             )
@@ -129,7 +134,9 @@ async def main():
     print("\n---------------- Results ----------------")
     print(f"Total Requests              : {len(pool)}")
     print(f"Wall Clock Time             : {wall_time:.2f} s")
-    print(f"Cache Hit Rate              : {cache_hits}/{len(pool)} ({cache_hits/len(pool)*100:.1f}%)")
+    print(
+        f"Cache Hit Rate              : {cache_hits}/{len(pool)} ({cache_hits / len(pool) * 100:.1f}%)"
+    )
     print(f"Min Gateway Overhead        : {min_latency:.2f} ms")
     print(f"Avg Semantic Cache Latency  : {avg_cached:.2f} ms")
     print(f"Avg Uncached Proxy Latency  : {avg_uncached:.2f} ms")
@@ -145,7 +152,9 @@ async def main():
     print(f"| **Pure Gateway Overhead (Min)** | **{min_latency:.2f} ms** |")
     print(f"| **Semantic Cache Hit Latency (Avg)** | **{avg_cached:.2f} ms** |")
     print(f"| **Cache Miss Latency (Upstream + Proxy)** | {avg_uncached:.2f} ms |")
-    print(f"| **Cache Hit Rate** | **{cache_hits/len(pool)*100:.1f}%** ({cache_hits}/{len(pool)}) |")
+    print(
+        f"| **Cache Hit Rate** | **{cache_hits / len(pool) * 100:.1f}%** ({cache_hits}/{len(pool)}) |"
+    )
     print(f"| **Latency P50 / P95** | {p50:.2f} ms / {p95:.2f} ms |")
     print(f"| **Idle RAM (Base)** | {idle_rss:.1f} MB |")
     print(f"| **Active RAM (Loaded ONNX Runtime)** | **{active_rss:.1f} MB** |")

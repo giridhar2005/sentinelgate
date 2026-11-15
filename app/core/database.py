@@ -114,20 +114,34 @@ def init_db(db_path: str = "sentinelgate.db"):
                 daily_budget_usd REAL DEFAULT 10.0,
                 monthly_budget_usd REAL DEFAULT 300.0,
                 rate_limit_rpm INTEGER DEFAULT 60,
+                rate_limit_tpm INTEGER DEFAULT 60000,
                 created_at REAL NOT NULL,
                 is_active INTEGER DEFAULT 1
             );
         """)
 
-        # 6. Sliding-Window Rate Limiting Table
+        cursor.execute("PRAGMA table_info(virtual_keys);")
+        vk_cols = {row[1] for row in cursor.fetchall()}
+        if vk_cols and "rate_limit_tpm" not in vk_cols:
+            conn.execute(
+                "ALTER TABLE virtual_keys ADD COLUMN rate_limit_tpm INTEGER DEFAULT 60000;"
+            )
+
+        # 6. Sliding-Window Rate Limiting Table (Dual-Bucket RPM + TPM)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS key_rate_limits (
                 key_val TEXT NOT NULL,
                 window_minute INTEGER NOT NULL,
                 request_count INTEGER DEFAULT 0,
+                token_count INTEGER DEFAULT 0,
                 PRIMARY KEY(key_val, window_minute)
             );
         """)
+
+        cursor.execute("PRAGMA table_info(key_rate_limits);")
+        krl_cols = {row[1] for row in cursor.fetchall()}
+        if krl_cols and "token_count" not in krl_cols:
+            conn.execute("ALTER TABLE key_rate_limits ADD COLUMN token_count INTEGER DEFAULT 0;")
 
         # 7. Security & Guardrail Audit Log Table
         conn.execute("""

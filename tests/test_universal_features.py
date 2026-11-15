@@ -27,17 +27,23 @@ def test_secret_redactor_unit():
     # Test restoration in response
     simulated_resp = {
         "id": "chatcmpl-test",
-        "choices": [{
-            "message": {
-                "role": "assistant",
-                "content": f"Verified config with {list(mapping.keys())[0]} and {list(mapping.keys())[1]}."
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": f"Verified config with {list(mapping.keys())[0]} and {list(mapping.keys())[1]}.",
+                }
             }
-        }]
+        ],
     }
     restored = SecretRedactor.restore_in_response(simulated_resp, mapping)
     restored_text = restored["choices"][0]["message"]["content"]
     assert "__SG_SECRET_" not in restored_text
-    assert ("postgresql://" in restored_text) or ("sk-proj-" in restored_text) or ("AKIA" in restored_text)
+    assert (
+        ("postgresql://" in restored_text)
+        or ("sk-proj-" in restored_text)
+        or ("AKIA" in restored_text)
+    )
 
 
 def test_reversible_secret_redaction_endpoint(test_app, monkeypatch):

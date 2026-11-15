@@ -22,7 +22,10 @@ def test_embeddings_batch_input(test_app):
     client, _ = test_app
     resp = client.post(
         "/v1/embeddings",
-        json={"model": "text-embedding-3-small", "input": ["Sentence one", "Sentence two", "Sentence three"]},
+        json={
+            "model": "text-embedding-3-small",
+            "input": ["Sentence one", "Sentence two", "Sentence three"],
+        },
     )
     assert resp.status_code == 200
     data = resp.json()
