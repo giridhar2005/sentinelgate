@@ -1,33 +1,80 @@
 {
-  "timestamp_utc": "2026-11-15 17:26 UTC",
+  "commit": "5407a4c42fbb7f31b5d28d4b353d8944d5e0af97",
+  "timestamp_utc": "2026-11-15 20:13 UTC",
   "runner": {
-    "os": "Linux",
-    "release": "7.0.0-1019-azure",
-    "arch": "x86_64",
+    "os": "Darwin",
+    "release": "27.2.0",
+    "arch": "arm64",
     "python": "3.12.16",
-    "is_ci": true,
-    "description": "GitHub Actions Runner (Linux X64)"
+    "is_ci": false
   },
-  "config": {
-    "total_requests": 100,
-    "concurrency": 1,
-    "protocol": "In-process TestClient (no network hops)",
-    "model": "gpt-4o-mini",
-    "embedding_model": "BAAI/bge-small-en-v1.5 (CPU ONNX)"
-  },
-  "metrics": {
-    "cache_hits": 91,
-    "total_requests": 100,
-    "cache_hit_rate_pct": 91.0,
-    "min_overhead_ms": 2.36,
-    "avg_cached_latency_ms": 8.7,
-    "avg_uncached_latency_ms": 43.61,
-    "p50_ms": 4.12,
-    "p95_ms": 44.8,
-    "p99_ms": 106.66,
-    "wall_time_sec": 1.184,
-    "in_process_throughput_req_per_sec": 84.4,
-    "idle_ram_mb": 299.9,
-    "active_ram_mb": 428.8
+  "scenarios": {
+    "direct_mock_upstream": {
+      "p50_ms": 0.63,
+      "p95_ms": 1.16,
+      "p99_ms": 1.3,
+      "min_ms": 0.58,
+      "max_ms": 1.34,
+      "avg_ms": 0.72,
+      "rps": 1395.3,
+      "count": 25
+    },
+    "gateway_proxy": {
+      "p50_ms": 7.52,
+      "p95_ms": 9.37,
+      "p99_ms": 13.32,
+      "min_ms": 7.13,
+      "max_ms": 14.51,
+      "avg_ms": 7.98,
+      "rps": 125.3,
+      "count": 25
+    },
+    "proxy_overhead": {
+      "p50_ms": 6.89,
+      "p95_ms": 8.21,
+      "p99_ms": 12.02,
+      "min_ms": 6.55
+    },
+    "cache_hit_c1": {
+      "p50_ms": 1.69,
+      "p95_ms": 3.01,
+      "p99_ms": 14.27,
+      "min_ms": 1.59,
+      "max_ms": 17.8,
+      "avg_ms": 2.53,
+      "rps": 391.3,
+      "count": 25
+    },
+    "cache_hit_c10": {
+      "p50_ms": 14.79,
+      "p95_ms": 28.87,
+      "p99_ms": 46.76,
+      "min_ms": 5.33,
+      "max_ms": 57.29,
+      "avg_ms": 15.94,
+      "rps": 564.0,
+      "count": 50
+    },
+    "cache_hit_c50": {
+      "p50_ms": 53.16,
+      "p95_ms": 93.16,
+      "p99_ms": 95.62,
+      "min_ms": 18.86,
+      "max_ms": 96.59,
+      "avg_ms": 55.18,
+      "rps": 504.1,
+      "count": 50
+    },
+    "agent_firewall_inspection": {
+      "p50_ms": 0.1,
+      "p95_ms": 1.15,
+      "p99_ms": 1.37,
+      "min_ms": 0.04,
+      "max_ms": 22.72,
+      "avg_ms": 0.38,
+      "rps": 2614.5,
+      "count": 400
+    },
+    "litellm_status": "not_installed"
   }
 }

@@ -1,87 +1,74 @@
-# SentinelGate Systems Performance & Latency Benchmarks
+# SentinelGate Systems Performance Benchmarks
 
-Empirical latency, throughput, and memory consumption benchmarks for SentinelGate under high-concurrency loads.
+> **Methodology Notice:** All HTTP metrics below are captured using a real HTTP harness (`benchmarks/bench.py`) executing against an in-process Uvicorn gateway over loopback sockets (`127.0.0.1`) with `httpx.AsyncClient` connection pooling. Tail latency hedging metrics derive from a controlled mock provider simulation (`benchmarks/bench_hedging.py`). Every number below matches the raw committed JSON artifacts exactly.
 
----
-
-## 1. Executive Summary
-
-SentinelGate is engineered around a **zero-network-hop, in-process architecture**. Unlike traditional AI gateways that offload semantic caching and rate limiting to external Redis or PostgreSQL clusters, SentinelGate runs entirely in-process using SQLite WAL mode memory-mapping and an optimized ONNX embedding runtime (`BAAI/bge-small-en-v1.5`).
-
-```
-+-----------------------------------------------------------------------------------+
-| Architecture Comparison: Cache Lookup Latency (Lower is Better)                  |
-+-----------------------------------------------------------------------------------+
-| SentinelGate (In-Process WAL) | 0.18 ms  [==============================]           |
-| Redis (Localhost TCP Socket)   | 1.42 ms  [==============]                         |
-| Remote Redis (AWS / Upstash)   | 18.50 ms [==]                                    |
-+-----------------------------------------------------------------------------------+
-```
+### Test Runner & Environment
+- **Git Commit SHA:** `5407a4c42fbb7f31b5d28d4b353d8944d5e0af97`
+- **Benchmark Date:** `2026-11-15 20:13 UTC`
+- **Runner Environment:** Local Host (Darwin arm64)
+- **Operating System:** `Darwin` (arm64)
+- **Python Version:** `3.12.16`
+- **Connection Pool:** `max_keepalive_connections=50, max_connections=100`
 
 ---
 
-## 2. Comparative Latency & Throughput Distribution
+## 1. Raw Proxy Latency & Gateway Overhead
 
-The table below contrasts SentinelGate against standard AI Gateway architectures under identical 50-worker concurrent load testing.
+Measures raw HTTP round-trip latency when proxying cache-miss requests through SentinelGate compared against a direct mock upstream server returning instant completions.
 
-| Architecture | Storage Engine | Network Hops | p50 Latency | p95 Latency | p99 Latency | Max Throughput (1 Core) |
-|---|---|---|---|---|---|---|
-| **SentinelGate** | **SQLite WAL (`mmap_size=30GB`)** | **0 (In-Process)** | **0.18 ms** | **0.34 ms** | **0.52 ms** | **14,200 req/sec** |
-| Standard Gateway | Localhost Redis (TCP socket) | 1 (Localhost TCP) | 1.42 ms | 2.10 ms | 3.85 ms | 4,800 req/sec |
-| Enterprise Gateway | Remote Managed Redis / Upstash | 1-2 (VPC / WAN) | 18.50 ms | 32.10 ms | 74.00 ms | 850 req/sec |
-| RDBMS Gateway | PostgreSQL / MySQL | 1 (Connection pool) | 4.80 ms | 9.40 ms | 18.20 ms | 1,200 req/sec |
-
-> [!NOTE]
-> When an exact or semantic cache hit occurs, SentinelGate completely avoids the upstream network hop, returning verified responses in sub-millisecond time.
+| Endpoint Target | p50 (ms) | p95 (ms) | p99 (ms) | Min (ms) | Max (ms) | Throughput (req/s) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Direct Mock Upstream** | 0.63 | 1.16 | 1.30 | 0.58 | 1.34 | 1,395.3 |
+| **SentinelGate Proxy** | 7.52 | 9.37 | 13.32 | 7.13 | 14.51 | 125.3 |
+| **Net Gateway Overhead** | **+6.89** | **+8.21** | **+12.02** | **+6.55** | - | - |
 
 ---
 
-## 3. Speculative Latency Hedging ("The Tail at Scale")
+## 2. Semantic Cache Hit Latency Across Concurrency
 
-Production LLM APIs (OpenAI, Anthropic, Groq) exhibit high p99 tail latency variance due to GPU cluster scheduling, KV cache recomputations, and provider queuing delays.
+Measures semantic vector lookup and SQLite WAL cache retrieval latency under varying concurrent client workloads.
 
-SentinelGate implements **Speculative Latency Hedging** (inspired by Jeffrey Dean and Luiz André Barroso's *The Tail at Scale*). If the primary provider fails to deliver a response within a configured deadline (`hedge_delay_sec=0.45`), SentinelGate speculatively dispatches a duplicate request to a designated fast fallback provider (e.g., Groq `llama-3.1-8b-instant` or Gemini Flash). Whichever provider completes first wins; the slower request is aborted via async cancellation.
-
-### Tail Latency Slasher Results (Simulated 10% Tail Spikes)
-
-| Execution Strategy | p50 Latency | p90 Latency | p95 Latency | p99 Latency (Tail) |
-|---|---|---|---|---|
-| Unhedged Requests | 412 ms | 890 ms | 1,450 ms | **2,480 ms** |
-| **Speculative Hedged (`hedge_delay_ms=450`)** | **398 ms** | **445 ms** | **462 ms** | **485 ms** |
-| **Tail Improvement** | **-3.4%** | **-50.0%** | **-68.1%** | **-80.4% Latency Slashed** |
+| Concurrency Level | p50 (ms) | p95 (ms) | p99 (ms) | Min (ms) | Max (ms) | Throughput (req/s) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Concurrency c = 1** | 1.69 | 3.01 | 14.27 | 1.59 | 17.80 | 391.3 |
+| **Concurrency c = 10** | 14.79 | 28.87 | 46.76 | 5.33 | 57.29 | 564.0 |
+| **Concurrency c = 50** | 53.16 | 93.16 | 95.62 | 18.86 | 96.59 | 504.1 |
 
 ---
 
-## 4. Multi-Tenant Dual-Bucket Rate Limiter
+## 3. Pre-Execution Agent Tool Firewall Inspection Overhead
 
-SentinelGate enforces dual-bucket **Requests Per Minute (RPM)** and **Tokens Per Minute (TPM)** per tenant virtual key using atomic sliding-minute counters in SQLite WAL:
+Measures deterministic lexical parsing, AST analysis (`sqlglot`), and IP SSRF validation in `AgentToolGuard.inspect_tool_call`.
 
-- **Contention:** 0 thread deadlocks observed across 500 concurrent async coroutines.
-- **Overhead:** < 0.08 ms per rate-limit check.
-- **IETF Headers:** Returns `X-RateLimit-Limit-Requests`, `X-RateLimit-Remaining-Requests`, `X-RateLimit-Limit-Tokens`, `X-RateLimit-Remaining-Tokens`, and `X-RateLimit-Reset-Requests` on every request.
-
----
-
-## 5. Memory Footprint & Resource Efficiency
-
-| Operating State | Resident Set Size (RSS RAM) | Notes |
-|---|---|---|
-| Gateway Idle (FastAPI + SQLite WAL) | **45.0 MB** | Minimal core footprint |
-| Active Embedding Cache (`BAAI/bge-small-en-v1.5`) | **364.8 MB** | Pre-warmed ONNX runtime weights |
-| Under 1,000 Concurrent Requests | **388.2 MB** | Stable, zero memory leaks observed |
+| Security Subsystem | p50 (ms) | p95 (ms) | p99 (ms) | Min (ms) | Max (ms) | Inspection Rate (calls/s) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Agent Tool & MCP Firewall** | **0.10** | **1.15** | **1.37** | 0.04 | 22.72 | **2,614.5** |
 
 ---
 
-## 6. How to Reproduce
+## 4. Speculative Latency Hedging Tail Latency Reduction
 
-Run the automated benchmark suite on your local machine:
+> **Simulation Parameters:** Modeled with a simulated mock provider exhibiting bimodal upstream latency (5.0% probability of ~2000ms delay vs 400ms baseline). Hedge triggered at SLA deadline `450ms`, racing primary against fast fallback (45ms).
+
+| Execution Strategy | p50 (ms) | p90 (ms) | p95 (ms) | p99 (ms) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Unhedged Baseline** | 400.9 | 418.5 | 497.9 | **2029.2** |
+| **Speculative Hedged (`delay=450ms`)** | 402.7 | 420.0 | 424.3 | **505.7** |
+| **Improvement** | - | - | - | **-75.1% Tail Latency** |
+
+---
+
+## Reproduction Commands
+
+To reproduce these benchmarks on your local machine or CI runner:
 
 ```bash
-# 1. Run via Makefile target
-make benchmark
+# 1. Run live HTTP benchmark suite (<30 seconds)
+uv run python benchmarks/bench.py --quick
 
-# 2. Or execute directly via Python
-python benchmarks/load_test.py --iterations 1000 --concurrency 50
+# 2. Run speculative hedging simulation
+uv run python benchmarks/bench_hedging.py
+
+# 3. Regenerate this document strictly from committed JSON output
+uv run python scripts/generate_benchmarks_doc.py
 ```
-
-Raw results and percentile distributions are exported to `benchmarks/benchmark_results.json`.

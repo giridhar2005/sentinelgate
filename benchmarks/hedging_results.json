@@ -1,35 +1,35 @@
 {
-  "timestamp_utc": "2026-11-15 17:27 UTC",
+  "timestamp_utc": "2026-11-15 20:12 UTC",
   "methodology": "Simulated mock provider sweep measuring tail tolerance under bimodal upstream latency",
   "runner": {
-    "os": "Linux",
-    "machine": "x86_64",
+    "os": "Darwin",
+    "machine": "arm64",
     "python": "3.12.16",
-    "is_ci": true
+    "is_ci": false
   },
   "config": {
     "total_requests": 100,
-    "tail_percentage": 10.0,
+    "tail_percentage": 5.0,
     "primary_baseline_ms": 400.0,
-    "primary_tail_spike_ms": 2480.0,
+    "primary_tail_spike_ms": 2000.0,
     "fallback_response_ms": 45.0,
     "hedge_delay_ms": 450.0
   },
   "unhedged": {
-    "p50": 401.7,
-    "p90": 621.4,
-    "p95": 2479.4,
-    "p99": 2518.2,
-    "min": 380.2,
-    "max": 2521.9
+    "p50": 400.9,
+    "p90": 418.5,
+    "p95": 497.9,
+    "p99": 2029.2,
+    "min": 380.6,
+    "max": 2042.3
   },
   "hedged": {
-    "p50": 402.9,
-    "p90": 428.0,
-    "p95": 501.7,
-    "p99": 507.2,
-    "min": 382.2,
-    "max": 507.4
+    "p50": 402.7,
+    "p90": 420.0,
+    "p95": 424.3,
+    "p99": 505.7,
+    "min": 382.5,
+    "max": 507.6
   },
-  "tail_reduction_pct": 79.9
+  "tail_reduction_pct": 75.1
 }
