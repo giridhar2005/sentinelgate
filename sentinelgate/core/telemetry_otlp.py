@@ -192,12 +192,12 @@ class OTLPExporter:
                     "resource": {
                         "attributes": [
                             {"key": "service.name", "value": {"stringValue": "sentinelgate"}},
-                            {"key": "service.version", "value": {"stringValue": "0.5.0"}},
+                            {"key": "service.version", "value": {"stringValue": "0.1.0"}},
                         ]
                     },
                     "scopeSpans": [
                         {
-                            "scope": {"name": "sentinelgate.tracer", "version": "0.5.0"},
+                            "scope": {"name": "sentinelgate.tracer", "version": "0.1.0"},
                             "spans": spans,
                         }
                     ],

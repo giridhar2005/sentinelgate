@@ -139,7 +139,7 @@ def format_startup_banner(info: Dict[str, Any], host: str = "127.0.0.1", port: i
 
     lines = [
         "┌──────────────────────────────────────────────────────────────────┐",
-        "│  SentinelGate v0.5.0 · AI Infrastructure Gateway                 │",
+        "│  SentinelGate v0.1.0 · AI Infrastructure Gateway                 │",
         "├──────────────────────────────────────────────────────────────────┤",
         f"│  Proxy Endpoint:  {base_url:<46} │",
         f"│  HUD Dashboard:   {dash_url:<46} │",

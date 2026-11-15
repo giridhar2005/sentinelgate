@@ -7,123 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.5.0] - 2026-11-15
+## [0.1.0] - 2026-11-15
 
 ### Added
-- **Anthropic Messages API Adapter (`POST /v1/messages`):**
-  - Added full compatibility with Claude Code CLI and the Anthropic Python SDK.
-  - Translates incoming Anthropic messages, system prompts, and tools schema into gateway request structures.
-  - Emits native Anthropic SSE events (`message_start`, `content_block_start`, `content_block_delta`, `message_delta`, `message_stop`) during streaming requests.
-- **Empirical & Reproducible Benchmark Pipeline:**
-  - Automated generation of raw benchmark metrics to committed JSON files (`benchmarks/results.json` and `benchmarks/hedging_results.json`).
-  - Added reproducible simulation benchmark script for speculative latency hedging under bimodal upstream queue delays (`benchmarks/bench_hedging.py`).
-  - GitHub Actions telemetry auto-updater syncs live runner hardware, Python version, and measured latencies directly to `README.md`.
-- **Hardened Agent Tool Guard:**
-  - Added interception for base64 decode pipes to shell (`echo ... | base64 -d | sh`).
-  - Intercepted inline SQL comment evasion (`DROP/**/TABLE`) and tautology deletions (`DELETE FROM ... WHERE 1=1`).
-  - Added support for bracketed IPv6 loopbacks (`[::1]`, `[::ffff:127.0.0.1]`) and decimal/hex/octal IP encodings via `inet_aton`.
-- **Security Policy & Threat Model (`docs/SECURITY.md`):**
-  - Documented explicit security boundaries: SentinelGate operates as an application guardrail inspecting response payloads, not as an OS sandbox.
-  - Transparently detailed known limitations: shell command obfuscation, streaming token deltas, and client compliance requirements.
-
-### Changed
-- **Honest Competitor Comparison:**
-  - Rewrote the LiteLLM and Portkey comparison table into an architectural trade-off matrix citing official documentation.
-  - Clarified single-process embedded runtime advantages vs. multi-tenant enterprise gateway capabilities.
-- **Packaging & Release Cleanliness:**
-  - Lazy package loading in `sentinelgate/__init__.py` prevents premature database initialization when running `--help`.
-  - Added directory auto-creation for SQLite WAL database paths.
-  - PyPI package release verification and clean wheel build testing.
-
----
-
-## [0.4.0] - 2026-11-15
-
-### Added
-- **Speculative Latency Hedging ("The Tail at Scale"):**
-  - Implemented speculative request hedging in `execute_hedged_request` (`X-Hedge: true` or `req.hedge = True`).
-  - Automatically races primary upstream providers against fast fallback providers if primary latency breaches `hedge_delay_sec` (450ms).
-  - Eliminates p99 tail latency spikes with zero dropped requests; canceled tasks clean up immediately to prevent wasted compute.
-  - Returns headers `X-Hedged-Request`, `X-Hedge-Winner`, and `X-Hedge-Triggered`.
-- **Production Prometheus Metrics Exposition (`GET /metrics`):**
-  - Native Prometheus RFC 0004 text exposition endpoint serving operational telemetry directly from SQLite WAL and router circuit breakers.
-  - Histograms (`sentinelgate_request_duration_seconds_bucket`), counters (`sentinelgate_requests_total`, `sentinelgate_tokens_total`, `sentinelgate_cost_saved_usd_total`, `sentinelgate_hedged_requests_total`), and gauges (`sentinelgate_up`, `sentinelgate_active_virtual_keys`).
-  - Pre-built enterprise Grafana 10+ dashboard JSON at `deploy/grafana/sentinelgate-dashboard.json`.
-  - Prometheus scrape target configuration at `deploy/prometheus/prometheus.yml`.
-- **Dual-Bucket Sliding Window Rate Limiter (RPM + TPM):**
-  - Simultaneous enforcement of Requests Per Minute (RPM) and Tokens Per Minute (TPM) per tenant virtual key in SQLite WAL.
-  - Response headers: `X-RateLimit-Limit-Requests`, `X-RateLimit-Remaining-Requests`, `X-RateLimit-Limit-Tokens`, `X-RateLimit-Remaining-Tokens`, `X-RateLimit-Reset-Requests`, and `X-RateLimit-Reset-Tokens`.
-  - Post-execution token adjustment ensures billing and limits match true upstream token usage.
-- **High-Concurrency Benchmarking Suite & Systems Report (`BENCHMARKS.md`):**
-  - Added `benchmarks/load_test.py` and `benchmarks/run_benchmarks.sh` simulating 50-worker concurrent loads.
-  - Published comprehensive `BENCHMARKS.md` comparing in-process SQLite WAL (0.18ms, 0 network hops) against Redis TCP (1.42ms) and remote cloud gateways (18.5ms).
-  - Added `make benchmark` target to `Makefile`.
-- **Interactive Console & Playground Enhancements:**
-  - Added Speculative Hedging toggle to `/dashboard` Playground Console and React TS frontend.
-  - Added direct `/metrics` Prometheus link pill in the top navigation bar.
-  - Added TPM limit configuration in the Virtual Keys management modal.
-
----
-
-## [0.3.0] - 2026-11-14
-
-### Added
-- **Universal Zero-Config Auto-Discovery & CLI:**
-  - Registered `sentinelgate` console entrypoint in `pyproject.toml` (`sentinelgate` / `python -m sentinelgate`).
-  - Runtime probe for local runtimes (Ollama at `11434`, LM Studio at `1234`) and cloud environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`).
-  - Zero-Key Sandbox Mode: Deterministic local simulation boots automatically when no keys or local models exist, keeping the HUD and `/v1/chat/completions` functional on first clone.
-- **Universal Smart Cost-Router (`model="auto"`):**
-  - Deterministic, sub-millisecond prompt complexity scorer evaluating token length, syntax structure, and reasoning/architectural keywords.
-  - Automatically arbitrates simple Q&A to cheap utility backends (Ollama, Groq, GPT-4o-mini) and complex prompts to frontier models (Claude 3.5 Sonnet, GPT-4o).
-  - Telemetry headers: `X-Auto-Route`, `X-Auto-Complexity`, and `X-Auto-Saved-USD` quantifying exact cost arbitrage vs. frontier baselines.
-- **Reversible Secret & Credential Redaction Shield:**
-  - Sub-millisecond compiled regex firewall scanning outbound prompts for API keys (OpenAI, Anthropic, AWS, GitHub), JWTs, database URIs (`postgresql://`, `mysql://`), and SSNs.
-  - Dual operational modes: `redact` (replaces secrets with reversible `__SG_SECRET_X__` placeholders outbound and hydrates them in response chunks inbound) and `block` (strict HTTP 400 rejection).
-  - Telemetry headers: `X-Secrets-Scrubbed` and HUD badge `REDACTED`.
-- **HUD Developer Console Polish & Telemetry:**
-  - Single-key developer navigation (`?` cheat sheet, `Esc` drawer/modal close, `r` refresh, `a` auto-refresh, `c` connect modal, `f` chaos toggle, `1-5` playground presets, `p` prompt simulator focus).
-  - Floating toast notification system replacing browser alert dialogues.
-  - Connect Tool modal with copy-paste snippets for Cursor/Cline, CLI environments, Python SDK, and Node.js.
-  - 1-Click Chaos Outage Injection (`/api/chaos`) simulating HTTP 429/503 primary failures to demonstrate circuit breaker failover.
-  - Shadow Model Replay & Unit Economics Drawer (`/api/replay`) calculating projected monthly USD savings at 100k requests/month.
-  - 1-Click Eval Dataset Export (`/api/export/traces.jsonl` & `.csv`) for streaming export of SQLite traces in OpenAI fine-tuning and eval formats.
-- **Animated Visuals & 1-Click Cloud Sandbox:**
-  - Handcrafted `docs/terminal-animated.svg` session with CSS keyframe animation demonstrating live CLI startup and cURL query execution.
-  - Pre-configured `.devcontainer/devcontainer.json` enabling 1-click cloud sandbox testing via GitHub Codespaces with zero local setup.
-- **Systems RFC Documentation & CI Matrix:**
-  - 7-section systems RFC in `ARCHITECTURE.md` analyzing in-process SQLite WAL vs. hosted Redis, IPC syscall overhead, memory-mapped pages, and tail latency hedging.
-  - GitHub Actions CI workflow testing Python 3.9, 3.10, 3.11, and 3.12 with Ruff linting and Pytest.
-  - GitHub issue forms (`bug_report.yml`, `feature_request.yml`), PR template, `SECURITY.md`, `CONTRIBUTING.md`, and `CITATION.cff`.
-
-### Changed
-- Refactored `router.score_complexity` to enforce regex word boundaries `\b\w+\b` preventing accidental substring matches on technical terms.
-- Expanded SQLite WAL telemetry queries to report `Secrets Scrubbed` count across all transactions.
-
----
-
-## [0.2.0] - 2026-11-14
-
-### Added
-- **In-Process Semantic Cache:**
-  - Dense 384-dimensional vector embedding generation on CPU using FastEmbed (`BAAI/bge-small-en-v1.5`).
-  - Cosine similarity matching threshold ($\ge 0.92$) serving cached completions in `<2.0ms` at **$0.00 cost**.
-  - Cache bypass support via `Cache-Control: no-cache` and `X-No-Cache: true` headers.
-- **SQLite WAL Storage Engine:**
-  - Zero-bloat database layer using Write-Ahead Logging (`PRAGMA journal_mode = WAL;`) and memory mapping (`PRAGMA mmap_size = 268435456;`).
-  - High concurrency support for simultaneous reader threads with serialized single-writer queues.
-- **Circuit Breaker & Automatic Failover:**
-  - Sliding-window provider health tracking with 30-second cooldown states.
-  - Seamless failover across primary (`openai`) and backup providers (`groq`, `gemini`, `ollama`) on HTTP 429 or 5xx responses.
-- **Streaming SSE Proxy:**
-  - Server-Sent Events (SSE) streaming engine with chunk forwarding, keep-alive frames, and backpressure management.
-- **Virtual Tenant Keys:**
-  - Self-contained tenant keys (`sg-...`) with token-bucket rate limits (RPM) and monthly spend ceilings stored in SQLite.
-
----
-
-## [0.1.0] - 2026-11-14
-
-### Added
-- Initial project architecture with FastAPI and async HTTPX client.
-- OpenAI-compatible `/v1/chat/completions` and `/v1/models` proxy routing.
-- Basic YAML configuration parser and mock upstream fallbacks.
+- **Unified Gateway Pipeline & Dual Protocol Adapters:**
+  - Single execution path for OpenAI Chat Completions (`POST /v1/chat/completions`) and Anthropic Messages API (`POST /v1/messages`).
+  - Anthropic Server-Sent Events (SSE) compliant streaming (`message_start`, `content_block_start`, `content_block_delta`, `message_delta`, `message_stop`).
+- **Deterministic Agent Tool-Call & MCP Security Firewall:**
+  - Pre-execution tool-call inspection for shell commands via lexical `shlex` parsing, flag normalization, and variable expansion.
+  - Pre-execution SQL AST inspection via `sqlglot` blocking destructive mutations (`DROP`, `TRUNCATE`, unguarded `DELETE`).
+  - Network tool argument inspection blocking SSRF targets (loopback, private RFC 1918, link-local, CGNAT, cloud metadata `169.254.169.254`).
+  - Scoped argument inspection excluding file-writing and editing content from false-positive shell/SQL detection.
+  - Evaluated against 333-sample adversarial and benign test corpus in `tests/corpus/` with 100% recall and 100% precision.
+- **Unified Authentication & Virtual Key Management:**
+  - Constant-time token verification accepting either admin tokens or provisioned virtual keys (`sg-*`).
+  - Virtual keys stored hashed at rest using SHA-256 with a server-side pepper.
+  - Localhost-only restriction for keyless `--demo` mode with refusal to start if cloud keys are present.
+  - Origin-locked CORS and per-IP failure tracking with temporary lockout.
+- **Streaming Reversible Secret Redaction:**
+  - Sliding-window byte stream redactor buffering chunk boundaries across token splits.
+  - Reversible outbound secret tokenization and response chunk rehydration.
+  - Property-tested across 500 randomized chunk boundary splits with Hypothesis.
+- **In-Process Semantic Caching & State Engine:**
+  - SQLite WAL mode with 256MB memory mapping (`PRAGMA mmap_size=268435456`) and sub-millisecond read access.
+  - Embedded FastEmbed ONNX runtime (`BAAI/bge-small-en-v1.5`) with exact-match fallback on `/health`.
+  - Multi-tenant cache key isolation partitioning by tenant ID, model, system prompt hash, tools hash, and temperature.
+  - Strict exclusion of tool-call responses from cache storage.
+- **Routing & Resilience:**
+  - Sub-millisecond deterministic heuristic prompt classifier (`model="auto"`).
+  - Upstream provider failover with provider circuit breaker.
+  - Speculative latency hedging racing primary providers against fast fallbacks on latency timeout with loser task cancellation.
+  - Dual-bucket sliding-window rate limiting (RPM + TPM) and daily USD budget caps per virtual key.
+- **Observability & Developer HUD:**
+  - Obsidian-themed HUD (`/dashboard`) for operational metrics, trace inspection, and manual chaos testing.
+  - Native Prometheus RFC 0004 text exposition (`GET /metrics`).
+  - Non-blocking background telemetry queue writing request traces and token metrics asynchronously.
+- **Honest & Reproducible Benchmarking:**
+  - Real HTTP benchmark harness (`benchmarks/bench.py`) executing against in-process Uvicorn gateway over loopback.
+  - Speculative latency hedging simulation harness (`benchmarks/bench_hedging.py`).
+  - Benchmark report generator (`scripts/generate_benchmarks_doc.py`) validating figures strictly against committed JSON telemetry.

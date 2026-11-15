@@ -8,16 +8,18 @@ This document outlines SentinelGate's **Threat Model**, empirical benchmark meas
 
 ## 1. Threat Model & Security Boundaries
 
-### What SentinelGate Is
-- **An Application-Layer Gateway & Proxy:** SentinelGate sits between client autonomous agents (Cursor, Claude Code, Cline, LangGraph, custom SDKs) and upstream LLM providers (OpenAI, Anthropic, Groq, Ollama).
-- **Deterministic Pre-Execution Tool-Call Firewall:** Inspects assistant `tool_calls` / `function_call` payloads in both streaming (SSE chunk accumulation) and non-streaming modes across OpenAI and Anthropic protocols. Halts destructive shell commands, destructive SQL mutations, and SSRF attempts before client dispatch.
-- **MCP Relay Guardrail:** Reverse proxy for Model Context Protocol (`/v1/mcp/proxy`) that validates targets against SSRF/internal CIDRs and inspects incoming `tools/call` parameters.
-- **In-Flight Data Sanitizer:** Masks PII before forwarding prompts upstream and redacts leaked API keys and credentials in streaming and non-streaming responses.
+### What SentinelGate Protects Against
+- **PII Exfiltration:** Automatic detection and masking of phone numbers, emails, and sensitive identifiers before dispatch to upstream providers.
+- **Prompt Injection & Jailbreaks:** Heuristic inspection of user prompts blocking system prompt extraction and instruction override attempts.
+- **Destructive Agent Tool Calls:** Deterministic lexical AST analysis blocking destructive filesystem commands (`rm -rf`, disk wipes, reverse shells) and unguarded SQL mutations (`DROP`, `TRUNCATE`, unconstrained `DELETE`).
+- **SSRF & Cloud Metadata Theft:** IP and DNS resolution checks blocking private RFC 1918 networks, loopback addresses, CGNAT, and cloud metadata services (`169.254.169.254`, `[fd00:ec2::254]`, `100.100.100.200`).
+- **Credential Leaks:** Inbound and streaming secret redaction scrubbing API keys, bearer tokens, JWTs, and database URIs.
 
-### What SentinelGate Is NOT
-- **NOT an Operating System Sandbox:** SentinelGate does not run agent tools inside isolated kernel namespaces, gVisor containers, or microVMs (e.g. Firecracker).
-- **NOT an Egress Network Firewall:** SentinelGate cannot monitor network traffic generated directly by client applications outside the gateway HTTP transport.
-- **NOT a Full Runtime Interpreter:** While SentinelGate performs lexical AST analysis (`shlex`, `sqlglot`, `urllib.parse`), it does not execute code or perform dynamic taint tracking inside an active kernel runtime.
+### What SentinelGate DOES NOT Protect Against
+- **Arbitrary Code Execution Inside Interpreters:** SentinelGate does not sandbox or inspect arbitrary dynamic code executed inside language runtimes (e.g., Python `eval()` or Node.js scripts executed by an agent).
+- **Physical & Hardware Side-Channel Attacks:** Hardware-level timing attacks, power analysis, cache side-channels, or memory bus inspection are outside the gateway boundary.
+- **Compromised Virtual Key Stores:** If the host filesystem, SQLite database file, or server-side pepper is compromised via root access, SentinelGate cannot protect stored credentials.
+- **Egress Bypasses Outside Gateway Transport:** Network connections initiated directly by client host processes without routing through the SentinelGate proxy are not monitored.
 
 ---
 
@@ -114,4 +116,13 @@ For production agent deployments, use SentinelGate as the **application-layer ga
 
 ## 6. Reporting a Security Vulnerability
 
-If you discover a security vulnerability in SentinelGate, please report it privately via GitHub Security Advisories or by emailing the maintainer directly. Please do not open public GitHub issues for undisclosed security vulnerabilities.
+If you discover a security vulnerability or bypass in SentinelGate, please report it responsibly:
+
+- **Contact Email:** `security@sentinelgate.org` (or maintainer: `giridharp0503@gmail.com`)
+- **Alternative:** Submit a private security advisory through GitHub via the Security tab.
+- **Expected Response Times:**
+  - **Initial Acknowledgment:** Within **48 hours** of initial receipt.
+  - **Triage & Reproduction:** Within **4 business days**.
+  - **Patch & Advisory Release:** Critical vulnerabilities are patched and published within **7 calendar days**.
+
+Please do NOT file public GitHub issues for undisclosed security vulnerabilities.
