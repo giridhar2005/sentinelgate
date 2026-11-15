@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 import time
 import uuid
@@ -17,14 +16,10 @@ from sentinelgate.services.budget import BudgetManager, VirtualKeyManager
 from sentinelgate.services.cache import SemanticCache
 from sentinelgate.services.evals import EvalsManager
 from sentinelgate.services.guardrails import (
-    ContextCompactor,
     PIIGuardrail,
-    PromptOptimizer,
     SecretRedactor,
-    SecurityInspector,
 )
 from sentinelgate.services.router import ProviderRouter
-from sentinelgate.services.streaming_redactor import SlidingWindowStreamRedactor
 
 logger = logging.getLogger("sentinelgate.pipeline")
 
@@ -57,35 +52,15 @@ class GatewayPipeline:
 
     @staticmethod
     def extract_user_prompt(messages: List[Dict[str, Any]]) -> str:
-        for m in reversed(messages):
-            if m.get("role") == "user":
-                content = m.get("content", "")
-                if isinstance(content, str):
-                    return content
-                elif isinstance(content, list):
-                    return "".join(
-                        b.get("text", "")
-                        for b in content
-                        if isinstance(b, dict) and b.get("type") == "text"
-                    )
-        return ""
+        from sentinelgate.services.pipeline_helpers import extract_user_prompt
+
+        return extract_user_prompt(messages)
 
     @staticmethod
     def extract_system_prompt(messages: List[Dict[str, Any]], system_param: Any = "") -> str:
-        sys_parts = []
-        if system_param:
-            if isinstance(system_param, str):
-                sys_parts.append(system_param)
-            elif isinstance(system_param, list):
-                for b in system_param:
-                    if isinstance(b, dict) and b.get("type") == "text":
-                        sys_parts.append(b.get("text", ""))
-        for m in messages:
-            if m.get("role") == "system":
-                c = m.get("content", "")
-                if isinstance(c, str):
-                    sys_parts.append(c)
-        return " ".join(sys_parts).strip()
+        from sentinelgate.services.pipeline_helpers import extract_system_prompt
+
+        return extract_system_prompt(messages, system_param)
 
     async def execute_chat(
         self,
@@ -137,75 +112,20 @@ class GatewayPipeline:
         secret_action = request.headers.get("X-Secret-Action", configured_action).lower()
 
         secret_mapping: Dict[str, str] = {}
-        scrubbed_count = 0
+        from sentinelgate.services.pipeline_guardrails import run_inbound_guardrails
 
-        if secret_action == "block":
-            is_secrets_safe, secret_threat = SecurityInspector.inspect_secrets(messages)
-            if not is_secrets_safe:
-                lat_ms = (time.perf_counter() - t_perf_start) * 1000.0
-                if self.evals:
-                    self.evals.log_guardrail_event(
-                        req_id, "SECRET_LEAK", secret_threat or "", blocked=True
-                    )
-                if protocol == "anthropic":
-                    return JSONResponse(
-                        status_code=400,
-                        content={
-                            "type": "error",
-                            "error": {
-                                "type": "invalid_request_error",
-                                "message": f"Security Violation: {secret_threat}",
-                            },
-                        },
-                    )
-                return make_openai_error(
-                    f"Security Violation: {secret_threat}",
-                    error_type="security_guardrail_violation",
-                    code="secret_leak_detected",
-                    status_code=400,
-                )
-        elif secret_action == "redact":
-            messages, secret_mapping, scrubbed_count = SecretRedactor.redact_messages(messages)
-            if scrubbed_count > 0 and self.evals:
-                self.evals.log_guardrail_event(
-                    req_id,
-                    "SECRET_REDACTED",
-                    f"Scrubbed {scrubbed_count} secret credential(s)",
-                    blocked=False,
-                )
-
-        # Prompt injection inspection
-        is_inj_safe, inj_threat = SecurityInspector.inspect_injection(messages)
-        if not is_inj_safe:
-            lat_ms = (time.perf_counter() - t_perf_start) * 1000.0
-            if self.evals:
-                self.evals.log_guardrail_event(
-                    req_id, "PROMPT_INJECTION", inj_threat or "", blocked=True
-                )
-            if protocol == "anthropic":
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "type": "error",
-                        "error": {
-                            "type": "invalid_request_error",
-                            "message": f"Prompt Security Violation: {inj_threat}",
-                        },
-                    },
-                )
-            return make_openai_error(
-                f"Prompt Security Violation: {inj_threat}",
-                error_type="invalid_request_error",
-                code="prompt_injection_detected",
-                status_code=400,
+        err_resp, masked_messages, secret_mapping, pii_mapping, scrubbed_count = (
+            run_inbound_guardrails(
+                messages=messages,
+                secret_action=secret_action,
+                req_id=req_id,
+                evals=self.evals,
+                protocol=protocol,
+                t_perf_start=t_perf_start,
             )
-
-        # Context compaction & optimization
-        messages = ContextCompactor.compact(messages)
-        messages = PromptOptimizer.optimize_messages(messages)
-
-        # PII Masking
-        masked_messages, pii_mapping = PIIGuardrail.mask_messages(messages)
+        )
+        if err_resp:
+            return err_resp
 
         # ---------------------------------------------------------------------
         # STAGE 3: SEMANTIC CACHE LOOKUP (Multi-Tenant Isolated)
@@ -225,52 +145,24 @@ class GatewayPipeline:
                 cache_control=cache_ctrl,
             )
             if cached_result:
+                from sentinelgate.services.pipeline_helpers import build_cache_hit_response
+
                 cached_resp, sim_score = cached_result
-                lat_ms = (time.perf_counter() - t_perf_start) * 1000.0
-                resp_payload = dict(cached_resp)
-
-                if pii_mapping:
-                    resp_payload = PIIGuardrail.restore_in_response(resp_payload, pii_mapping)
-                if secret_mapping:
-                    resp_payload = SecretRedactor.restore_in_response(resp_payload, secret_mapping)
-
-                hdrs = {
-                    "X-Request-ID": req_id,
-                    "X-Cache": "HIT",
-                    "X-Provider-Used": f"{resp_payload.get('model', model)}(cached)",
-                    "X-Latency-Ms": f"{lat_ms:.2f}",
-                    "X-Agent-Firewall-Blocked": "false",
-                    "traceparent": trace_ctx.to_header(),
-                }
-                if scrubbed_count > 0:
-                    hdrs["X-Secrets-Scrubbed"] = str(scrubbed_count)
-                hdrs.update(rate_limit_headers)
-
-                if self.evals:
-                    usage = resp_payload.get("usage", {})
-                    in_tok = usage.get("prompt_tokens", len(user_prompt) // 4)
-                    out_tok = usage.get("completion_tokens", 10)
-                    self.evals.log_request(
-                        request_id=req_id,
-                        model=model,
-                        provider=f"{resp_payload.get('model', model)}(cached)",
-                        latency_ms=lat_ms,
-                        cache_hit=True,
-                        prompt_tokens=in_tok,
-                        completion_tokens=out_tok,
-                        cost_usd=0.0,
-                        cost_saved_usd=0.001,
-                        status="CACHE",
-                        prompt_snippet=user_prompt[:250],
-                    )
-
-                if protocol == "anthropic":
-                    anthropic_json = self._to_anthropic_response(
-                        resp_payload, req_id, model, user_prompt
-                    )
-                    return JSONResponse(status_code=200, content=anthropic_json, headers=hdrs)
-
-                return JSONResponse(status_code=200, content=resp_payload, headers=hdrs)
+                return build_cache_hit_response(
+                    cached_resp=cached_resp,
+                    t_perf_start=t_perf_start,
+                    pii_mapping=pii_mapping,
+                    secret_mapping=secret_mapping,
+                    req_id=req_id,
+                    model=model,
+                    trace_ctx=trace_ctx,
+                    scrubbed_count=scrubbed_count,
+                    rate_limit_headers=rate_limit_headers,
+                    evals=self.evals,
+                    protocol=protocol,
+                    user_prompt=user_prompt,
+                    to_anthropic_fn=self._to_anthropic_response,
+                )
 
         # ---------------------------------------------------------------------
         # STAGE 4: BUDGET & CIRCUIT BREAKER CHECK
@@ -403,23 +295,6 @@ class GatewayPipeline:
         # ---------------------------------------------------------------------
         # STAGE 10: METRICS & HEADERS
         # ---------------------------------------------------------------------
-        headers = {
-            "X-Request-ID": req_id,
-            "X-Cache": "MISS",
-            "X-Provider-Used": chosen_p,
-            "X-Latency-Ms": f"{lat_ms:.2f}",
-            "X-Agent-Firewall-Blocked": "true" if tool_blocked else "false",
-            "traceparent": trace_ctx.to_header(),
-        }
-        if tool_blocked and tool_detail:
-            headers["X-Agent-Firewall-Reason"] = str(tool_detail)
-        if scrubbed_count > 0:
-            headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
-        if hedge_meta:
-            headers["X-Hedged-Request"] = "true"
-            headers["X-Hedge-Winner"] = str(hedge_meta.get("winner", "primary"))
-            headers["X-Hedge-Triggered"] = "true" if hedge_meta.get("hedged_triggered") else "false"
-
         cost_usd = self.router.get_model_cost(chosen_p, chosen_m, in_tok, out_tok)
         self.budget.record_spend(cost_usd)
 
@@ -427,15 +302,25 @@ class GatewayPipeline:
         if model == "auto":
             frontier_cost = self.router.get_model_cost("openai", "gpt-4o", in_tok, out_tok)
             auto_saved_usd = max(0.0, frontier_cost - cost_usd)
-            headers["X-Auto-Route"] = f"{chosen_p}/{chosen_m}"
-            headers["X-Auto-Saved-USD"] = f"{auto_saved_usd:.6f}"
-            auto_meta = getattr(self.router, "last_routing_metadata", {})
-            if auto_meta:
-                headers["X-Auto-Complexity"] = (
-                    f"{auto_meta.get('classification', 'simple')} ({auto_meta.get('score', 0)}/100)"
-                )
 
-        headers.update(rate_limit_headers)
+        from sentinelgate.services.pipeline_helpers import build_upstream_headers
+
+        headers = build_upstream_headers(
+            req_id=req_id,
+            chosen_p=chosen_p,
+            lat_ms=lat_ms,
+            tool_blocked=tool_blocked,
+            tool_detail=tool_detail,
+            trace_ctx=trace_ctx,
+            scrubbed_count=scrubbed_count,
+            hedge_meta=hedge_meta,
+            model=model,
+            chosen_m=chosen_m,
+            router_instance=self.router,
+            rate_limit_headers=rate_limit_headers,
+            cost_usd=cost_usd,
+            auto_saved_usd=auto_saved_usd,
+        )
 
         if self.evals:
             self.evals.log_request(
@@ -474,223 +359,21 @@ class GatewayPipeline:
         model: str = "gpt-4o-mini",
         scrubbed_count: int = 0,
     ) -> StreamingResponse:
-        """Stream processor with sliding-window secret redactor and tool-call firewall accumulation."""
-        headers = {
-            "X-Request-ID": req_id,
-            "X-Cache": "MISS",
-            "X-Provider-Used": chosen_p,
-            "traceparent": trace_ctx.to_header(),
-        }
-        if scrubbed_count > 0:
-            headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
-        if model == "auto":
-            auto_meta = getattr(self.router, "last_routing_metadata", {})
-            headers["X-Auto-Route"] = f"{chosen_p}/{chosen_m}"
-            if auto_meta:
-                headers["X-Auto-Complexity"] = (
-                    f"{auto_meta.get('classification', 'simple')} ({auto_meta.get('score', 0)}/100)"
-                )
-        headers.update(rate_limit_headers)
+        from sentinelgate.services.pipeline_streaming import handle_streaming_pipeline
 
-        # Buffer initial chunks to detect if the stream is starting with tool_calls.
-        # This allows inspecting malicious tool calls BEFORE sending the HTTP response headers.
-        buffered_chunks: List[str] = []
-        is_tool_stream = False
-        accumulated_tool_calls: Dict[int, Dict[str, Any]] = {}
-        tool_blocked = False
-        tool_threat_msg = ""
-
-        try:
-            async for raw_line in raw_gen:
-                buffered_chunks.append(raw_line)
-                if not raw_line or not raw_line.startswith("data: "):
-                    continue
-                data_str = raw_line[6:].strip()
-                if data_str == "[DONE]":
-                    break
-
-                try:
-                    chunk = json.loads(data_str)
-                except Exception:
-                    continue
-
-                choices = chunk.get("choices", [])
-                if not choices:
-                    continue
-
-                delta = choices[0].get("delta", {})
-                tool_deltas = delta.get("tool_calls")
-
-                if tool_deltas:
-                    is_tool_stream = True
-                    for td in tool_deltas:
-                        idx = td.get("index", 0)
-                        if idx not in accumulated_tool_calls:
-                            accumulated_tool_calls[idx] = {
-                                "id": td.get("id", f"call_{uuid.uuid4().hex[:8]}"),
-                                "name": td.get("function", {}).get("name", ""),
-                                "args": [],
-                            }
-                        fn = td.get("function", {})
-                        if fn.get("name"):
-                            accumulated_tool_calls[idx]["name"] = fn["name"]
-                        if fn.get("arguments"):
-                            accumulated_tool_calls[idx]["args"].append(fn["arguments"])
-                elif delta.get("content") and not is_tool_stream:
-                    # Text tokens started, break peek loop
-                    break
-        except Exception as e:
-            logger.warning(f"Error during stream peeking: {e}")
-
-        # If tool calls were detected, inspect them
-        if is_tool_stream and accumulated_tool_calls:
-            for idx, t_data in accumulated_tool_calls.items():
-                name = t_data.get("name", "")
-                full_args = "".join(t_data.get("args", []))
-                is_safe, threat, detail = AgentToolGuard.inspect_tool_call(name, full_args)
-                if not is_safe:
-                    tool_blocked = True
-                    tool_threat_msg = str(threat)
-                    break
-
-        if tool_blocked:
-            headers["X-Agent-Firewall-Blocked"] = "true"
-            headers["X-Agent-Firewall-Reason"] = tool_threat_msg
-        else:
-            headers["X-Agent-Firewall-Blocked"] = "false"
-
-        async def stream_generator():
-            redactor = SlidingWindowStreamRedactor(secret_mapping=secret_mapping)
-
-            if tool_blocked:
-                refusal_msg = f"SentinelGate Agent Security Firewall blocked tool execution: {tool_threat_msg}."
-                if protocol == "openai":
-                    refusal_chunk = {
-                        "id": req_id,
-                        "object": "chat.completion.chunk",
-                        "created": int(time.time()),
-                        "model": chosen_m,
-                        "choices": [
-                            {
-                                "index": 0,
-                                "delta": {"role": "assistant", "content": refusal_msg},
-                                "finish_reason": "stop",
-                            }
-                        ],
-                    }
-                    yield f"data: {json.dumps(refusal_chunk)}\n\n"
-                    yield "data: [DONE]\n\n"
-                elif protocol == "anthropic":
-                    yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}})}\n\n"
-                    yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': refusal_msg}})}\n\n"
-                    yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
-                    yield f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn', 'stop_sequence': None}, 'usage': {'output_tokens': 20}})}\n\n"
-                    yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
-                return
-
-            if is_tool_stream:
-                if protocol == "openai":
-                    for line in buffered_chunks:
-                        yield f"{line}\n\n"
-                    # Process any remaining lines from raw_gen
-                    async for remaining_line in raw_gen:
-                        if remaining_line:
-                            yield f"{remaining_line}\n\n"
-                elif protocol == "anthropic":
-                    for idx, t_data in accumulated_tool_calls.items():
-                        full_args = "".join(t_data.get("args", []))
-                        yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': idx, 'content_block': {'type': 'tool_use', 'id': t_data['id'], 'name': t_data['name'], 'input': {}}})}\n\n"
-                        yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': idx, 'delta': {'type': 'input_json_delta', 'partial_json': full_args}})}\n\n"
-                        yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': idx})}\n\n"
-                    yield f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': 'tool_use', 'stop_sequence': None}, 'usage': {'output_tokens': 25}})}\n\n"
-                    yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
-                return
-
-            # Pure text stream
-            all_lines = buffered_chunks
-            for raw_line in all_lines:
-                if not raw_line or not raw_line.startswith("data: "):
-                    continue
-                data_str = raw_line[6:].strip()
-                if data_str == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(data_str)
-                except Exception:
-                    continue
-                delta = chunk.get("choices", [{}])[0].get("delta", {})
-                content_text = delta.get("content", "")
-                if content_text:
-                    scrubbed = redactor.process_delta(content_text, is_final=False)
-                    if scrubbed:
-                        if protocol == "openai":
-                            c = dict(chunk)
-                            c["choices"][0]["delta"]["content"] = scrubbed
-                            yield f"data: {json.dumps(c)}\n\n"
-                        elif protocol == "anthropic":
-                            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': scrubbed}})}\n\n"
-
-            async for raw_line in raw_gen:
-                if not raw_line or not raw_line.startswith("data: "):
-                    continue
-                data_str = raw_line[6:].strip()
-                if data_str == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(data_str)
-                except Exception:
-                    continue
-                delta = chunk.get("choices", [{}])[0].get("delta", {})
-                content_text = delta.get("content", "")
-                if content_text:
-                    scrubbed = redactor.process_delta(content_text, is_final=False)
-                    if scrubbed:
-                        if protocol == "openai":
-                            c = dict(chunk)
-                            c["choices"][0]["delta"]["content"] = scrubbed
-                            yield f"data: {json.dumps(c)}\n\n"
-                        elif protocol == "anthropic":
-                            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': scrubbed}})}\n\n"
-
-            flush_tail = redactor.process_delta("", is_final=True)
-            if flush_tail:
-                if protocol == "openai":
-                    tail_chunk = {
-                        "id": req_id,
-                        "object": "chat.completion.chunk",
-                        "created": int(time.time()),
-                        "model": chosen_m,
-                        "choices": [
-                            {"index": 0, "delta": {"content": flush_tail}, "finish_reason": None}
-                        ],
-                    }
-                    yield f"data: {json.dumps(tail_chunk)}\n\n"
-                elif protocol == "anthropic":
-                    yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': flush_tail}})}\n\n"
-
-            if protocol == "openai":
-                yield "data: [DONE]\n\n"
-            elif protocol == "anthropic":
-                yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
-                yield f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn', 'stop_sequence': None}, 'usage': {'output_tokens': 15}})}\n\n"
-                yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
-
-        if protocol == "anthropic":
-
-            async def anthropic_outer():
-                yield f"event: message_start\ndata: {json.dumps({'type': 'message_start', 'message': {'id': req_id, 'type': 'message', 'role': 'assistant', 'model': chosen_m, 'content': [], 'stop_reason': None, 'stop_sequence': None, 'usage': {'input_tokens': max(1, len(user_prompt) // 4), 'output_tokens': 0, 'cache_creation_input_tokens': 0, 'cache_read_input_tokens': 0}}})}\n\n"
-                yield f"event: ping\ndata: {json.dumps({'type': 'ping'})}\n\n"
-                if not is_tool_stream:
-                    yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}})}\n\n"
-                async for item in stream_generator():
-                    yield item
-
-            return StreamingResponse(
-                anthropic_outer(), media_type="text/event-stream", headers=headers
-            )
-
-        return StreamingResponse(
-            stream_generator(), media_type="text/event-stream", headers=headers
+        return await handle_streaming_pipeline(
+            raw_gen=raw_gen,
+            protocol=protocol,
+            req_id=req_id,
+            chosen_p=chosen_p,
+            chosen_m=chosen_m,
+            user_prompt=user_prompt,
+            rate_limit_headers=rate_limit_headers,
+            trace_ctx=trace_ctx,
+            secret_mapping=secret_mapping,
+            router_instance=self.router,
+            model=model,
+            scrubbed_count=scrubbed_count,
         )
 
     def _to_anthropic_response(
@@ -700,53 +383,11 @@ class GatewayPipeline:
         model: str,
         user_prompt: str,
     ) -> Dict[str, Any]:
-        """Convert standard OpenAI response schema to Anthropic Messages API schema."""
-        choices = openai_json.get("choices", [])
-        content_blocks: List[Dict[str, Any]] = []
-        stop_reason = "end_turn"
+        from sentinelgate.services.pipeline_streaming import convert_openai_to_anthropic
 
-        if choices:
-            msg = choices[0].get("message", {})
-            if msg.get("content"):
-                content_blocks.append({"type": "text", "text": msg["content"]})
-            for tc in msg.get("tool_calls") or []:
-                fn = tc.get("function", {})
-                try:
-                    args = json.loads(fn.get("arguments", "{}"))
-                except Exception:
-                    args = {}
-                content_blocks.append(
-                    {
-                        "type": "tool_use",
-                        "id": tc.get("id", f"toolu_{uuid.uuid4().hex[:10]}"),
-                        "name": fn.get("name", ""),
-                        "input": args,
-                    }
-                )
-                stop_reason = "tool_use"
-
-            finish_reason = choices[0].get("finish_reason")
-            if finish_reason == "length":
-                stop_reason = "max_tokens"
-
-        usage = openai_json.get("usage", {})
-        in_tokens = usage.get("prompt_tokens", max(1, len(user_prompt) // 4))
-        out_tokens = usage.get(
-            "completion_tokens", max(1, sum(len(str(b)) for b in content_blocks) // 4)
+        return convert_openai_to_anthropic(
+            openai_json=openai_json,
+            req_id=req_id,
+            model=model,
+            user_prompt=user_prompt,
         )
-
-        return {
-            "id": req_id,
-            "type": "message",
-            "role": "assistant",
-            "model": model,
-            "content": content_blocks,
-            "stop_reason": stop_reason,
-            "stop_sequence": None,
-            "usage": {
-                "input_tokens": in_tokens,
-                "output_tokens": out_tokens,
-                "cache_creation_input_tokens": 0,
-                "cache_read_input_tokens": 0,
-            },
-        }
