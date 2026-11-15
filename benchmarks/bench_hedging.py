@@ -36,9 +36,15 @@ def compute_percentiles(latencies_ms: List[float]) -> Dict[str, float]:
     }
 
 
-async def simulate_primary_provider(is_tail: bool, baseline_sec: float = 0.40, tail_sec: float = 2.48) -> Dict[str, Any]:
+async def simulate_primary_provider(
+    is_tail: bool, baseline_sec: float = 0.40, tail_sec: float = 2.48
+) -> Dict[str, Any]:
     # Normal latency jitter around baseline (+/- 15ms)
-    delay = (tail_sec + random.uniform(-0.05, 0.05)) if is_tail else (baseline_sec + random.uniform(-0.02, 0.02))
+    delay = (
+        (tail_sec + random.uniform(-0.05, 0.05))
+        if is_tail
+        else (baseline_sec + random.uniform(-0.02, 0.02))
+    )
     await asyncio.sleep(delay)
     return {"provider": "primary", "latency_sec": delay}
 
@@ -88,7 +94,10 @@ async def run_hedging_benchmark(
 
     random.seed(42)
     # Generate distribution where tail_percentage of requests experience delay
-    tail_flags = [True if i < int(num_requests * (tail_percentage / 100.0)) else False for i in range(num_requests)]
+    tail_flags = [
+        True if i < int(num_requests * (tail_percentage / 100.0)) else False
+        for i in range(num_requests)
+    ]
     random.shuffle(tail_flags)
 
     # 1. Measure unhedged requests (concurrency=20 to finish in ~3 seconds)
@@ -109,7 +118,9 @@ async def run_hedging_benchmark(
 
     async def run_hedged(is_tail: bool):
         async with sem:
-            lat = await execute_simulated_hedged_request(is_tail, hedge_delay_sec=hedge_delay_ms / 1000.0)
+            lat = await execute_simulated_hedged_request(
+                is_tail, hedge_delay_sec=hedge_delay_ms / 1000.0
+            )
             hedged_latencies.append(lat)
 
     print("[*] Running speculative hedged requests...")
@@ -124,7 +135,9 @@ async def run_hedging_benchmark(
     )
 
     results: Dict[str, Any] = {
-        "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M UTC"
+        ),
         "methodology": "Simulated mock provider sweep measuring tail tolerance under bimodal upstream latency",
         "runner": {
             "os": platform.system(),
@@ -146,8 +159,12 @@ async def run_hedging_benchmark(
     }
 
     print("\n---------------- Results ----------------")
-    print(f"Unhedged p50 / p90 / p95 / p99 : {unhedged_stats['p50']} / {unhedged_stats['p90']} / {unhedged_stats['p95']} / {unhedged_stats['p99']} ms")
-    print(f"Hedged   p50 / p90 / p95 / p99 : {hedged_stats['p50']} / {hedged_stats['p90']} / {hedged_stats['p95']} / {hedged_stats['p99']} ms")
+    print(
+        f"Unhedged p50 / p90 / p95 / p99 : {unhedged_stats['p50']} / {unhedged_stats['p90']} / {unhedged_stats['p95']} / {unhedged_stats['p99']} ms"
+    )
+    print(
+        f"Hedged   p50 / p90 / p95 / p99 : {hedged_stats['p50']} / {hedged_stats['p90']} / {hedged_stats['p95']} / {hedged_stats['p99']} ms"
+    )
     print(f"Tail Latency Reduction (p99)   : -{tail_reduction_pct}%")
     print("-----------------------------------------")
 
@@ -160,8 +177,15 @@ async def run_hedging_benchmark(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SentinelGate Speculative Latency Hedging Benchmark")
-    parser.add_argument("--output", type=str, default="benchmarks/hedging_results.json", help="Path to write JSON results")
+    parser = argparse.ArgumentParser(
+        description="SentinelGate Speculative Latency Hedging Benchmark"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="benchmarks/hedging_results.json",
+        help="Path to write JSON results",
+    )
     parser.add_argument("--requests", type=int, default=100, help="Number of benchmark queries")
     args = parser.parse_args()
 

@@ -16,7 +16,12 @@ def test_app():
         db_path = db_f.name
 
     test_config = {
-        "server": {"host": "0.0.0.0", "port": 8000},
+        "server": {
+            "host": "127.0.0.1",
+            "port": 8000,
+            "admin_token": "test-admin-token",
+            "cors_origins": [],
+        },
         "cache": {
             "enabled": True,
             "similarity_threshold": 0.90,
@@ -76,7 +81,7 @@ def test_app():
         cfg_path = cfg_f.name
 
     app_instance = create_app(config_path=cfg_path, db_path=db_path)
-    client = TestClient(app_instance)
+    client = TestClient(app_instance, headers={"Authorization": "Bearer test-admin-token"})
 
     yield client, app_instance
 

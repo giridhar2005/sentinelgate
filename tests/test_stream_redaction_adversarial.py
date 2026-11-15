@@ -32,7 +32,9 @@ def test_sliding_window_stream_redactor_unit_single_char_splits():
 def test_sliding_window_stream_redactor_multi_secret_chunking():
     """Adversarial test: multiple distinct secrets split across 2-to-3 character slices."""
     redactor = SlidingWindowStreamRedactor(lookahead_chars=40)
-    raw_text = "AWS: AKIAIOSFODNN7EXAMPLE and DB: postgresql://admin:secret_pass_123@db.prod:5432/orders"
+    raw_text = (
+        "AWS: AKIAIOSFODNN7EXAMPLE and DB: postgresql://admin:secret_pass_123@db.prod:5432/orders"
+    )
 
     # Slice raw_text into random 2-to-3 character slices
     slices = []

@@ -145,9 +145,7 @@ async def shadow_replay_estimator(request: Request, payload: ReplayRequest):
         cand_lat_ms = (time.perf_counter() - t0) * 1000.0
     except Exception as e:
         logger.warning(f"Candidate model execution failed: {e}")
-        return JSONResponse(
-            content={"error": "Candidate model execution failed."}, status_code=502
-        )
+        return JSONResponse(content={"error": "Candidate model execution failed."}, status_code=502)
 
     cand_text = cand_res.get("choices", [{}])[0].get("message", {}).get("content", "")
     usage = cand_res.get("usage", {})
@@ -332,7 +330,9 @@ async def run_live_benchmark(request: Request, body: Optional[BenchmarkRunReques
     if test_type == "cache_hit":
         cache = request.app.state.cache
         cache.store(
-            messages=[{"role": "user", "content": "What is connection pooling in async HTTP clients?"}],
+            messages=[
+                {"role": "user", "content": "What is connection pooling in async HTTP clients?"}
+            ],
             model="gpt-4o-mini",
             response={
                 "id": "bench-seed",
@@ -349,7 +349,12 @@ async def run_live_benchmark(request: Request, body: Optional[BenchmarkRunReques
             if test_type == "cache_hit":
                 # Look up semantic cache directly
                 _ = request.app.state.cache.lookup(
-                    messages=[{"role": "user", "content": "Explain connection pooling in async HTTP clients."}],
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": "Explain connection pooling in async HTTP clients.",
+                        }
+                    ],
                     model="gpt-4o-mini",
                 )
             else:
@@ -399,6 +404,7 @@ async def run_live_benchmark(request: Request, body: Optional[BenchmarkRunReques
 async def get_guardrail_audit_logs(request: Request, limit: int = 50):
     """Return live audit events for Agent Security Firewall and Guardrails."""
     import sqlite3
+
     evals = request.app.state.evals
     evals.pipeline._flush_sync_drain()
     with sqlite3.connect(evals.db_path, timeout=15.0) as conn:
@@ -418,4 +424,5 @@ async def get_guardrail_audit_logs(request: Request, limit: int = 50):
 async def get_otel_spans(limit: int = 50):
     """Return recent OpenTelemetry spans from the in-memory ring buffer."""
     from app.routers.v1 import otlp_exporter
+
     return JSONResponse(content={"spans": otlp_exporter.get_recent_spans(limit=limit)})

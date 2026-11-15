@@ -35,7 +35,9 @@ def get_process_rss_mb() -> float:
     return round(raw / 1024, 2)
 
 
-def run_benchmark(output_path: str = "benchmarks/results.json", num_requests: int = 100) -> Dict[str, Any]:
+def run_benchmark(
+    output_path: str = "benchmarks/results.json", num_requests: int = 100
+) -> Dict[str, Any]:
     print("==================================================")
     print("        SentinelGate Performance Benchmark        ")
     print("==================================================")
@@ -145,7 +147,9 @@ def run_benchmark(output_path: str = "benchmarks/results.json", num_requests: in
     )
 
     results: Dict[str, Any] = {
-        "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M UTC"
+        ),
         "runner": {
             "os": platform.system(),
             "release": platform.release(),
@@ -183,7 +187,9 @@ def run_benchmark(output_path: str = "benchmarks/results.json", num_requests: in
     print(f"Python Version              : {platform.python_version()}")
     print(f"Total Requests              : {len(pool)}")
     print(f"Wall Clock Time             : {wall_time:.2f} s")
-    print(f"Cache Hit Rate              : {cache_hits}/{len(pool)} ({results['metrics']['cache_hit_rate_pct']}%)")
+    print(
+        f"Cache Hit Rate              : {cache_hits}/{len(pool)} ({results['metrics']['cache_hit_rate_pct']}%)"
+    )
     print(f"Min In-Process Overhead     : {min_latency:.2f} ms")
     print(f"Avg Semantic Cache Latency  : {avg_cached:.2f} ms")
     print(f"P50 Latency                 : {p50:.2f} ms")
@@ -212,7 +218,9 @@ def run_benchmark(output_path: str = "benchmarks/results.json", num_requests: in
 
 def main():
     parser = argparse.ArgumentParser(description="SentinelGate In-Process Benchmark Suite")
-    parser.add_argument("--output", type=str, default="benchmarks/results.json", help="Path to write JSON results")
+    parser.add_argument(
+        "--output", type=str, default="benchmarks/results.json", help="Path to write JSON results"
+    )
     parser.add_argument("--requests", type=int, default=100, help="Number of benchmark queries")
     args = parser.parse_args()
 

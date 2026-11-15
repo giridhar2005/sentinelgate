@@ -21,7 +21,9 @@ import httpx
 
 logger = logging.getLogger("sentinelgate.otel")
 
-W3C_TRACEPARENT_REGEX = re.compile(r"^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$", re.IGNORECASE)
+W3C_TRACEPARENT_REGEX = re.compile(
+    r"^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$", re.IGNORECASE
+)
 
 
 class TraceContext:
@@ -211,7 +213,9 @@ class OTLPExporter:
                     headers={"Content-Type": "application/json"},
                 )
                 if res.status_code >= 400:
-                    logger.warning(f"OTLP Collector returned HTTP {res.status_code}: {res.text[:120]}")
+                    logger.warning(
+                        f"OTLP Collector returned HTTP {res.status_code}: {res.text[:120]}"
+                    )
         except Exception as e:
             logger.debug(f"Failed to dispatch OTLP spans to {self.endpoint}: {e}")
 

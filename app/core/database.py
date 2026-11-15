@@ -110,10 +110,16 @@ def init_db(db_path: str = "sentinelgate.db"):
             );
         """)
 
-        # 5. Multi-Tenant Virtual Keys Table
+        # 5. Multi-Tenant Virtual Keys Table (Hashed at rest with server-side pepper)
+        cursor.execute("PRAGMA table_info(virtual_keys);")
+        vk_cols = {row[1] for row in cursor.fetchall()}
+        if vk_cols and "key_hash" not in vk_cols:
+            conn.execute("DROP TABLE virtual_keys;")
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS virtual_keys (
-                key_val TEXT PRIMARY KEY,
+                key_hash TEXT PRIMARY KEY,
+                key_prefix TEXT NOT NULL,
                 name TEXT NOT NULL,
                 daily_budget_usd REAL DEFAULT 10.0,
                 monthly_budget_usd REAL DEFAULT 300.0,
@@ -123,29 +129,23 @@ def init_db(db_path: str = "sentinelgate.db"):
                 is_active INTEGER DEFAULT 1
             );
         """)
-
-        cursor.execute("PRAGMA table_info(virtual_keys);")
-        vk_cols = {row[1] for row in cursor.fetchall()}
-        if vk_cols and "rate_limit_tpm" not in vk_cols:
-            conn.execute(
-                "ALTER TABLE virtual_keys ADD COLUMN rate_limit_tpm INTEGER DEFAULT 60000;"
-            )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_vk_hash ON virtual_keys(key_hash);")
 
         # 6. Sliding-Window Rate Limiting Table (Dual-Bucket RPM + TPM)
+        cursor.execute("PRAGMA table_info(key_rate_limits);")
+        krl_cols = {row[1] for row in cursor.fetchall()}
+        if krl_cols and "key_hash" not in krl_cols:
+            conn.execute("DROP TABLE key_rate_limits;")
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS key_rate_limits (
-                key_val TEXT NOT NULL,
+                key_hash TEXT NOT NULL,
                 window_minute INTEGER NOT NULL,
                 request_count INTEGER DEFAULT 0,
                 token_count INTEGER DEFAULT 0,
-                PRIMARY KEY(key_val, window_minute)
+                PRIMARY KEY(key_hash, window_minute)
             );
         """)
-
-        cursor.execute("PRAGMA table_info(key_rate_limits);")
-        krl_cols = {row[1] for row in cursor.fetchall()}
-        if krl_cols and "token_count" not in krl_cols:
-            conn.execute("ALTER TABLE key_rate_limits ADD COLUMN token_count INTEGER DEFAULT 0;")
 
         # 7. Security & Guardrail Audit Log Table
         conn.execute("""

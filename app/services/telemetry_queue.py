@@ -147,7 +147,9 @@ class AsyncTelemetryPipeline:
             try:
                 # Wait up to flush_interval for the first item
                 try:
-                    first_item = await asyncio.wait_for(self.queue.get(), timeout=self.flush_interval)
+                    first_item = await asyncio.wait_for(
+                        self.queue.get(), timeout=self.flush_interval
+                    )
                     items = [first_item]
                     self.queue.task_done()
                 except asyncio.TimeoutError:

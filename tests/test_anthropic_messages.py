@@ -23,9 +23,7 @@ def test_anthropic_messages_non_streaming(client: TestClient):
     payload = {
         "model": "claude-3-5-sonnet-20241022",
         "system": "You are a senior systems engineer.",
-        "messages": [
-            {"role": "user", "content": "What is SQLite WAL mode?"}
-        ],
+        "messages": [{"role": "user", "content": "What is SQLite WAL mode?"}],
         "max_tokens": 512,
         "temperature": 0.5,
     }
@@ -54,9 +52,7 @@ def test_anthropic_messages_streaming(client: TestClient):
     """Verify streaming Anthropic Messages API request emits valid Anthropic SSE events."""
     payload = {
         "model": "claude-3-5-sonnet-20241022",
-        "messages": [
-            {"role": "user", "content": "Explain speculative execution in 1 sentence."}
-        ],
+        "messages": [{"role": "user", "content": "Explain speculative execution in 1 sentence."}],
         "stream": True,
     }
 
@@ -96,18 +92,14 @@ def test_anthropic_messages_tool_calling(client: TestClient):
     """Verify Anthropic Messages API properly accepts tools schema and returns tool_use content block."""
     payload = {
         "model": "claude-3-5-sonnet-20241022",
-        "messages": [
-            {"role": "user", "content": "What is the weather in Seattle?"}
-        ],
+        "messages": [{"role": "user", "content": "What is the weather in Seattle?"}],
         "tools": [
             {
                 "name": "get_current_weather",
                 "description": "Get current weather for a location",
                 "input_schema": {
                     "type": "object",
-                    "properties": {
-                        "location": {"type": "string", "description": "City name"}
-                    },
+                    "properties": {"location": {"type": "string", "description": "City name"}},
                     "required": ["location"],
                 },
             }

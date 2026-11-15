@@ -10,7 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app.core.security import make_openai_error, parse_bearer_token
+from app.core.security import make_openai_error
 from app.core.telemetry_otlp import OTLPExporter, OTLPSpan, TraceContext
 from app.services.agent_guard import AgentToolGuard
 from app.services.guardrails import (
@@ -108,27 +108,11 @@ async def chat_completions(
     app_budget = request.app.state.budget
     app_keys = request.app.state.virtual_keys
 
-    # 1. Virtual Key Authentication & Dual-Bucket Rate Limiting (RPM + TPM)
-    rate_limit_headers: Dict[str, str] = {}
+    # 1. Virtual Key Rate Limiting Headers from verified auth
+    rate_limit_headers: Dict[str, str] = getattr(request.state, "rate_limit_headers", {})
     estimated_prompt_tokens = max(1, len(user_prompt) // 4)
-    bearer_token = parse_bearer_token(authorization)
-    if bearer_token and bearer_token.startswith("sg-"):
-        is_valid, err_msg, rl_hdrs = app_keys.verify_and_rate_limit(
-            bearer_token, estimated_tokens=estimated_prompt_tokens
-        )
-        rate_limit_headers = rl_hdrs
-        if not is_valid:
-            status_code = 429 if "rate limit" in (err_msg or "").lower() else 401
-            code = "rate_limit_exceeded" if status_code == 429 else "invalid_api_key"
-            err_resp = make_openai_error(
-                err_msg or "Authentication failed",
-                error_type="auth_error",
-                code=code,
-                status_code=status_code,
-            )
-            for k, v in rate_limit_headers.items():
-                err_resp.headers[k] = v
-            return err_resp
+    auth_ctx = getattr(request.state, "auth_context", None)
+    raw_token = auth_ctx.token if auth_ctx else None
 
     # 2. Pre-Flight Guardrails
     t_guard_start = time.perf_counter()
@@ -294,18 +278,20 @@ async def chat_completions(
             if scrubbed_count > 0:
                 headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
             headers.update(rate_limit_headers)
-            if bearer_token and bearer_token.startswith("sg-"):
+            if raw_token and raw_token.startswith("sg-") and app_keys:
                 app_keys.record_token_adjustment(
-                    bearer_token, (in_tokens + out_tokens) - estimated_prompt_tokens
+                    raw_token, (in_tokens + out_tokens) - estimated_prompt_tokens
                 )
-            root_span.attributes.update({
-                "cache.hit": True,
-                "llm.provider": provider,
-                "llm.cost_usd": 0.0,
-                "llm.cost_saved_usd": cost_saved,
-                "llm.usage.prompt_tokens": in_tokens,
-                "llm.usage.completion_tokens": out_tokens,
-            })
+            root_span.attributes.update(
+                {
+                    "cache.hit": True,
+                    "llm.provider": provider,
+                    "llm.cost_usd": 0.0,
+                    "llm.cost_saved_usd": cost_saved,
+                    "llm.usage.prompt_tokens": in_tokens,
+                    "llm.usage.completion_tokens": out_tokens,
+                }
+            )
             root_span.finish(status_code=1)
             otlp_exporter.record_span(root_span)
             return JSONResponse(content=final_resp, headers=headers)
@@ -337,7 +323,9 @@ async def chat_completions(
     except Exception as e:
         logger.error(f"Execution failed for {requested_model}: {e}")
         return make_openai_error(
-            "All upstream providers failed or timed out", error_type="upstream_error", status_code=502
+            "All upstream providers failed or timed out",
+            error_type="upstream_error",
+            status_code=502,
         )
 
     # 8. Handle SSE Streaming Response
@@ -372,12 +360,14 @@ async def chat_completions(
                             status=stream_status,
                             prompt_snippet=user_prompt[:250],
                         )
-                        root_span.attributes.update({
-                            "cache.hit": False,
-                            "llm.provider": chosen_provider,
-                            "llm.ttft_ms": ttft_ms,
-                            "stream": True,
-                        })
+                        root_span.attributes.update(
+                            {
+                                "cache.hit": False,
+                                "llm.provider": chosen_provider,
+                                "llm.ttft_ms": ttft_ms,
+                                "stream": True,
+                            }
+                        )
                         root_span.finish(status_code=1)
                         otlp_exporter.record_span(root_span)
                         ttft_logged["done"] = True
@@ -423,7 +413,9 @@ async def chat_completions(
     final_resp["id"] = req_id
 
     # Agent Tool-Call Firewall Inspection
-    is_tool_safe, tool_threat, tool_detail, sanitized_resp = AgentToolGuard.inspect_response(final_resp)
+    is_tool_safe, tool_threat, tool_detail, sanitized_resp = AgentToolGuard.inspect_response(
+        final_resp
+    )
     tool_blocked = False
     if not is_tool_safe:
         tool_blocked = True
@@ -526,8 +518,8 @@ async def chat_completions(
         headers["X-Hedge-Winner"] = str(hedge_meta.get("winner", "primary"))
         headers["X-Hedge-Triggered"] = "true" if hedge_meta.get("hedged_triggered") else "false"
     headers.update(rate_limit_headers)
-    if bearer_token and bearer_token.startswith("sg-"):
-        app_keys.record_token_adjustment(bearer_token, (in_tok + out_tok) - estimated_prompt_tokens)
+    if raw_token and raw_token.startswith("sg-") and app_keys:
+        app_keys.record_token_adjustment(raw_token, (in_tok + out_tok) - estimated_prompt_tokens)
     if requested_model == "auto":
         headers["X-Auto-Route"] = f"{chosen_provider}/{chosen_model}"
         headers["X-Auto-Saved-USD"] = f"{auto_saved_usd:.6f}"
@@ -537,16 +529,18 @@ async def chat_completions(
                 f"{auto_meta.get('classification', 'simple')} ({auto_meta.get('score', 0)}/100)"
             )
 
-    root_span.attributes.update({
-        "cache.hit": False,
-        "llm.provider": chosen_provider,
-        "llm.response.model": chosen_model,
-        "llm.cost_usd": cost_usd,
-        "llm.cost_saved_usd": auto_saved_usd,
-        "llm.usage.prompt_tokens": in_tok,
-        "llm.usage.completion_tokens": out_tok,
-        "agent.tool_blocked": tool_blocked,
-    })
+    root_span.attributes.update(
+        {
+            "cache.hit": False,
+            "llm.provider": chosen_provider,
+            "llm.response.model": chosen_model,
+            "llm.cost_usd": cost_usd,
+            "llm.cost_saved_usd": auto_saved_usd,
+            "llm.usage.prompt_tokens": in_tok,
+            "llm.usage.completion_tokens": out_tok,
+            "agent.tool_blocked": tool_blocked,
+        }
+    )
     root_span.finish(status_code=2 if tool_blocked else 1)
     otlp_exporter.record_span(root_span)
 
@@ -649,28 +643,7 @@ async def anthropic_messages(
     Translates Anthropic Messages requests to SentinelGate's internal router,
     enabling drop-in compatibility with Claude Code CLI and the Anthropic SDK.
     """
-    bearer_token = x_api_key or parse_bearer_token(authorization)
-    app_keys = getattr(request.app.state, "virtual_keys", None)
-    rate_limit_headers: Dict[str, str] = {}
-
-    if bearer_token and bearer_token.startswith("sg-") and app_keys:
-        is_valid, err_msg, rl_hdrs = app_keys.verify_and_rate_limit(
-            bearer_token, estimated_tokens=10
-        )
-        rate_limit_headers = rl_hdrs
-        if not is_valid:
-            status_code = 429 if "rate limit" in (err_msg or "").lower() else 401
-            return JSONResponse(
-                status_code=status_code,
-                content={
-                    "type": "error",
-                    "error": {
-                        "type": "authentication_error" if status_code == 401 else "rate_limit_error",
-                        "message": err_msg or "Authentication failed.",
-                    },
-                },
-                headers=rate_limit_headers,
-            )
+    rate_limit_headers: Dict[str, str] = getattr(request.state, "rate_limit_headers", {})
 
     try:
         body = await request.json()
@@ -708,7 +681,9 @@ async def anthropic_messages(
         content = m.get("content", "")
         if isinstance(content, list):
             text_val = "".join(
-                b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"
+                b.get("text", "")
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
             )
         else:
             text_val = str(content)
@@ -743,14 +718,16 @@ async def anthropic_messages(
     if anthropic_tools:
         openai_tools = []
         for t in anthropic_tools:
-            openai_tools.append({
-                "type": "function",
-                "function": {
-                    "name": t.get("name", ""),
-                    "description": t.get("description", ""),
-                    "parameters": t.get("input_schema", {}),
-                },
-            })
+            openai_tools.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t.get("name", ""),
+                        "description": t.get("description", ""),
+                        "parameters": t.get("input_schema", {}),
+                    },
+                }
+            )
         openai_payload["tools"] = openai_tools
 
     app_router = request.app.state.router
@@ -810,23 +787,27 @@ async def anthropic_messages(
         msg = choices[0].get("message", {})
         if msg.get("content"):
             content_blocks.append({"type": "text", "text": msg["content"]})
-        for tc in (msg.get("tool_calls") or []):
+        for tc in msg.get("tool_calls") or []:
             fn = tc.get("function", {})
             try:
                 args = json.loads(fn.get("arguments", "{}"))
             except Exception:
                 args = {}
-            content_blocks.append({
-                "type": "tool_use",
-                "id": tc.get("id", f"toolu_{uuid.uuid4().hex[:10]}"),
-                "name": fn.get("name", ""),
-                "input": args,
-            })
+            content_blocks.append(
+                {
+                    "type": "tool_use",
+                    "id": tc.get("id", f"toolu_{uuid.uuid4().hex[:10]}"),
+                    "name": fn.get("name", ""),
+                    "input": args,
+                }
+            )
             stop_reason = "tool_use"
 
     usage = res_json.get("usage", {})
     in_tokens = usage.get("prompt_tokens", max(1, len(user_prompt) // 4))
-    out_tokens = usage.get("completion_tokens", max(1, sum(len(str(b)) for b in content_blocks) // 4))
+    out_tokens = usage.get(
+        "completion_tokens", max(1, sum(len(str(b)) for b in content_blocks) // 4)
+    )
 
     anthropic_resp = {
         "id": req_id,

@@ -45,7 +45,12 @@ def seed_telemetry():
         "/v1/chat/completions",
         json={
             "model": "gpt-4o-mini",
-            "messages": [{"role": "user", "content": "What is connection pooling in HTTP client architectures?"}],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "What is connection pooling in HTTP client architectures?",
+                }
+            ],
         },
         headers={"X-No-Cache": "true"},
     )
@@ -55,7 +60,9 @@ def seed_telemetry():
         "/v1/chat/completions",
         json={
             "model": "gpt-4o-mini",
-            "messages": [{"role": "user", "content": "Can you explain HTTP client connection pools simply?"}],
+            "messages": [
+                {"role": "user", "content": "Can you explain HTTP client connection pools simply?"}
+            ],
         },
     )
 
@@ -78,7 +85,12 @@ def seed_telemetry():
         "/v1/chat/completions",
         json={
             "model": "auto",
-            "messages": [{"role": "user", "content": "Classify this feedback as positive, neutral, or negative: 'Great product!'"}],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Classify this feedback as positive, neutral, or negative: 'Great product!'",
+                }
+            ],
         },
     )
 
@@ -245,7 +257,7 @@ def record_walkthrough():
                 str(gif_path),
             ]
             subprocess.run(cmd_reopt, capture_output=True)
-            print(f"  ✓ Re-optimized size: {gif_path.stat().st_size / (1024*1024):.2f} MB")
+            print(f"  ✓ Re-optimized size: {gif_path.stat().st_size / (1024 * 1024):.2f} MB")
 
     finally:
         server_proc.terminate()

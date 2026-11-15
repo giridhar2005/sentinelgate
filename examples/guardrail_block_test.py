@@ -6,6 +6,7 @@ import httpx
 
 BASE_URL = os.getenv("SENTINELGATE_BASE_URL", "http://localhost:8000/v1")
 
+
 def test_prompt(description: str, content: str):
     print(f"\n--- Testing: {description} ---")
     res = httpx.post(
@@ -24,6 +25,7 @@ def test_prompt(description: str, content: str):
         print(f"Message: {err.get('message')}")
     else:
         print("Allowed through to upstream provider.")
+
 
 # 1. Leaked API key
 test_prompt(

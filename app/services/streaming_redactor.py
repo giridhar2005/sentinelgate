@@ -42,9 +42,11 @@ class SlidingWindowStreamRedactor:
         if is_final:
             result = self.buffer
             for pattern in SECRET_PATTERNS:
+
                 def _sub_repl(m):
                     self.redacted_count += 1
                     return f"__SG_SECRET_{self.redacted_count}__"
+
                 result = pattern.sub(_sub_repl, result)
 
             if self.restore_map:
@@ -153,7 +155,7 @@ async def sse_sliding_window_redactor(
             last_chunk_template["choices"][0]["delta"]["content"] = remaining_content
             yield f"data: {json.dumps(last_chunk_template)}\n\n"
         elif remaining_content:
-            yield f"data: {{\"choices\":[{{\"delta\":{{\"content\":{json.dumps(remaining_content)}}}}}]}}\n\n"
+            yield f'data: {{"choices":[{{"delta":{{"content":{json.dumps(remaining_content)}}}}}]}}\n\n'
 
         yield "data: [DONE]\n\n"
 

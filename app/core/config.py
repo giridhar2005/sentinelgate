@@ -9,8 +9,13 @@ from pydantic import BaseModel, Field
 
 
 class ServerConfig(BaseModel):
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8000
+    admin_token: str = Field(
+        default_factory=lambda: os.getenv("SENTINELGATE_ADMIN_TOKEN", "admin-secret-token")
+    )
+    cors_origins: List[str] = Field(default_factory=list)
+    max_body_size_bytes: int = 10 * 1024 * 1024
 
 
 class CacheConfig(BaseModel):

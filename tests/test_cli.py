@@ -27,6 +27,7 @@ def test_cli_help_flag(capsys):
 def test_cli_argument_parsing(monkeypatch):
     """Verify CLI flags properly populate environment variables."""
     import uvicorn
+
     called_config = {}
 
     def fake_run(app_str, **kwargs):

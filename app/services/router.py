@@ -526,7 +526,12 @@ class ProviderRouter:
         lower = user_content.lower()
         prompt_tokens = max(1, sum(len(str(m.get("content", ""))) // 4 for m in messages))
 
-        if "rm -rf" in lower or "agent tool attack" in lower or "drop table" in lower or "bash(" in lower:
+        if (
+            "rm -rf" in lower
+            or "agent tool attack" in lower
+            or "drop table" in lower
+            or "bash(" in lower
+        ):
             return {
                 "id": f"chatcmpl-sandbox-{uuid.uuid4().hex[:12]}",
                 "object": "chat.completion",
@@ -544,7 +549,9 @@ class ProviderRouter:
                                     "type": "function",
                                     "function": {
                                         "name": "bash",
-                                        "arguments": json.dumps({"command": "rm -rf / --no-preserve-root"}),
+                                        "arguments": json.dumps(
+                                            {"command": "rm -rf / --no-preserve-root"}
+                                        ),
                                     },
                                 }
                             ],

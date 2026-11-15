@@ -48,6 +48,9 @@ class BudgetManager:
             )
 
 
+from app.core.security import hash_virtual_key
+
+
 class VirtualKeyManager:
     """Enterprise Virtual Key Manager & Dual-Bucket Sliding-Window Rate Limiter (RPM + TPM)."""
 
@@ -63,16 +66,19 @@ class VirtualKeyManager:
         rate_limit_tpm: int = 60000,
     ) -> Dict[str, Any]:
         clean = "".join(c for c in name.lower() if c.isalnum() or c in "-_")[:12] or "app"
-        key_val = f"sg-live-{clean}-{secrets.token_hex(6)}"
+        raw_key = f"sg-live-{clean}-{secrets.token_hex(16)}"
+        key_hash = hash_virtual_key(raw_key)
+        key_prefix = raw_key[:12] + "..."
         now = time.time()
         with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             conn.execute(
                 """
-                INSERT INTO virtual_keys (key_val, name, daily_budget_usd, monthly_budget_usd, rate_limit_rpm, rate_limit_tpm, created_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                INSERT INTO virtual_keys (key_hash, key_prefix, name, daily_budget_usd, monthly_budget_usd, rate_limit_rpm, rate_limit_tpm, created_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
                 """,
                 (
-                    key_val,
+                    key_hash,
+                    key_prefix,
                     name,
                     daily_budget_usd,
                     monthly_budget_usd,
@@ -82,7 +88,8 @@ class VirtualKeyManager:
                 ),
             )
         return {
-            "key": key_val,
+            "key": raw_key,
+            "key_prefix": key_prefix,
             "name": name,
             "daily_budget_usd": daily_budget_usd,
             "monthly_budget_usd": monthly_budget_usd,
@@ -97,20 +104,23 @@ class VirtualKeyManager:
             return [
                 dict(r)
                 for r in conn.execute(
-                    "SELECT * FROM virtual_keys ORDER BY created_at DESC"
+                    "SELECT key_prefix, name, daily_budget_usd, monthly_budget_usd, rate_limit_rpm, rate_limit_tpm, created_at, is_active FROM virtual_keys ORDER BY created_at DESC"
                 ).fetchall()
             ]
 
-    def revoke_key(self, key_val: str) -> bool:
+    def revoke_key(self, key_identifier: str) -> bool:
+        key_hash = hash_virtual_key(key_identifier)
         with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             cursor = conn.execute(
-                "UPDATE virtual_keys SET is_active = 0 WHERE key_val = ?", (key_val,)
+                "UPDATE virtual_keys SET is_active = 0 WHERE key_hash = ? OR key_prefix LIKE ?",
+                (key_hash, f"{key_identifier[:12]}%"),
             )
             return cursor.rowcount > 0
 
     def verify_and_rate_limit(
         self, key_val: str, estimated_tokens: int = 0
     ) -> Tuple[bool, Optional[str], Dict[str, str]]:
+        key_hash = hash_virtual_key(key_val)
         now = time.time()
         minute = int(now // 60)
         reset_seconds = max(1, int(60 - (now % 60)))
@@ -118,19 +128,28 @@ class VirtualKeyManager:
 
         with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             row = conn.execute(
-                "SELECT name, rate_limit_rpm, COALESCE(rate_limit_tpm, 60000), is_active FROM virtual_keys WHERE key_val = ?",
-                (key_val,),
+                "SELECT key_hash, name, rate_limit_rpm, COALESCE(rate_limit_tpm, 60000), is_active FROM virtual_keys WHERE key_hash = ?",
+                (key_hash,),
             ).fetchone()
             if not row:
                 return False, "Invalid virtual gateway key", default_headers
 
-            name, rpm, tpm, is_active = row[0], int(row[1]), int(row[2]), bool(row[3])
+            db_hash, name, rpm, tpm, is_active = (
+                row[0],
+                row[1],
+                int(row[2]),
+                int(row[3]),
+                bool(row[4]),
+            )
+            if not secrets.compare_digest(key_hash, db_hash):
+                return False, "Invalid virtual gateway key", default_headers
+
             if not is_active:
                 return False, f"Virtual key '{name}' is revoked", default_headers
 
             rl = conn.execute(
-                "SELECT request_count, COALESCE(token_count, 0) FROM key_rate_limits WHERE key_val = ? AND window_minute = ?",
-                (key_val, minute),
+                "SELECT request_count, COALESCE(token_count, 0) FROM key_rate_limits WHERE key_hash = ? AND window_minute = ?",
+                (key_hash, minute),
             ).fetchone()
             cnt = int(rl[0]) if rl else 0
             tok_cnt = int(rl[1]) if rl else 0
@@ -160,13 +179,13 @@ class VirtualKeyManager:
 
             conn.execute(
                 """
-                INSERT INTO key_rate_limits (key_val, window_minute, request_count, token_count)
+                INSERT INTO key_rate_limits (key_hash, window_minute, request_count, token_count)
                 VALUES (?, ?, 1, ?)
-                ON CONFLICT(key_val, window_minute) DO UPDATE SET
+                ON CONFLICT(key_hash, window_minute) DO UPDATE SET
                     request_count = request_count + 1,
                     token_count = token_count + excluded.token_count
                 """,
-                (key_val, minute, estimated_tokens),
+                (key_hash, minute, estimated_tokens),
             )
             return True, None, headers
 
@@ -174,15 +193,16 @@ class VirtualKeyManager:
         """Adjust token consumption delta after exact response usage is known."""
         if token_delta == 0:
             return
+        key_hash = hash_virtual_key(key_val)
         now = time.time()
         minute = int(now // 60)
         with sqlite3.connect(self.db_path, timeout=15.0) as conn:
             conn.execute(
                 """
-                INSERT INTO key_rate_limits (key_val, window_minute, request_count, token_count)
+                INSERT INTO key_rate_limits (key_hash, window_minute, request_count, token_count)
                 VALUES (?, ?, 0, ?)
-                ON CONFLICT(key_val, window_minute) DO UPDATE SET
+                ON CONFLICT(key_hash, window_minute) DO UPDATE SET
                     token_count = MAX(0, token_count + excluded.token_count)
                 """,
-                (key_val, minute, token_delta),
+                (key_hash, minute, token_delta),
             )

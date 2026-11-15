@@ -284,7 +284,9 @@ def print_summary_table(results: Dict[str, Any]):
         print("    Concurrency | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms)")
         print("    ------------+--------------------+----------+----------+---------")
         for key, s in sweep.items():
-            print(f"    c={s.get('concurrency', 0):<10} | {s.get('throughput_rps', 0):<18} | {s.get('p50', 0):<8.2f} | {s.get('p95', 0):<8.2f} | {s.get('p99', 0):<8.2f}")
+            print(
+                f"    c={s.get('concurrency', 0):<10} | {s.get('throughput_rps', 0):<18} | {s.get('p50', 0):<8.2f} | {s.get('p95', 0):<8.2f} | {s.get('p99', 0):<8.2f}"
+            )
 
     print("\n[5] Architectural Memory Efficiency")
     print(f"    RSS RAM (Base):   {results.get('rss_base_mb', 0):.2f} MB")

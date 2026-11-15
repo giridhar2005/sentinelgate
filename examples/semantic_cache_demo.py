@@ -11,6 +11,7 @@ BASE_URL = os.getenv("SENTINELGATE_BASE_URL", "http://localhost:8000/v1")
 QUERY_ORIGINAL = "What is quantum superposition?"
 QUERY_PARAPHRASED = "Can you explain quantum superposition simply?"
 
+
 def run_query(prompt: str, headers: dict = None) -> tuple[str, str, float]:
     start = time.perf_counter()
     req_headers = {"Content-Type": "application/json"}
@@ -30,6 +31,7 @@ def run_query(prompt: str, headers: dict = None) -> tuple[str, str, float]:
     cache_status = res.headers.get("X-Cache", "MISS")
     content = res.json()["choices"][0]["message"]["content"]
     return content, cache_status, elapsed_ms
+
 
 print("=== Step 1: Initial query (Cache Miss) ===")
 _, status1, ms1 = run_query(QUERY_ORIGINAL)

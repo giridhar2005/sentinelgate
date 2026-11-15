@@ -53,7 +53,10 @@ def test_adversarial_sql_tautology_delete():
     for sql in tautologies:
         is_safe, threat, detail = AgentToolGuard.inspect_text_payload(sql)
         assert not is_safe, f"Failed to block tautology delete: {sql}"
-        assert threat in ("DESTRUCTIVE_SQL_TAUTOLOGY_DELETE", "DESTRUCTIVE_SQL_UNCONSTRAINED_DELETE")
+        assert threat in (
+            "DESTRUCTIVE_SQL_TAUTOLOGY_DELETE",
+            "DESTRUCTIVE_SQL_UNCONSTRAINED_DELETE",
+        )
 
 
 def test_adversarial_sql_safe_queries_allowed():
@@ -75,9 +78,9 @@ def test_adversarial_ssrf_ipv6_and_obfuscated_ips():
         "http://[::1]/secret",
         "http://[::ffff:127.0.0.1]:8080/admin",
         "http://2852039166/latest/meta-data/",  # 169.254.169.254 in decimal
-        "http://2130706433/",                  # 127.0.0.1 in decimal
-        "http://0x7f000001/status",            # 127.0.0.1 in hex
-        "http://0177.0.0.1/debug",             # 127.0.0.1 in dotted octal
+        "http://2130706433/",  # 127.0.0.1 in decimal
+        "http://0x7f000001/status",  # 127.0.0.1 in hex
+        "http://0177.0.0.1/debug",  # 127.0.0.1 in dotted octal
     ]
     for target in evasions:
         # Test tool guard text scanning
@@ -95,7 +98,7 @@ def test_threat_model_known_limitations_boundary():
     Demonstrates that polymorphic python execution does not trigger literal shell regex,
     confirming that SentinelGate is a first-mile heuristic filter and NOT a full OS sandbox.
     """
-    polymorphic_payload = 'python -c "import os, shutil; shutil.rmtree(\'/tmp/test\')"'
+    polymorphic_payload = "python -c \"import os, shutil; shutil.rmtree('/tmp/test')\""
     is_safe, threat, detail = AgentToolGuard.inspect_text_payload(polymorphic_payload)
     # This documents the expected behavior: high-level script invocations require OS-level sandboxing
     assert is_safe is True, "Heuristic regex is not expected to parse embedded python code AST"

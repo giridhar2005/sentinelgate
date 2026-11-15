@@ -71,7 +71,7 @@ def test_traceparent_header_propagation_on_chat_completions(tmp_path):
     """Test POST /v1/chat/completions preserves trace_id and returns traceparent."""
     db_file = str(tmp_path / "test_traceparent.db")
     app = create_app(db_path=db_file)
-    client = TestClient(app)
+    client = TestClient(app, headers={"Authorization": "Bearer admin-secret-token"})
 
     trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
     parent_span = "00f067aa0ba902b7"

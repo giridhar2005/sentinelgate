@@ -120,7 +120,9 @@ def test_live_benchmark_and_otel_audit_endpoints(test_app):
 
     # 2. Test guardrail audit logs endpoint
     evals = app.state.evals
-    evals.log_guardrail_event("req-test-audit", "TOOL_CALL_BLOCKED", "rm -rf / blocked", blocked=True)
+    evals.log_guardrail_event(
+        "req-test-audit", "TOOL_CALL_BLOCKED", "rm -rf / blocked", blocked=True
+    )
 
     audit_resp = client.get("/api/guardrails/audit?limit=10")
     assert audit_resp.status_code == 200
