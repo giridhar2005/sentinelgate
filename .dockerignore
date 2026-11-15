@@ -1,0 +1,43 @@
+# Version Control
+.git
+.gitignore
+
+# Python Environments & Caches
+__pycache__
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Test & Quality Tooling Caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+tests/
+
+# Local SQLite WAL Files
+*.db
+*.db-shm
+*.db-wal
+sentinelgate.db*
+
+# Node / React Frontend Cache
+frontend/node_modules/
+frontend/dist/
+.npm/
+
+# IDE & OS Artifacts
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project Docs & Scratch
+docs/*.png
+docs/*.svg

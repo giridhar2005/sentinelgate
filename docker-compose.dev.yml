@@ -1,0 +1,34 @@
+version: "3.9"
+
+# ==============================================================================
+# Local Live-Reload Development Compose File
+# Mounts source code directly into container for instant hot reload.
+# Run with: docker compose -f docker-compose.dev.yml up
+# ==============================================================================
+
+services:
+  gateway-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentinelgate-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app:ro
+      - ./sentinelgate:/app/sentinelgate:ro
+      - ./config.yaml:/app/config.yaml:ro
+      - ./dashboard.html:/app/dashboard.html:ro
+      - sentinelgate_dev_data:/app/data
+    environment:
+      - SENTINELGATE_CONFIG=/app/config.yaml
+      - SENTINELGATE_DB=/app/data/sentinelgate.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+volumes:
+  sentinelgate_dev_data:
+    driver: local

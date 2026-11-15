@@ -29,7 +29,12 @@ class ReplayRequest(BaseModel):
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def serve_dashboard():
-    candidates = ["dashboard.html", "app/templates/dashboard.html"]
+    candidates = [
+        "frontend/dist/index.html",
+        "/app/frontend/dist/index.html",
+        "dashboard.html",
+        "app/templates/dashboard.html",
+    ]
     for path in candidates:
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:

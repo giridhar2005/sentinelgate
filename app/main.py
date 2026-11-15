@@ -83,6 +83,21 @@ def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None)
     app.include_router(v1.router)
     app.include_router(dashboard.router)
 
+    # Mount compiled React assets if present
+    for dist_dir in ["frontend/dist", "/app/frontend/dist"]:
+        assets_dir = os.path.join(dist_dir, "assets")
+        if os.path.isdir(assets_dir):
+            from fastapi.staticfiles import StaticFiles
+
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend_assets")
+            break
+
+    @app.get("/", include_in_schema=False)
+    async def root_redirect():
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(url="/dashboard")
+
     return app
 
 

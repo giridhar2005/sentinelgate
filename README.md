@@ -172,7 +172,7 @@ Most LLM proxies introduce distributed infrastructure (Redis clusters, PostgreSQ
 
 ## Developer Console & Interactive HUD (`/dashboard`)
 
-SentinelGate includes a single-file, zero-bloat developer console served directly from FastAPI (zero `node_modules`, zero npm build pipeline) built following Linear / Raycast design principles:
+SentinelGate includes two serving modes for the developer console: a dedicated **React 18 + TypeScript single-page application** (`frontend/`) compiled via Vite and Tailwind CSS, and a **zero-dependency fallback** (`dashboard.html`) served automatically if running without Node.js. Both strictly adhere to Linear / Raycast systems engineering design principles (Canvas `#09090B`, hairline `#27272A` borders, JetBrains Mono tabular figures, zero AI clichés):
 
 - **Live SQLite Telemetry Strip:** Real-time query of Total Requests, Semantic Cache Hit Rate (%), Total USD Saved, Median Latency (`p50 ms`), Secrets Scrubbed, and Blocked Threats with a `Live (2s)` toggle.
 - **1-Click Playground Presets:** Test the full gateway pipeline right from your browser:
@@ -207,7 +207,26 @@ GitHub Codespaces spins up an isolated Python 3.11 container, installs SentinelG
 
 ---
 
-### 1. Local Install & Launch
+### 1. Docker Deployment (Recommended for Production & Offline Stacks)
+
+SentinelGate provides a 3-stage, multi-stage `Dockerfile` with pre-cached FastEmbed ONNX model weights and rootless execution:
+
+```bash
+# Production Compose: Launch SentinelGate with SQLite WAL persistence
+docker compose up -d
+
+# 100% Offline Local AI Stack (SentinelGate + Ollama on internal Docker bridge)
+docker compose -f docker-compose.ollama.yml up -d
+
+# Live-Reload Development Mount
+docker compose -f docker-compose.dev.yml up
+```
+
+Access the dashboard at `http://localhost:8000/dashboard` and OpenAI proxy endpoint at `http://localhost:8000/v1`.
+
+---
+
+### 2. Local Python CLI Install & Launch
 
 ```bash
 # 1-Liner: Clone, install in editable mode, and launch
@@ -218,6 +237,8 @@ Or run directly without installing:
 ```bash
 python -m sentinelgate
 # or with uv
+uv run python -m sentinelgate
+```
 uv run python -m sentinelgate
 ```
 
@@ -396,14 +417,18 @@ providers:
 A `Makefile` is included for common engineering workflows:
 
 ```bash
-make install    # Install package in editable mode with dev dependencies
-make dev        # Run SentinelGate with hot-reloading on port 8000
-make run        # Run SentinelGate in production mode
-make test       # Execute full pytest suite (36 tests)
-make bench      # Run local latency and semantic cache benchmark
-make lint       # Run Ruff linter checks
-make format     # Auto-format codebase using Ruff
-make clean      # Clean caches and temporary SQLite WAL files
+make install         # Install package in editable mode with dev dependencies
+make dev             # Run SentinelGate with hot-reloading on port 8000
+make run             # Run SentinelGate in production mode
+make test            # Execute full pytest suite (37 tests)
+make bench           # Run local latency and semantic cache benchmark
+make lint            # Run Ruff linter checks
+make format          # Auto-format codebase using Ruff
+make docker-build    # Build production multi-stage Docker image
+make docker-run      # Launch production stack (docker compose)
+make docker-ollama   # Launch 100% offline stack with Ollama
+make frontend-build  # Compile React 18 TypeScript dashboard
+make clean           # Clean caches, dist, and temporary SQLite WAL files
 ```
 
 ---

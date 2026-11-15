@@ -1,8 +1,11 @@
+version: "3.9"
+
 services:
   gateway:
     build:
       context: .
       dockerfile: Dockerfile
+    image: sentinelgate:latest
     container_name: sentinelgate
     restart: unless-stopped
     ports:
@@ -10,17 +13,29 @@ services:
     environment:
       - SENTINELGATE_CONFIG=/app/config.yaml
       - SENTINELGATE_DB=/app/data/sentinelgate.db
+      - FASTEMBED_CACHE_PATH=/app/.cache/fastembed
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
     volumes:
       - sentinelgate_data:/app/data
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
       timeout: 3s
+      start_period: 5s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   sentinelgate_data:
