@@ -1,10 +1,10 @@
 {
-  "timestamp_utc": "2026-11-15 16:50 UTC",
+  "timestamp_utc": "2026-11-15 17:21 UTC",
   "runner": {
     "os": "Darwin",
     "release": "27.2.0",
     "arch": "arm64",
-    "python": "3.9.6",
+    "python": "3.12.16",
     "is_ci": false,
     "description": "Local System (Darwin arm64)"
   },
@@ -19,15 +19,15 @@
     "cache_hits": 91,
     "total_requests": 100,
     "cache_hit_rate_pct": 91.0,
-    "min_overhead_ms": 3.28,
-    "avg_cached_latency_ms": 6.51,
-    "avg_uncached_latency_ms": 64.85,
-    "p50_ms": 4.82,
-    "p95_ms": 55.94,
-    "p99_ms": 87.58,
-    "wall_time_sec": 1.177,
-    "in_process_throughput_req_per_sec": 85.0,
-    "idle_ram_mb": 232.1,
-    "active_ram_mb": 446.5
+    "min_overhead_ms": 1.48,
+    "avg_cached_latency_ms": 2.87,
+    "avg_uncached_latency_ms": 32.91,
+    "p50_ms": 2.47,
+    "p95_ms": 29.47,
+    "p99_ms": 31.7,
+    "wall_time_sec": 0.557,
+    "in_process_throughput_req_per_sec": 179.5,
+    "idle_ram_mb": 291.9,
+    "active_ram_mb": 420.0
   }
 }

@@ -1,131 +1,155 @@
-<a name="top"></a>
+# SentinelGate
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/hero-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/hero-light.svg">
-    <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/hero-dark.svg" alt="SentinelGate Hero Banner" width="100%">
-  </picture>
-</p>
-
-<h3 align="center">✨ SentinelGate 🍵</h3>
-<p align="center">
-  <strong>The Cozy, Zero-Bloat AI Gateway & Agent Security Firewall</strong><br>
-  <em>In-process semantic caching • Pre-execution tool firewall • Microsecond cost routing • Zero Redis • Zero PostgreSQL</em>
-</p>
-
-<p align="center">
-  <a href="#-quickstart-in-10-seconds"><img src="https://img.shields.io/badge/%E2%96%B6_Live_Console-http%3A%2F%2Flocalhost%3A8000%2Fdashboard-10B981?style=for-the-badge&logo=fastapi&logoColor=white" alt="Live Console"></a>
-  <a href="#-quickstart-in-10-seconds"><img src="https://img.shields.io/badge/%E2%9A%A1_10s_Quickstart-pip_install_sentinelgate-3B82F6?style=for-the-badge&logo=pypi&logoColor=white" alt="Quickstart"></a>
-  <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/%F0%9F%93%90_Architecture_RFC-In--Process_WAL-F59E0B?style=for-the-badge&logo=sqlite&logoColor=white" alt="Architecture"></a>
-  <a href="#-live-ci-verified-benchmarks"><img src="https://img.shields.io/badge/%F0%9F%93%8A_Live_CI_Benchmarks-p50_0.18ms-8B5CF6?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI Benchmarks"></a>
-  <a href="#-community--stargazers"><img src="https://img.shields.io/badge/%E2%AD%90_Star_Project-Support_SentinelGate-EC4899?style=for-the-badge&logo=github&logoColor=white" alt="Star"></a>
-</p>
+**A lightweight, single-process LLM gateway with in-process semantic caching, heuristic tool guardrails, and speculative latency hedging.**
 
 <p align="center">
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
   <a href="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml"><img src="https://github.com/giridhar2005/sentinelgate/actions/workflows/codeql.yml/badge.svg" alt="CodeQL Status"></a>
   <a href="tests/"><img src="https://img.shields.io/badge/Coverage-81%25-brightgreen.svg?style=flat-square" alt="Test Coverage 81%"></a>
-  <a href="https://github.com/giridhar2005/sentinelgate/releases"><img src="https://img.shields.io/github/v/release/giridhar2005/sentinelgate?style=flat-square&color=emerald&label=%F0%9F%8C%B8%20release" alt="Release"></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+"></a>
+  <a href="https://github.com/giridhar2005/sentinelgate/releases"><img src="https://img.shields.io/github/v/release/giridhar2005/sentinelgate?style=flat-square&color=blue&label=release" alt="Release"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a>
   <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-WAL_Mode-003B57.svg?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite WAL"></a>
-  <a href="https://prometheus.io/"><img src="https://img.shields.io/badge/Prometheus-RFC_0004_Metrics-E6522C.svg?style=flat-square&logo=prometheus&logoColor=white" alt="Prometheus"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-pink.svg?style=flat-square" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT License"></a>
 </p>
 
 <p align="center">
-  <a href="#-why-youll-love-sentinelgate"><b>🌸 Highlights</b></a> •
-  <a href="#-quickstart-in-10-seconds"><b>🚀 Quickstart</b></a> •
-  <a href="#-live-ci-verified-benchmarks"><b>📊 Benchmarks</b></a> •
-  <a href="#-architecture-contrast-vs-alternatives"><b>🧩 Architecture</b></a> •
-  <a href="#-keyboard-shortcuts-reference"><b>🎮 Shortcuts</b></a> •
-  <a href="#-community--stargazers"><b>💖 Star History</b></a> •
-  <a href="#-about-the-author"><b>☕ Author</b></a>
+  <img src="docs/demo.gif" alt="SentinelGate Operational Console & Telemetry Demo" width="100%" style="border-radius: 8px; border: 1px solid #27272A;">
 </p>
-
-<p align="center">
-  <img src="docs/demo.gif" alt="SentinelGate Operational Console & Telemetry Demo" width="100%" style="border-radius: 12px; border: 2px solid #27272A; box-shadow: 0 10px 40px rgba(0,0,0,0.6);">
-</p>
-<p align="center"><sub><em>✨ Live Obsidian Developer HUD — Zero-Key Sandbox Mode in action! Watch threats get blocked in &lt;0.2ms. 🍵</em></sub></p>
 
 ---
 
-## 🌸 Why You'll Love SentinelGate
+## What is SentinelGate?
 
-SentinelGate brings together maximum systems engineering rigor and charming simplicity:
+SentinelGate is an OpenAI- and Anthropic-compatible reverse proxy and LLM gateway written in Python (FastAPI, SQLite WAL, ONNX runtime). It runs as a single embedded process with zero external infrastructure dependencies (no Redis, no PostgreSQL, no Celery workers).
 
-| 💰 Smart Cost Optimization (`model="auto"`) | 🛡️ Deterministic Agent Security | ⚡ Monolithic Simplicity |
-| :--- | :--- | :--- |
-| **🌸 In-Process Semantic Cache**<br>Evaluates `BAAI/bge-small-en-v1.5` ONNX embeddings locally on CPU in `<2ms`. 68% to 91% of repetitive queries resolve at **$0.00 token cost**. | **🛡️ Heuristic Tool Guard**<br>Inspects assistant `tool_calls` payloads for common destructive shell patterns (`rm -rf`), SQL mutations (`DROP TABLE`), and SSRF. See [docs/SECURITY.md](docs/SECURITY.md). | **🍵 Single-Binary Topology**<br>Runs on SQLite WAL mode (`PRAGMA mmap_size=256MB`). Zero external Redis clusters, PostgreSQL daemons, or Celery workers. |
-| **⚡ Microsecond Smart Router**<br>`model="auto"` evaluates syntax and reasoning density in `<0.2ms`, triaging utility queries to $0.15/1M models instead of $15/1M frontier models. | **🍰 Stateful Stream Redactor**<br>Maintains an async sliding-window lookahead buffer (N=64) on SSE `text/event-stream` chunks, catching split credentials with zero token leakage. | **🧸 Dynamic Circuit Breakers**<br>Provider outages or 429 rate limits automatically trigger failover to secondary models with zero dropped requests. |
+It provides local semantic caching using CPU embeddings, cost- and complexity-aware model routing (`model="auto"`), heuristic agent tool-call inspection, sliding-window streaming credential redaction, and speculative latency hedging.
 
-<p align="right"><a href="#top">🌸 Back to Top ↑</a></p>
+## Who is it for?
+
+- **Local Agent Developers:** Builders running coding agents (Cursor, Cline, Claude Code, OpenHands) who want local semantic caching, request observability, and token cost controls on a single machine without maintaining Redis or PostgreSQL containers.
+- **Small Teams & Internal Platforms:** Engineering teams deploying an internal LLM gateway on a single host or VM that requires a minimal operational footprint.
+- **Embedded & Edge Environments:** Systems requiring an embedded gateway with local vector similarity search running directly on CPU via ONNX models.
+
+## Status: Alpha (v0.5.0)
+
+SentinelGate is under active alpha development. Core proxying, semantic caching, and guardrail features are tested and verified in CI, but configuration schemas and internal APIs may evolve before v1.0.0.
+
+> [!NOTE]
+> Tool-call guardrails are heuristic inspection filters on model response payloads; they do not provide OS-level process sandboxing. See [docs/SECURITY.md](docs/SECURITY.md) for details on the security model and known evasion boundaries.
 
 ---
 
-## 🚀 Quickstart in 10 Seconds
+## Quickstart
 
-> [!TIP]
-> 💖 **Cozy Sandbox Mode:** SentinelGate runs right out of the box in zero-key demo mode! No API keys, credit cards, or external services are needed to explore the developer console and test agent attacks. 🍵
-
-### Step 1: Launch Local Gateway
+### 1. Run the Gateway
 
 ```bash
-# Option A: Install from source (PyPI package pending v0.5.0 release)
-git clone https://github.com/giridhar2005/sentinelgate.git
-cd sentinelgate
-pip install .
-sentinelgate --port 8000 --demo
+# Clone the repository
+git clone https://github.com/giridhar2005/sentinelgate.git && cd sentinelgate
 
-# Option B: Run ultra-slim Docker container (<150MB)
-docker run -d -p 8000:8000 --name sentinelgate ghcr.io/giridhar2005/sentinelgate:latest
+# Install dependencies and CLI (PyPI package pending v0.5.0 release)
+pip install .
+
+# Start the gateway in demo sandbox mode
+sentinelgate --port 8000 --demo
 ```
 
-Open **`http://localhost:8000/dashboard`** to access the developer HUD, inspect live traces, test agent attacks, and simulate cloud savings.
+Open `http://localhost:8000/dashboard` in your browser to inspect live metrics, traces, and test agent attacks.
 
-### Step 2: 4-Line Drop-In Integration (OpenAI SDK)
+### 2. Connect Your Client
 
-SentinelGate is 100% wire-compatible with the standard OpenAI API:
+Point any OpenAI-compatible client to `http://localhost:8000/v1`:
 
 ```python
 from openai import OpenAI
 
-# 1. Point client base_url to SentinelGate
 client = OpenAI(base_url="http://localhost:8000/v1", api_key="sentinel-local")
 
-# 2. Requests automatically benefit from semantic caching, routing, and secret redaction
 response = client.chat.completions.create(
-    model="auto",  # Dynamically routes to cheapest model matching prompt complexity
+    model="auto",
     messages=[{"role": "user", "content": "Explain connection pooling in HTTP clients"}],
 )
 print(response.choices[0].message.content)
 ```
 
----
+Or make a direct HTTP request:
 
-## 🎮 Keyboard Shortcuts Reference
+```bash
+curl http://localhost:8000/v1/chat/completions \
+  -H "Authorization: Bearer sentinel-local" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "auto", "messages": [{"role": "user", "content": "Ping"}]}'
+```
 
-While viewing the `/dashboard` developer console, use these keys:
-
-| Shortcut | Action | Description |
-| :---: | :--- | :--- |
-| <kbd>?</kbd> | **Shortcuts Modal** | Toggle keyboard shortcut reference modal ✨ |
-| <kbd>T</kbd> | **Request Traces** | Jump to live request trace stream 🌊 |
-| <kbd>F</kbd> | **Agent Firewall** | Jump to intercepted threat audit log 🛡️ |
-| <kbd>B</kbd> | **Benchmark Runner** | Jump to in-process benchmark execution tab ⚡ |
-| <kbd>R</kbd> | **ROI Estimator** | Open enterprise spend & cost reduction model 💰 |
-| <kbd>Esc</kbd> | **Close Drawers** | Close active trace inspector or setup modal 🌸 |
-
-<p align="right"><a href="#top">🌸 Back to Top ↑</a></p>
+For Claude Code CLI, Cursor, Cline, and Ollama setups, see [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
 
 ---
 
-## 🧩 Architecture Contrast & Trade-Offs
+## Core Capabilities
 
-Choosing an LLM gateway is a question of operational trade-offs. SentinelGate is built specifically as a lightweight, single-process embedded runtime with zero external infrastructure. Full-fledged gateways like [LiteLLM Proxy](https://docs.litellm.ai/docs/proxy/architecture) and [Portkey AI Gateway](https://docs.portkey.ai/docs/product/ai-gateway) offer broader multi-cloud provider ecosystems and multi-tenant enterprise control planes:
+- **In-Process Semantic Caching:** Embeds incoming prompts using local CPU ONNX (`BAAI/bge-small-en-v1.5`) and evaluates cosine similarity against memory-mapped SQLite cache entries. Repeated or semantically similar prompts resolve in under 5ms with zero upstream token cost.
+- **Cost & Complexity Auto-Routing (`model="auto"`):** Evaluates prompt syntax, code tokens, and reasoning indicators in `<0.5ms` to route routine utility queries to lightweight models, reserving complex prompts for frontier reasoning models.
+- **Heuristic Tool Guardrails:** Scans `tool_calls` parameters in model responses for common dangerous shell patterns (`rm -rf`, pipe-to-sh), destructive SQL mutations (`DROP TABLE`, unconstrained `DELETE`), and SSRF destinations before returning payloads to client agents.
+- **Streaming Secret Redaction:** Uses a sliding-window lookahead buffer ($N=64$ chars) across server-sent events (`text/event-stream`) to redact API keys and secrets split across arbitrary chunk boundaries.
+- **Speculative Latency Hedging:** Dispatches a fallback request to a fast secondary provider if the primary does not respond within a configurable deadline (`hedge_delay_ms=450`), mitigating tail latency variance.
+- **Dual API Compatibility:** Exposes both OpenAI-compatible `/v1/chat/completions` and Anthropic Messages `/v1/messages` endpoints for drop-in compatibility.
+- **Embedded Single-Process Runtime:** Uses SQLite WAL mode (`PRAGMA mmap_size=256MB`) for virtual keys, dual-bucket rate limiting (RPM/TPM), and telemetry with zero external services.
 
-| Engineering Dimension | 🌸 SentinelGate | 📦 LiteLLM Proxy ([Docs](https://docs.litellm.ai/docs/proxy/architecture)) | ☁️ Portkey AI Gateway ([Docs](https://docs.portkey.ai/docs/product/ai-gateway)) |
+---
+
+## Limitations & Threat Model
+
+SentinelGate is designed for operational efficiency and defense-in-depth, but has explicit boundaries:
+
+- **Guardrail Layer, Not a Security Sandbox:** The tool firewall heuristically inspects tool-call payloads in model completions. It cannot prevent a compromised client from executing malicious commands, and it cannot reliably detect obfuscated shell commands (e.g. base64 decoding, variable expansion, subshells) or complex SQL dialect evasions. Always run untrusted agents in containerized or microVM sandboxes (Docker, gVisor, Firecracker). See [docs/SECURITY.md](docs/SECURITY.md) for full adversarial test coverage and threat boundaries.
+- **Single-Host State:** SQLite WAL mode provides concurrent reads and serialized writes on a single host. Virtual keys, rate limits, and cache entries do not replicate across multiple hosts without external synchronization.
+- **CPU Embedding Latency:** FastEmbed ONNX executes on CPU without GPU acceleration. Generating embeddings takes ~2–5ms per unique prompt, which adds a small fixed latency overhead to uncached requests.
+- **Pattern-Based Credential Detection:** Streaming redaction relies on regex and Shannon entropy heuristics. Highly fragmented tokens, uncommon custom secret formats, or encrypted payloads may not be detected.
+
+---
+
+## Performance & Telemetry
+
+Benchmarks are executed automatically by GitHub Actions on every commit to `main`, and results are committed to [`benchmarks/results.json`](benchmarks/results.json).
+
+<!-- BENCHMARK:START -->
+| Systems Performance Dimension | Measured Telemetry | Protocol & Environment |
+| :--- | :--- | :--- |
+| **Test Suite Verification** | **76 / 76 Tests Passed (81% Coverage)** | `pytest -v --cov=app --cov=sentinelgate` |
+| **In-Process Cache Overhead (Min)** | **1.48 ms** | Memory-mapped SQLite WAL (`PRAGMA mmap_size=256MB`) |
+| **Semantic Cache Latency (Avg)** | **2.87 ms** | Local `BAAI/bge-small-en-v1.5` ONNX runtime on CPU |
+| **Latency p50 / p95 / p99** | **2.47 ms / 29.47 ms / 31.70 ms** | Sequential query stream (10 unique semantic pairs) |
+| **Cache Hit Efficiency** | **91.0%** (91/100 queries) | Exact + semantic cosine similarity threshold |
+| **In-Process Call Throughput (No Network Hops)** | **179.5 calls/sec** | In-process ASGI memory calls (no TCP socket round-trips) |
+| **Idle Memory RSS (Base)** | **291.9 MB** | Single Python process (Zero Redis / Zero Postgres) |
+| **Active Memory RSS (Loaded ONNX)** | **420.0 MB** | Embedded vector model loaded in resident memory |
+| **Runner & Benchmark Environment** | `Local System (Darwin arm64) | Python 3.12.16 | 100 reqs (c=1)` | Measured dynamically at `2026-11-15 17:21 UTC` |
+<!-- BENCHMARK:END -->
+
+### Speculative Latency Hedging (Simulated)
+
+Production LLM endpoints frequently exhibit tail latency spikes from queue depth and GPU scheduling. SentinelGate implements speculative latency hedging: if the primary provider does not respond within `hedge_delay_ms=450`, a secondary request is dispatched to a fast fallback provider. Whichever completes first is returned.
+
+<!-- HEDGING:START -->
+| Execution Strategy | p50 Latency | p90 Latency | p95 Latency | p99 Latency (Tail) |
+| :--- | :---: | :---: | :---: | :---: |
+| Simulated Unhedged Requests | 401.6 ms | 621.7 ms | 2479.3 ms | **2518.9 ms** |
+| **Speculative Hedged (`hedge_delay_ms=450.0`)** | **402.8 ms** | **428.2 ms** | **500.9 ms** | **506.3 ms** |
+| **Improvement** | **+0.3%** | **-31.1%** | **-79.8%** | **-79.9% Latency Reduction** |
+
+*Methodology: Simulated mock provider benchmark (`benchmarks/bench_hedging.py`) modeling bimodal upstream latency (10.0% probability of ~2480.0ms spike vs 400.0ms baseline, 450.0ms hedge deadline, 45.0ms fast fallback). Committed raw data: [`benchmarks/hedging_results.json`](benchmarks/hedging_results.json).*
+<!-- HEDGING:END -->
+
+Detailed benchmark scripts and reproduction steps are available in [`benchmarks/bench.py`](benchmarks/bench.py) and [`benchmarks/bench_hedging.py`](benchmarks/bench_hedging.py).
+
+---
+
+## Architectural Trade-Offs
+
+SentinelGate is built as an embedded, single-process runtime. Full-featured gateways like [LiteLLM Proxy](https://docs.litellm.ai/docs/proxy/architecture) and [Portkey AI Gateway](https://docs.portkey.ai/docs/product/ai-gateway) offer broader multi-cloud provider ecosystems and enterprise control planes:
+
+| Engineering Dimension | SentinelGate | LiteLLM Proxy ([Docs](https://docs.litellm.ai/docs/proxy/architecture)) | Portkey AI Gateway ([Docs](https://docs.portkey.ai/docs/product/ai-gateway)) |
 | :--- | :--- | :--- | :--- |
 | **Primary Architecture** | **Single-process embedded runtime** (FastAPI + SQLite WAL) | Standalone Python proxy or distributed multi-instance service | Open-source TypeScript proxy runtime or managed cloud SaaS |
 | **External Dependencies** | **Zero** (In-process SQLite WAL + local ONNX runtime) | Zero for standalone CLI; Redis/Postgres optional for cluster state | Zero for standalone container; cloud DBs for control plane |
@@ -136,188 +160,41 @@ Choosing an LLM gateway is a question of operational trade-offs. SentinelGate is
 | **State & Persistence** | Local SQLite database with Write-Ahead Logging (`WAL`) | Memory (single-node) or distributed Redis + PostgreSQL | Local SQLite/Redis or managed multi-region datastores |
 | **Best Suited For** | **Single-host deployments, local coding agents, zero-infra edge proxies** | **Enterprise teams needing 100+ provider mappings and team billing** | **Production web apps needing hosted control planes and prompt governance** |
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/benchmark-bars.svg" alt="SentinelGate Benchmark Comparison Bars" width="100%" style="border-radius: 12px; border: 1px solid #27272A; margin: 12px 0;">
-</p>
+---
+
+## Documentation
+
+- **[System Architecture (RFC)](ARCHITECTURE.md):** In-process request lifecycle, SQLite WAL storage model, and concurrency design.
+- **[Client & IDE Integrations](docs/INTEGRATIONS.md):** Setup instructions for Cursor, Cline, Claude Code CLI, Ollama, and SDKs.
+- **[Configuration Reference](docs/CONFIGURATION.md):** Configuration schema, rate limits, virtual keys, and routing options.
+- **[Security & Threat Model](docs/SECURITY.md):** Adversarial test coverage, bypass analysis, and defense boundaries.
 
 ---
 
-## 📊 Live CI-Verified Benchmarks
+## Roadmap
 
-> [!NOTE]
-> 🧪 **Autonomously Verified Telemetry:** Every commit to `main` executes `pytest` and `benchmarks/bench.py` via GitHub Actions, dynamically updating this verified telemetry block:
-
-<!-- BENCHMARK:START -->
-| Systems Performance Dimension | Measured Telemetry | Protocol & Environment |
-| :--- | :--- | :--- |
-| **Test Suite Verification** | **76 / 76 Tests Passed (81% Coverage)** | `pytest -v --cov=app --cov=sentinelgate` |
-| **In-Process Cache Overhead (Min)** | **3.28 ms** | Memory-mapped SQLite WAL (`PRAGMA mmap_size=256MB`) |
-| **Semantic Cache Latency (Avg)** | **6.51 ms** | Local `BAAI/bge-small-en-v1.5` ONNX runtime on CPU |
-| **Latency p50 / p95 / p99** | **4.82 ms / 55.94 ms / 87.58 ms** | Sequential query stream (10 unique semantic pairs) |
-| **Cache Hit Efficiency** | **91.0%** (91/100 queries) | Exact + semantic cosine similarity threshold |
-| **In-Process Call Throughput (No Network Hops)** | **85.0 calls/sec** | In-process ASGI memory calls (no TCP socket round-trips) |
-| **Idle Memory RSS (Base)** | **232.1 MB** | Single Python process (Zero Redis / Zero Postgres) |
-| **Active Memory RSS (Loaded ONNX)** | **446.5 MB** | Embedded vector model loaded in resident memory |
-| **Runner & Benchmark Environment** | `Local System (Darwin arm64) | Python 3.9.6 | 100 reqs (c=1)` | Measured dynamically at `2026-11-15 16:50 UTC` |
-<!-- BENCHMARK:END -->
-
-### Speculative Latency Hedging ("The Tail at Scale")
-
-Production LLM APIs exhibit high p99 tail latency variance from GPU scheduling, queue delays, and KV cache recalculations.
-
-SentinelGate implements **Speculative Latency Hedging**: if the primary provider does not respond within `hedge_delay_ms=450`, SentinelGate speculatively dispatches a duplicate request to a designated fast fallback provider (e.g. Groq `llama-3.1-8b-instant`). Whichever finishes first is returned to the client; the slower request is aborted asynchronously.
-
-<!-- HEDGING:START -->
-| Execution Strategy | p50 Latency | p90 Latency | p95 Latency | p99 Latency (Tail) |
-| :--- | :---: | :---: | :---: | :---: |
-| Simulated Unhedged Requests | 401.6 ms | 621.7 ms | 2479.4 ms | **2519.0 ms** |
-| **Speculative Hedged (`hedge_delay_ms=450.0`)** | **403.0 ms** | **428.5 ms** | **501.6 ms** | **507.2 ms** |
-| **Improvement** | **+0.3%** | **-31.1%** | **-79.8%** | **-79.9% Latency Reduction** |
-
-*Methodology: Simulated mock provider benchmark (`benchmarks/bench_hedging.py`) modeling bimodal upstream latency (10.0% probability of ~2480.0ms spike vs 400.0ms baseline, 450.0ms hedge deadline, 45.0ms fast fallback). Committed raw data: [`benchmarks/hedging_results.json`](benchmarks/hedging_results.json).*
-<!-- HEDGING:END -->
-
-<p align="right"><a href="#top">🌸 Back to Top ↑</a></p>
+- **v0.5.0 (Current):** Single-process gateway, OpenAI `/v1/chat/completions` and Anthropic `/v1/messages` compatibility, in-process FastEmbed ONNX caching, heuristic tool guardrails, speculative latency hedging, local SQLite WAL state.
+- **v0.6.0:** Tree-sitter / AST-based shell parsing for tool-call validation, pluggable vector index backends (e.g. LanceDB) for large cache indices.
+- **v0.7.0:** Raft / LiteVFS replication for multi-instance SQLite WAL clustering without external database dependencies.
+- **v1.0.0:** Stable public configuration schemas, plugin architecture, and native gRPC streaming.
 
 ---
 
-## 📚 Technical Deep-Dives
+## Developer Console Shortcuts
 
-<details>
-<summary><b>🔍 01. System Architecture & Request Lifecycle</b></summary>
+When using the `/dashboard` developer console, the following keyboard shortcuts are available:
 
-<br>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/giridhar2005/sentinelgate/main/docs/bento-architecture.svg" alt="SentinelGate 4-Quadrant Architecture" width="100%" style="border-radius: 12px; border: 1px solid #27272A;">
-</p>
-
-Every request hitting `POST /v1/chat/completions` undergoes a deterministic in-process pipeline executed before any network socket is opened:
-1. **Virtual Key Authentication & Rate Limiting:** Enforces atomic RPM and TPM sliding-window counters in SQLite WAL mode.
-2. **Pre-Flight Guardrails:** Stateful sliding-window secret redactor substitutes API keys (`sk-proj-...`), JWTs, and database URIs into reversible tokens (`__SG_SECRET_1__`). Heuristic AST inspector checks for prompt injection.
-3. **Context Compaction:** Trims redundant whitespace and preserves code blocks. PII entities are masked with reversible identifiers.
-4. **Local Vector Lookup:** Computes embeddings via FastEmbed ONNX on CPU and evaluates cosine similarity against memory-mapped SQLite cache entries. If match score $\ge 0.85$, cached completion is returned in `<2ms` with `$0.00` egress cost.
-5. **Smart Auto-Routing:** If uncached and `model="auto"`, calculates syntax and reasoning density in `<0.2ms` to triage utility queries to fast $0.15/1M models.
-6. **Pre-Execution Agent Tool Inspection:** Heuristically scans assistant `tool_calls` payloads in completed responses to intercept common destructive shell commands (`rm -rf`), unconstrained SQL mutations (`DROP TABLE`), and SSRF destinations before returning them to client agents. Note that this inspects response payloads and does not replace OS-level sandboxing (see [docs/SECURITY.md](docs/SECURITY.md)).
-
-Read the complete engineering RFC in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-</details>
-
-<details>
-<summary><b>🛠️ 02. IDE & Agent Integrations (Cursor, Cline, Claude Code, Ollama)</b></summary>
-
-<br>
-
-### Cursor / Cline / Continue.dev
-In your editor settings, set:
-- **Base URL:** `http://localhost:8000/v1`
-- **API Key:** `sentinel-local` (or your issued virtual key `sg-...`)
-- **Model:** `auto` (or explicit `gpt-4o-mini`, `claude-3-5-sonnet`)
-
-### Claude Code CLI
-```bash
-export ANTHROPIC_BASE_URL="http://localhost:8000/v1"
-export ANTHROPIC_API_KEY="sentinel-local"
-claude
-```
-
-### Local Offline Stack (Ollama / LM Studio)
-SentinelGate automatically discovers local model runtimes on boot:
-- **Ollama:** `http://127.0.0.1:11434`
-- **LM Studio:** `http://127.0.0.1:1234`
-
-If local servers are active, SentinelGate routes prompts to them with zero cloud network egress.
-</details>
-
-<details>
-<summary><b>🔑 03. Virtual API Keys & Rate-Limiting Schema (config.yaml)</b></summary>
-
-<br>
-
-Configure rate limits and daily spend ceilings in `config.yaml`:
-
-```yaml
-server:
-  host: "0.0.0.0"
-  port: 8000
-  workers: 1
-
-cache:
-  similarity_threshold: 0.85
-  ttl_seconds: 86400
-
-budget:
-  daily_limit_usd: 50.0
-
-routing:
-  hedge_delay_ms: 450
-  auto_route_threshold: 30
-
-guardrails:
-  secret_action: "redact"  # "redact" or "block"
-  block_shell_commands: true
-  block_sql_mutations: true
-```
-
-Virtual keys issued via `/dashboard` or `VirtualKeyManager` enforce atomic dual-bucket rate limits (`RPM` and `TPM`) per tenant directly in SQLite.
-</details>
-
-<p align="right"><a href="#top">🌸 Back to Top ↑</a></p>
+| Shortcut | View | Description |
+| :---: | :--- | :--- |
+| <kbd>?</kbd> | **Help** | Toggle keyboard shortcut reference modal |
+| <kbd>T</kbd> | **Traces** | Open live request trace stream |
+| <kbd>F</kbd> | **Firewall** | Open agent firewall threat audit log |
+| <kbd>B</kbd> | **Benchmarks** | Run in-process gateway benchmark |
+| <kbd>R</kbd> | **Cost Model** | View estimated cost savings model |
+| <kbd>Esc</kbd> | **Close** | Dismiss active drawer or modal |
 
 ---
 
-## 💖 Community & Stargazers
+## License
 
-<p align="center">
-  <a href="https://star-history.com/#giridhar2005/sentinelgate&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=giridhar2005/sentinelgate&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=giridhar2005/sentinelgate&type=Date" />
-      <img src="https://api.star-history.com/svg?repos=giridhar2005/sentinelgate&type=Date" alt="SentinelGate Star History Chart" width="85%" style="border-radius: 12px; border: 1px solid #27272A;" />
-    </picture>
-  </a>
-</p>
-
-<p align="center">
-  <em>⭐ If you find SentinelGate helpful, cool, or cozy, please consider dropping a star! Every star keeps the project energized and happy! 💖</em>
-</p>
-
-<p align="center">
-  <a href="https://github.com/giridhar2005/sentinelgate"><img src="https://img.shields.io/github/stars/giridhar2005/sentinelgate?style=for-the-badge&color=pink&logo=github&logoColor=white" alt="Star SentinelGate on GitHub"></a>
-  <a href="https://github.com/giridhar2005/sentinelgate/fork"><img src="https://img.shields.io/badge/%F0%9F%A5%A2_Fork_Repo-Clone_%26_Build-3B82F6?style=for-the-badge&logo=git&logoColor=white" alt="Fork"></a>
-  <a href="https://github.com/giridhar2005/sentinelgate/issues"><img src="https://img.shields.io/badge/%F0%9F%92%AC_Discussions-Open_Issue-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Issues"></a>
-</p>
-
----
-
-## ☕ About the Author
-
-<table align="center" style="border: 1px solid #EC4899; border-radius: 12px; padding: 12px; background: rgba(236, 72, 153, 0.03);">
-  <tr>
-    <td align="center" width="130" style="border: none;">
-      <img src="https://github.com/giridhar2005.png" width="96" style="border-radius: 50%; border: 3px solid #EC4899; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);" alt="Bathini Venkata Giridhar"><br>
-      <sub><b>Bathini Venkata Giridhar</b></sub>
-    </td>
-    <td style="border: none; padding-left: 16px;">
-      <h3>👋 Hi, I'm Giridhar!</h3>
-      <p>Systems & AI Infrastructure Engineer specializing in zero-bloat gateway runtimes, high-throughput in-process caching, and deterministic agent security firewalls. 🍵✨</p>
-      <p>
-        <a href="https://github.com/giridhar2005"><img src="https://img.shields.io/badge/GitHub-giridhar2005-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub"></a>
-        <a href="mailto:ggirebathini@gmail.com"><img src="https://img.shields.io/badge/Email-ggirebathini%40gmail.com-EA4335?style=flat-square&logo=gmail&logoColor=white" alt="Email"></a>
-        <a href="https://github.com/giridhar2005/sentinelgate/stargazers"><img src="https://img.shields.io/github/stars/giridhar2005/sentinelgate?style=flat-square&color=pink&label=%E2%AD%90%20Star" alt="Stars"></a>
-        <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT License"></a>
-      </p>
-      <sub>🎓 B.Tech in Mechanical Engineering, Indian Institute of Information Technology, Design and Manufacturing (IIITDM), Kancheepuram</sub>
-    </td>
-  </tr>
-</table>
-
-<p align="center">
-  <em>Actively open to Founding AI Infrastructure, Staff Systems, and Backend Platform roles. ✨</em>
-</p>
-
----
-
-<p align="center">
-  Made with 💖, 🍵, and pure Python • <a href="LICENSE">MIT License</a> • <a href="#top">🌸 Back to Top</a>
-</p>
+This project is licensed under the [MIT License](LICENSE).

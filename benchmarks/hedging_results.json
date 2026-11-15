@@ -1,10 +1,10 @@
 {
-  "timestamp_utc": "2026-11-15 16:51 UTC",
+  "timestamp_utc": "2026-11-15 17:21 UTC",
   "methodology": "Simulated mock provider sweep measuring tail tolerance under bimodal upstream latency",
   "runner": {
     "os": "Darwin",
     "machine": "arm64",
-    "python": "3.9.6",
+    "python": "3.12.16",
     "is_ci": false
   },
   "config": {
@@ -18,18 +18,18 @@
   "unhedged": {
     "p50": 401.6,
     "p90": 621.7,
-    "p95": 2479.4,
-    "p99": 2519.0,
-    "min": 380.2,
-    "max": 2522.4
+    "p95": 2479.3,
+    "p99": 2518.9,
+    "min": 380.0,
+    "max": 2522.5
   },
   "hedged": {
-    "p50": 403.0,
-    "p90": 428.5,
-    "p95": 501.6,
-    "p99": 507.2,
-    "min": 382.3,
-    "max": 510.4
+    "p50": 402.8,
+    "p90": 428.2,
+    "p95": 500.9,
+    "p99": 506.3,
+    "min": 382.1,
+    "max": 506.7
   },
   "tail_reduction_pct": 79.9
 }
