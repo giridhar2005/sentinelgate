@@ -117,14 +117,14 @@ Benchmarks are executed automatically by GitHub Actions on every commit to `main
 | Systems Performance Dimension | Measured Telemetry | Protocol & Environment |
 | :--- | :--- | :--- |
 | **Test Suite Verification** | **76 / 76 Tests Passed (81% Coverage)** | `pytest -v --cov=app --cov=sentinelgate` |
-| **In-Process Cache Overhead (Min)** | **1.48 ms** | Memory-mapped SQLite WAL (`PRAGMA mmap_size=256MB`) |
-| **Semantic Cache Latency (Avg)** | **2.87 ms** | Local `BAAI/bge-small-en-v1.5` ONNX runtime on CPU |
-| **Latency p50 / p95 / p99** | **2.47 ms / 29.47 ms / 31.70 ms** | Sequential query stream (10 unique semantic pairs) |
+| **In-Process Cache Overhead (Min)** | **2.36 ms** | Memory-mapped SQLite WAL (`PRAGMA mmap_size=256MB`) |
+| **Semantic Cache Latency (Avg)** | **8.70 ms** | Local `BAAI/bge-small-en-v1.5` ONNX runtime on CPU |
+| **Latency p50 / p95 / p99** | **4.12 ms / 44.80 ms / 106.66 ms** | Sequential query stream (10 unique semantic pairs) |
 | **Cache Hit Efficiency** | **91.0%** (91/100 queries) | Exact + semantic cosine similarity threshold |
-| **In-Process Call Throughput (No Network Hops)** | **179.5 calls/sec** | In-process ASGI memory calls (no TCP socket round-trips) |
-| **Idle Memory RSS (Base)** | **291.9 MB** | Single Python process (Zero Redis / Zero Postgres) |
-| **Active Memory RSS (Loaded ONNX)** | **420.0 MB** | Embedded vector model loaded in resident memory |
-| **Runner & Benchmark Environment** | `Local System (Darwin arm64) | Python 3.12.16 | 100 reqs (c=1)` | Measured dynamically at `2026-11-15 17:21 UTC` |
+| **In-Process Call Throughput (No Network Hops)** | **84.4 calls/sec** | In-process ASGI memory calls (no TCP socket round-trips) |
+| **Idle Memory RSS (Base)** | **299.9 MB** | Single Python process (Zero Redis / Zero Postgres) |
+| **Active Memory RSS (Loaded ONNX)** | **428.8 MB** | Embedded vector model loaded in resident memory |
+| **Runner & Benchmark Environment** | `GitHub Actions Runner (Linux X64) | Python 3.12.16 | 100 reqs (c=1)` | Measured dynamically at `2026-11-15 17:26 UTC` |
 <!-- BENCHMARK:END -->
 
 ### Speculative Latency Hedging (Simulated)
@@ -134,8 +134,8 @@ Production LLM endpoints frequently exhibit tail latency spikes from queue depth
 <!-- HEDGING:START -->
 | Execution Strategy | p50 Latency | p90 Latency | p95 Latency | p99 Latency (Tail) |
 | :--- | :---: | :---: | :---: | :---: |
-| Simulated Unhedged Requests | 401.6 ms | 621.7 ms | 2479.3 ms | **2518.9 ms** |
-| **Speculative Hedged (`hedge_delay_ms=450.0`)** | **402.8 ms** | **428.2 ms** | **500.9 ms** | **506.3 ms** |
+| Simulated Unhedged Requests | 401.7 ms | 621.4 ms | 2479.4 ms | **2518.2 ms** |
+| **Speculative Hedged (`hedge_delay_ms=450.0`)** | **402.9 ms** | **428.0 ms** | **501.7 ms** | **507.2 ms** |
 | **Improvement** | **+0.3%** | **-31.1%** | **-79.8%** | **-79.9% Latency Reduction** |
 
 *Methodology: Simulated mock provider benchmark (`benchmarks/bench_hedging.py`) modeling bimodal upstream latency (10.0% probability of ~2480.0ms spike vs 400.0ms baseline, 450.0ms hedge deadline, 45.0ms fast fallback). Committed raw data: [`benchmarks/hedging_results.json`](benchmarks/hedging_results.json).*
