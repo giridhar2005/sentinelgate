@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-11-15
+
+### Added
+- **Anthropic Messages API Adapter (`POST /v1/messages`):**
+  - Added full compatibility with Claude Code CLI and the Anthropic Python SDK.
+  - Translates incoming Anthropic messages, system prompts, and tools schema into gateway request structures.
+  - Emits native Anthropic SSE events (`message_start`, `content_block_start`, `content_block_delta`, `message_delta`, `message_stop`) during streaming requests.
+- **Empirical & Reproducible Benchmark Pipeline:**
+  - Automated generation of raw benchmark metrics to committed JSON files (`benchmarks/results.json` and `benchmarks/hedging_results.json`).
+  - Added reproducible simulation benchmark script for speculative latency hedging under bimodal upstream queue delays (`benchmarks/bench_hedging.py`).
+  - GitHub Actions telemetry auto-updater syncs live runner hardware, Python version, and measured latencies directly to `README.md`.
+- **Hardened Agent Tool Guard:**
+  - Added interception for base64 decode pipes to shell (`echo ... | base64 -d | sh`).
+  - Intercepted inline SQL comment evasion (`DROP/**/TABLE`) and tautology deletions (`DELETE FROM ... WHERE 1=1`).
+  - Added support for bracketed IPv6 loopbacks (`[::1]`, `[::ffff:127.0.0.1]`) and decimal/hex/octal IP encodings via `inet_aton`.
+- **Security Policy & Threat Model (`docs/SECURITY.md`):**
+  - Documented explicit security boundaries: SentinelGate operates as an application guardrail inspecting response payloads, not as an OS sandbox.
+  - Transparently detailed known limitations: shell command obfuscation, streaming token deltas, and client compliance requirements.
+
+### Changed
+- **Honest Competitor Comparison:**
+  - Rewrote the LiteLLM and Portkey comparison table into an architectural trade-off matrix citing official documentation.
+  - Clarified single-process embedded runtime advantages vs. multi-tenant enterprise gateway capabilities.
+- **Packaging & Release Cleanliness:**
+  - Lazy package loading in `sentinelgate/__init__.py` prevents premature database initialization when running `--help`.
+  - Added directory auto-creation for SQLite WAL database paths.
+  - PyPI package release verification and clean wheel build testing.
+
+---
+
 ## [0.4.0] - 2026-11-15
 
 ### Added

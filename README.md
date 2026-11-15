@@ -71,8 +71,10 @@ SentinelGate brings together maximum systems engineering rigor and charming simp
 ### Step 1: Launch Local Gateway
 
 ```bash
-# Option A: Install globally via pip
-pip install sentinelgate
+# Option A: Install from source (PyPI package pending v0.5.0 release)
+git clone https://github.com/giridhar2005/sentinelgate.git
+cd sentinelgate
+pip install .
 sentinelgate --port 8000 --demo
 
 # Option B: Run ultra-slim Docker container (<150MB)

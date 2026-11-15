@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import os
 import sqlite3
 from typing import Generator
 
@@ -10,6 +11,9 @@ logger = logging.getLogger("sentinelgate.database")
 
 def init_db(db_path: str = "sentinelgate.db"):
     """Initialize SQLite database with WAL mode and core schemas."""
+    db_dir = os.path.dirname(os.path.abspath(db_path))
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     with sqlite3.connect(db_path, timeout=30.0, check_same_thread=False) as conn:
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA synchronous=NORMAL;")
@@ -159,6 +163,9 @@ def init_db(db_path: str = "sentinelgate.db"):
 @contextlib.contextmanager
 def get_db(db_path: str = "sentinelgate.db") -> Generator[sqlite3.Connection, None, None]:
     """Yield a connection with WAL mode enabled and Row factory."""
+    db_dir = os.path.dirname(os.path.abspath(db_path))
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(db_path, timeout=30.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     try:

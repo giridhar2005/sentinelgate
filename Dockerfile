@@ -63,7 +63,8 @@ ENV DEMO_MODE="true"
 # Copy application source code and fallback dashboard
 COPY --chown=sentinel:sentinel app /app/app
 COPY --chown=sentinel:sentinel sentinelgate /app/sentinelgate
-COPY --chown=sentinel:sentinel main.py dashboard.html config.yaml /app/
+COPY --chown=sentinel:sentinel main.py dashboard.html config.example.yaml /app/
+RUN cp /app/config.example.yaml /app/config.yaml
 
 USER sentinel
 
