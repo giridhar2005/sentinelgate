@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.agent_guard import AgentToolGuard
+from sentinelgate.services.agent_guard import AgentToolGuard
 
 CORPUS_DIR = Path(__file__).parent / "corpus"
 
@@ -106,19 +106,18 @@ def test_firewall_policy_allowlists():
     # 2. SQL table allowlist
     temp_query = "SELECT * FROM temp_scratch;"
     assert AgentToolGuard.inspect_sql(temp_query, allowed_tables=["temp_"])[0] is True
-    assert AgentToolGuard.inspect_sql("SELECT * FROM secret_vault;", allowed_tables=["temp_"])[0] is False
+    assert (
+        AgentToolGuard.inspect_sql("SELECT * FROM secret_vault;", allowed_tables=["temp_"])[0]
+        is False
+    )
 
     # 3. Domain allowlist
     github_url = "https://api.github.com/repos"
-    assert (
-        AgentToolGuard.inspect_url(github_url, allowed_domains=["api.github.com"])[0]
-        is True
-    )
+    assert AgentToolGuard.inspect_url(github_url, allowed_domains=["api.github.com"])[0] is True
 
     unauthorized_url = "https://evil.example.com/api"
     assert (
-        AgentToolGuard.inspect_url(unauthorized_url, allowed_domains=["api.github.com"])[0]
-        is False
+        AgentToolGuard.inspect_url(unauthorized_url, allowed_domains=["api.github.com"])[0] is False
     )
 
 

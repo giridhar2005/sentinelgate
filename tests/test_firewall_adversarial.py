@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from app.routers.mcp import validate_mcp_target
-from app.services.agent_guard import AgentToolGuard
+from sentinelgate.routers.mcp import validate_mcp_target
+from sentinelgate.services.agent_guard import AgentToolGuard
 
 
 def test_adversarial_shell_base64_decode_pipe():

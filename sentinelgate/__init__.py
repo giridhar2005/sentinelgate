@@ -1,16 +1,8 @@
+"""SentinelGate: Zero-Bloat, Production-Grade OpenAI-Compatible LLM Gateway."""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from sentinelgate.main import app, create_app
 
-if TYPE_CHECKING:
-    from app.main import app, create_app
-
-__all__ = ["app", "create_app"]
-
-
-def __getattr__(name: str):
-    if name in ("app", "create_app"):
-        from app.main import app, create_app
-
-        return app if name == "app" else create_app
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+__version__ = "0.1.0"
+__all__ = ["app", "create_app", "__version__"]

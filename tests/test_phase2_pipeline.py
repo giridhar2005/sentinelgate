@@ -12,9 +12,9 @@ import respx
 import yaml
 from starlette.testclient import TestClient
 
-from app.main import create_app
-from app.services.cache import SemanticCache
-from app.services.router import ProviderRouter
+from sentinelgate.main import create_app
+from sentinelgate.services.cache import SemanticCache
+from sentinelgate.services.router import ProviderRouter
 
 
 @pytest.fixture
@@ -110,6 +110,7 @@ def pipeline_app():
 #    {openai, anthropic} x {stream, non-stream} x {safe, malicious}
 # =============================================================================
 
+
 @pytest.mark.parametrize("is_malicious", [False, True])
 @respx.mock
 def test_tool_firewall_cell1_openai_non_stream(pipeline_app, is_malicious: bool):
@@ -187,17 +188,23 @@ def test_tool_firewall_cell2_openai_stream(pipeline_app, is_malicious: bool):
     client, app = pipeline_app
     app.state.router.client = None
 
-    tool_args_str = json.dumps({"command": "rm -rf /"}) if is_malicious else json.dumps({"command": "git status"})
+    tool_args_str = (
+        json.dumps({"command": "rm -rf /"})
+        if is_malicious
+        else json.dumps({"command": "git status"})
+    )
 
     stream_lines = [
-        f'data: {json.dumps({"id": "chatcmpl-stream-2", "object": "chat.completion.chunk", "created": 1700000000, "model": "gpt-4o-mini", "choices": [{"index": 0, "delta": {"role": "assistant", "tool_calls": [{"index": 0, "id": "call_stream_2", "type": "function", "function": {"name": "execute_bash", "arguments": ""}}]}, "finish_reason": None}]})}\n\n',
-        f'data: {json.dumps({"id": "chatcmpl-stream-2", "object": "chat.completion.chunk", "created": 1700000000, "model": "gpt-4o-mini", "choices": [{"index": 0, "delta": {"tool_calls": [{"index": 0, "function": {"arguments": tool_args_str}}]}, "finish_reason": None}]})}\n\n',
-        f'data: {json.dumps({"id": "chatcmpl-stream-2", "object": "chat.completion.chunk", "created": 1700000000, "model": "gpt-4o-mini", "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]})}\n\n',
-        'data: [DONE]\n\n',
+        f"data: {json.dumps({'id': 'chatcmpl-stream-2', 'object': 'chat.completion.chunk', 'created': 1700000000, 'model': 'gpt-4o-mini', 'choices': [{'index': 0, 'delta': {'role': 'assistant', 'tool_calls': [{'index': 0, 'id': 'call_stream_2', 'type': 'function', 'function': {'name': 'execute_bash', 'arguments': ''}}]}, 'finish_reason': None}]})}\n\n",
+        f"data: {json.dumps({'id': 'chatcmpl-stream-2', 'object': 'chat.completion.chunk', 'created': 1700000000, 'model': 'gpt-4o-mini', 'choices': [{'index': 0, 'delta': {'tool_calls': [{'index': 0, 'function': {'arguments': tool_args_str}}]}, 'finish_reason': None}]})}\n\n",
+        f"data: {json.dumps({'id': 'chatcmpl-stream-2', 'object': 'chat.completion.chunk', 'created': 1700000000, 'model': 'gpt-4o-mini', 'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'tool_calls'}]})}\n\n",
+        "data: [DONE]\n\n",
     ]
 
     respx.post("https://api.openai.com/v1/chat/completions").mock(
-        return_value=httpx.Response(200, text="".join(stream_lines), headers={"content-type": "text/event-stream"})
+        return_value=httpx.Response(
+            200, text="".join(stream_lines), headers={"content-type": "text/event-stream"}
+        )
     )
 
     req_payload = {
@@ -299,19 +306,25 @@ def test_tool_firewall_cell4_anthropic_stream(pipeline_app, is_malicious: bool):
     client, app = pipeline_app
     app.state.router.client = None
 
-    tool_args_str = json.dumps({"command": "rm -rf /"}) if is_malicious else json.dumps({"command": "git status"})
+    tool_args_str = (
+        json.dumps({"command": "rm -rf /"})
+        if is_malicious
+        else json.dumps({"command": "git status"})
+    )
 
     stream_lines = [
-        f'data: {json.dumps({"type": "message_start", "message": {"id": "msg_stream_4", "type": "message", "role": "assistant", "model": "claude-3-5-sonnet-20241022", "content": [], "stop_reason": None, "usage": {"input_tokens": 10, "output_tokens": 0}}})}\n\n',
-        f'data: {json.dumps({"type": "content_block_start", "index": 0, "content_block": {"type": "tool_use", "id": "call_stream_4", "name": "execute_bash", "input": {}}})}\n\n',
-        f'data: {json.dumps({"type": "content_block_delta", "index": 0, "delta": {"type": "input_json_delta", "partial_json": tool_args_str}})}\n\n',
-        f'data: {json.dumps({"type": "content_block_stop", "index": 0})}\n\n',
-        f'data: {json.dumps({"type": "message_delta", "delta": {"stop_reason": "tool_use"}, "usage": {"output_tokens": 15}})}\n\n',
-        'data: [DONE]\n\n',
+        f"data: {json.dumps({'type': 'message_start', 'message': {'id': 'msg_stream_4', 'type': 'message', 'role': 'assistant', 'model': 'claude-3-5-sonnet-20241022', 'content': [], 'stop_reason': None, 'usage': {'input_tokens': 10, 'output_tokens': 0}}})}\n\n",
+        f"data: {json.dumps({'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'tool_use', 'id': 'call_stream_4', 'name': 'execute_bash', 'input': {}}})}\n\n",
+        f"data: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'input_json_delta', 'partial_json': tool_args_str}})}\n\n",
+        f"data: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n",
+        f"data: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': 'tool_use'}, 'usage': {'output_tokens': 15}})}\n\n",
+        "data: [DONE]\n\n",
     ]
 
     respx.post("https://api.anthropic.com/v1/messages").mock(
-        return_value=httpx.Response(200, text="".join(stream_lines), headers={"content-type": "text/event-stream"})
+        return_value=httpx.Response(
+            200, text="".join(stream_lines), headers={"content-type": "text/event-stream"}
+        )
     )
 
     anthropic_payload = {
@@ -350,6 +363,7 @@ def test_tool_firewall_cell4_anthropic_stream(pipeline_app, is_malicious: bool):
 # 2. ACCEPTANCE: TENANT CACHE ISOLATION TEST
 # =============================================================================
 
+
 @respx.mock
 def test_tenant_cache_isolation(pipeline_app):
     """Assert Tenant A cannot read Tenant B's cached response."""
@@ -377,7 +391,13 @@ def test_tenant_cache_isolation(pipeline_app):
         "object": "chat.completion",
         "created": 1700000000,
         "model": "gpt-4o-mini",
-        "choices": [{"index": 0, "message": {"role": "assistant", "content": "Raft response for Tenant A"}, "finish_reason": "stop"}],
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Raft response for Tenant A"},
+                "finish_reason": "stop",
+            }
+        ],
         "usage": {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18},
     }
     # Upstream returns distinct response for Tenant B
@@ -386,7 +406,13 @@ def test_tenant_cache_isolation(pipeline_app):
         "object": "chat.completion",
         "created": 1700000000,
         "model": "gpt-4o-mini",
-        "choices": [{"index": 0, "message": {"role": "assistant", "content": "Raft response for Tenant B"}, "finish_reason": "stop"}],
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Raft response for Tenant B"},
+                "finish_reason": "stop",
+            }
+        ],
         "usage": {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18},
     }
 
@@ -397,25 +423,33 @@ def test_tenant_cache_isolation(pipeline_app):
     ]
 
     # Tenant A request 1 -> Cache MISS, calls upstream
-    r1_a = client.post("/v1/chat/completions", headers={"Authorization": f"Bearer {vk_a}"}, json=req_body)
+    r1_a = client.post(
+        "/v1/chat/completions", headers={"Authorization": f"Bearer {vk_a}"}, json=req_body
+    )
     assert r1_a.status_code == 200
     assert r1_a.headers["X-Cache"] == "MISS"
     assert r1_a.json()["choices"][0]["message"]["content"] == "Raft response for Tenant A"
 
     # Tenant B request 1 with EXACT SAME PROMPT -> Must be Cache MISS (Tenant A cache entry isolated)
-    r1_b = client.post("/v1/chat/completions", headers={"Authorization": f"Bearer {vk_b}"}, json=req_body)
+    r1_b = client.post(
+        "/v1/chat/completions", headers={"Authorization": f"Bearer {vk_b}"}, json=req_body
+    )
     assert r1_b.status_code == 200
     assert r1_b.headers["X-Cache"] == "MISS"
     assert r1_b.json()["choices"][0]["message"]["content"] == "Raft response for Tenant B"
 
     # Tenant A request 2 -> Cache HIT with Tenant A's cached response
-    r2_a = client.post("/v1/chat/completions", headers={"Authorization": f"Bearer {vk_a}"}, json=req_body)
+    r2_a = client.post(
+        "/v1/chat/completions", headers={"Authorization": f"Bearer {vk_a}"}, json=req_body
+    )
     assert r2_a.status_code == 200
     assert r2_a.headers["X-Cache"] == "HIT"
     assert r2_a.json()["choices"][0]["message"]["content"] == "Raft response for Tenant A"
 
     # Tenant B request 2 -> Cache HIT with Tenant B's cached response
-    r2_b = client.post("/v1/chat/completions", headers={"Authorization": f"Bearer {vk_b}"}, json=req_body)
+    r2_b = client.post(
+        "/v1/chat/completions", headers={"Authorization": f"Bearer {vk_b}"}, json=req_body
+    )
     assert r2_b.status_code == 200
     assert r2_b.headers["X-Cache"] == "HIT"
     assert r2_b.json()["choices"][0]["message"]["content"] == "Raft response for Tenant B"
@@ -424,6 +458,7 @@ def test_tenant_cache_isolation(pipeline_app):
 # =============================================================================
 # 3. ACCEPTANCE: RESPONSES WITH TOOL CALLS NEVER CACHED
 # =============================================================================
+
 
 @respx.mock
 def test_tool_call_responses_never_cached(pipeline_app):
@@ -446,7 +481,10 @@ def test_tool_call_responses_never_cached(pipeline_app):
                         {
                             "id": "call_stat_1",
                             "type": "function",
-                            "function": {"name": "read_file", "arguments": json.dumps({"path": "file.txt"})},
+                            "function": {
+                                "name": "read_file",
+                                "arguments": json.dumps({"path": "file.txt"}),
+                            },
                         }
                     ],
                 },
@@ -483,9 +521,10 @@ def test_tool_call_responses_never_cached(pipeline_app):
 # 4. ACCEPTANCE: EMBEDDING FALLBACK & HEALTH STATUS
 # =============================================================================
 
+
 def test_cache_degrades_gracefully_to_exact_match(tmp_path):
     """If FastEmbed/ONNX fails to initialize, degrade cleanly to exact-match only."""
-    from app.core.database import init_db
+    from sentinelgate.core.database import init_db
 
     db_file = str(tmp_path / "cache_offline.db")
     init_db(db_file)
@@ -497,7 +536,9 @@ def test_cache_degrades_gracefully_to_exact_match(tmp_path):
 
         # Storing and exact lookup still works
         messages = [{"role": "user", "content": "What is SQLite WAL?"}]
-        response = {"choices": [{"message": {"role": "assistant", "content": "Write-Ahead Logging"}}]}
+        response = {
+            "choices": [{"message": {"role": "assistant", "content": "Write-Ahead Logging"}}]
+        }
 
         cache.store(messages=messages, model="gpt-4o-mini", response=response)
 
@@ -526,6 +567,7 @@ def test_health_endpoint_exposes_model_status(pipeline_app):
 # =============================================================================
 # 5. ACCEPTANCE: SPECULATIVE HEDGING CANCELS LOSER TASK
 # =============================================================================
+
 
 @pytest.mark.asyncio
 async def test_speculative_hedging_cancels_loser_task():
@@ -570,7 +612,10 @@ async def test_speculative_hedging_cancels_loser_task():
             return_value=("openai", "gpt-4o-mini", ["groq/llama-3.1-8b-instant"]),
         ):
             res, prov, mod, meta = await router.execute_hedged_request(
-                request_data={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "hedge test"}]},
+                request_data={
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": "hedge test"}],
+                },
                 hedge_delay_sec=0.01,
             )
 

@@ -9,20 +9,20 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from app.core.config import AppConfig, load_config
-from app.core.database import init_db
-from app.core.security import (
+from sentinelgate.core.config import AppConfig, load_config
+from sentinelgate.core.database import init_db
+from sentinelgate.core.security import (
     LogSanitizationFilter,
     RequestBodyLimitMiddleware,
     verify_auth,
 )
-from app.routers import dashboard, health, mcp, metrics, v1
-from app.services.budget import BudgetManager, VirtualKeyManager
-from app.services.cache import SemanticCache
-from app.services.discovery import ProviderDiscovery, print_startup_banner
-from app.services.evals import EvalsManager
-from app.services.gateway_pipeline import GatewayPipeline
-from app.services.router import ProviderRouter
+from sentinelgate.routers import dashboard, health, mcp, metrics, v1
+from sentinelgate.services.budget import BudgetManager, VirtualKeyManager
+from sentinelgate.services.cache import SemanticCache
+from sentinelgate.services.discovery import ProviderDiscovery, print_startup_banner
+from sentinelgate.services.evals import EvalsManager
+from sentinelgate.services.gateway_pipeline import GatewayPipeline
+from sentinelgate.services.router import ProviderRouter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("sentinelgate")

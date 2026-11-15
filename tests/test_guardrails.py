@@ -5,7 +5,7 @@ import json
 import httpx
 import respx
 
-from app.services.guardrails import ContextCompactor, PromptOptimizer
+from sentinelgate.services.guardrails import ContextCompactor, PromptOptimizer
 
 
 def test_secret_blocking_openai_key(test_app):

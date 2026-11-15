@@ -1,3 +1,14 @@
-"""SentinelGate: Zero-Bloat, Enterprise OpenAI-Compatible LLM Gateway."""
+"""Backwards-compatibility shim redirecting legacy app.* imports to sentinelgate.*"""
 
-__version__ = "0.3.0"
+from __future__ import annotations
+
+import sys
+import sentinelgate
+from sentinelgate.main import app, create_app
+
+__all__ = ["app", "create_app"]
+
+sys.modules["app.core"] = sentinelgate.core
+sys.modules["app.routers"] = sentinelgate.routers
+sys.modules["app.services"] = sentinelgate.services
+sys.modules["app.main"] = sentinelgate.main

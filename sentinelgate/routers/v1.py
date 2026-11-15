@@ -10,9 +10,9 @@ from fastapi import APIRouter, BackgroundTasks, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app.core.security import make_openai_error
-from app.core.telemetry_otlp import OTLPExporter
-from app.services.gateway_pipeline import GatewayPipeline
+from sentinelgate.core.security import make_openai_error
+from sentinelgate.core.telemetry_otlp import OTLPExporter
+from sentinelgate.services.gateway_pipeline import GatewayPipeline
 
 logger = logging.getLogger("sentinelgate.v1")
 

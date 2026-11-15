@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from app.services.telemetry_queue import AsyncTelemetryPipeline
+from sentinelgate.services.telemetry_queue import AsyncTelemetryPipeline
 
 logger = logging.getLogger("sentinelgate.evals")
 

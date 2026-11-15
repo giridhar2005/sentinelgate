@@ -33,7 +33,7 @@ def main():
         os.environ["DEMO_MODE"] = "true"
 
     uvicorn.run(
-        "app.main:app",
+        "sentinelgate.main:app",
         host=args.host,
         port=args.port,
         workers=args.workers,

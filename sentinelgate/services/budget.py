@@ -48,7 +48,7 @@ class BudgetManager:
             )
 
 
-from app.core.security import hash_virtual_key
+from sentinelgate.core.security import hash_virtual_key
 
 
 class VirtualKeyManager:

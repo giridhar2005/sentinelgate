@@ -37,7 +37,7 @@ ENV FASTEMBED_CACHE_PATH="/app/.cache/fastembed"
 RUN /app/.venv/bin/python -c "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5', cache_dir='/app/.cache/fastembed')"
 
 # ==========================================
-# Stage 3: Minimal Production Runtime (<180MB)
+# Stage 3: Production Runtime (~250MB with embedded ONNX model)
 # ==========================================
 FROM python:3.11-slim AS runner
 
@@ -58,12 +58,11 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 ENV FASTEMBED_CACHE_PATH="/app/.cache/fastembed"
 ENV SENTINELGATE_DB="/app/data/sentinelgate.db"
-ENV DEMO_MODE="true"
 
 # Copy application source code and fallback dashboard
-COPY --chown=sentinel:sentinel app /app/app
 COPY --chown=sentinel:sentinel sentinelgate /app/sentinelgate
-COPY --chown=sentinel:sentinel main.py dashboard.html config.example.yaml /app/
+COPY --chown=sentinel:sentinel app /app/app
+COPY --chown=sentinel:sentinel main.py config.example.yaml /app/
 RUN cp /app/config.example.yaml /app/config.yaml
 
 USER sentinel
@@ -77,4 +76,4 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
   CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 # Production server entrypoint
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "sentinelgate.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

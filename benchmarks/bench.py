@@ -24,7 +24,7 @@ import numpy as np
 import respx
 from starlette.testclient import TestClient
 
-from app.main import create_app
+from sentinelgate.main import create_app
 
 
 def get_process_rss_mb() -> float:

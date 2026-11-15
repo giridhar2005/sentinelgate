@@ -256,7 +256,11 @@ class SemanticCache:
             temperature=temperature,
         )
 
-        vec = self._get_embedding(prompt_str) if self.is_semantic_enabled else np.zeros(384, dtype=np.float32)
+        vec = (
+            self._get_embedding(prompt_str)
+            if self.is_semantic_enabled
+            else np.zeros(384, dtype=np.float32)
+        )
         now = time.time()
         ttl = ttl_seconds if ttl_seconds is not None else self.default_ttl
         expires_at = now + ttl

@@ -4,7 +4,10 @@ import json
 
 import pytest
 
-from app.services.streaming_redactor import SlidingWindowStreamRedactor, sse_sliding_window_redactor
+from sentinelgate.services.streaming_redactor import (
+    SlidingWindowStreamRedactor,
+    sse_sliding_window_redactor,
+)
 
 
 def test_sliding_window_stream_redactor_unit_single_char_splits():

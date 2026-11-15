@@ -4,8 +4,8 @@ import json
 
 from starlette.testclient import TestClient
 
-from app.main import create_app
-from app.services.agent_guard import AgentToolGuard
+from sentinelgate.main import create_app
+from sentinelgate.services.agent_guard import AgentToolGuard
 
 
 def test_agent_tool_guard_unit_shell_attacks():
@@ -173,7 +173,7 @@ def test_mcp_proxy_firewall_allows_safe_tool(tmp_path):
 
 def test_validate_mcp_target_ssrf_mitigation():
     """Verify validate_mcp_target intercepts all SSRF, metadata, and private IP targets."""
-    from app.routers.mcp import validate_mcp_target
+    from sentinelgate.routers.mcp import validate_mcp_target
 
     # Metadata & loopback rejection
     assert validate_mcp_target("http://169.254.169.254/latest/meta-data")[0] is False

@@ -13,7 +13,7 @@ import json
 import logging
 from typing import AsyncGenerator, Dict, Optional
 
-from app.services.guardrails import SECRET_PATTERNS
+from sentinelgate.services.guardrails import SECRET_PATTERNS
 
 logger = logging.getLogger("sentinelgate.streaming_redactor")
 

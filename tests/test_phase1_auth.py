@@ -10,9 +10,9 @@ import pytest
 import respx
 from starlette.testclient import TestClient
 
-from app.core.config import AppConfig
-from app.core.security import LogSanitizationFilter, reset_ip_failures
-from app.main import check_demo_mode_constraints, create_app
+from sentinelgate.core.config import AppConfig
+from sentinelgate.core.security import LogSanitizationFilter, reset_ip_failures
+from sentinelgate.main import check_demo_mode_constraints, create_app
 
 
 @pytest.fixture(autouse=True)

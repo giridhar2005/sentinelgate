@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-from app.services.agent_guard import AgentToolGuard
+from sentinelgate.services.agent_guard import AgentToolGuard
 
 CORPUS_DIR = Path(__file__).parent.parent / "tests" / "corpus"
 CORPUS_DIR.mkdir(parents=True, exist_ok=True)
@@ -25,13 +25,15 @@ def build_malicious_corpus() -> List[Dict[str, Any]]:
     samples: List[Dict[str, Any]] = []
 
     def add(item_id: str, cat: str, tool: str, args: Any, desc: str):
-        samples.append({
-            "id": item_id,
-            "category": cat,
-            "tool": tool,
-            "arguments": args,
-            "description": desc,
-        })
+        samples.append(
+            {
+                "id": item_id,
+                "category": cat,
+                "tool": tool,
+                "arguments": args,
+                "description": desc,
+            }
+        )
 
     # 1. Destructive Shell: RM variants (critical paths, flags, $IFS, chaining)
     rm_targets = [
@@ -319,13 +321,15 @@ def build_benign_corpus() -> List[Dict[str, Any]]:
     samples: List[Dict[str, Any]] = []
 
     def add(item_id: str, cat: str, tool: str, args: Any, desc: str):
-        samples.append({
-            "id": item_id,
-            "category": cat,
-            "tool": tool,
-            "arguments": args,
-            "description": desc,
-        })
+        samples.append(
+            {
+                "id": item_id,
+                "category": cat,
+                "tool": tool,
+                "arguments": args,
+                "description": desc,
+            }
+        )
 
     idx = 1
     # 1. Real developer git commands
@@ -587,22 +591,60 @@ def build_benign_corpus() -> List[Dict[str, Any]]:
         "cat /proc/cpuinfo | grep 'model name' | head -n 1",
         "curl -sI https://httpbin.org/status/200",
         "curl -s https://api.github.com/zen",
-        "curl -X POST https://httpbin.org/post -d '{\"status\": \"ok\"}'",
-        "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+        'curl -X POST https://httpbin.org/post -d \'{"status": "ok"}\'',
+        'date -u +"%Y-%m-%dT%H:%M:%SZ"',
         "tree -L 2 src/",
     ]
     for dc in diag_cmds:
-        add(f"ben-diag-{idx:03d}", "dev_diag", "terminal", {"command": dc}, f"Diagnostics CLI: {dc}")
+        add(
+            f"ben-diag-{idx:03d}", "dev_diag", "terminal", {"command": dc}, f"Diagnostics CLI: {dc}"
+        )
         idx += 1
 
     # 11. Additional safe developer file writes
     more_writes = [
-        ("write_file", {"path": "Dockerfile", "content": "FROM python:3.11-slim\nWORKDIR /app\nCOPY . .\nCMD [\"uvicorn\", \"app.main:app\"]"}, "Dockerfile write"),
-        ("write_file", {"path": ".github/workflows/test.yml", "content": "name: CI\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n"}, "GitHub Actions workflow"),
-        ("create_file", {"path": "tests/test_health.py", "content": "def test_health():\n    assert 200 == 200\n"}, "Test file create"),
-        ("edit_file", {"path": "pyproject.toml", "content": "[tool.ruff]\nline-length = 100\n"}, "Ruff config update"),
-        ("write_file", {"path": "docs/architecture.md", "content": "# Architecture\nSentinelGate processes requests in <0.5ms.\n"}, "Architecture documentation"),
-        ("write_file", {"path": "Makefile", "content": "test:\n\tpytest -v\n\nlint:\n\truff check .\n"}, "Makefile write"),
+        (
+            "write_file",
+            {
+                "path": "Dockerfile",
+                "content": 'FROM python:3.11-slim\nWORKDIR /app\nCOPY . .\nCMD ["uvicorn", "sentinelgate.main:app"]',
+            },
+            "Dockerfile write",
+        ),
+        (
+            "write_file",
+            {
+                "path": ".github/workflows/test.yml",
+                "content": "name: CI\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n",
+            },
+            "GitHub Actions workflow",
+        ),
+        (
+            "create_file",
+            {
+                "path": "tests/test_health.py",
+                "content": "def test_health():\n    assert 200 == 200\n",
+            },
+            "Test file create",
+        ),
+        (
+            "edit_file",
+            {"path": "pyproject.toml", "content": "[tool.ruff]\nline-length = 100\n"},
+            "Ruff config update",
+        ),
+        (
+            "write_file",
+            {
+                "path": "docs/architecture.md",
+                "content": "# Architecture\nSentinelGate processes requests in <0.5ms.\n",
+            },
+            "Architecture documentation",
+        ),
+        (
+            "write_file",
+            {"path": "Makefile", "content": "test:\n\tpytest -v\n\nlint:\n\truff check .\n"},
+            "Makefile write",
+        ),
     ]
     for tool_name, args, desc in more_writes:
         add(f"ben-write2-{idx:03d}", "dev_write_more", tool_name, args, desc)
@@ -662,9 +704,9 @@ def main():
     print(f"  False Negatives (FN):{fn}")
     print(f"  False Positives (FP):{fp}")
     print(f"  True Negatives (TN): {tn}")
-    print(f"  Recall:              {recall:.4f} ({recall*100:.2f}%) [Gate: >= 90%]")
-    print(f"  Precision:           {precision:.4f} ({precision*100:.2f}%)")
-    print(f"  False Positive Rate: {fpr:.4f} ({fpr*100:.2f}%) [Gate: <= 2%]")
+    print(f"  Recall:              {recall:.4f} ({recall * 100:.2f}%) [Gate: >= 90%]")
+    print(f"  Precision:           {precision:.4f} ({precision * 100:.2f}%)")
+    print(f"  False Positive Rate: {fpr:.4f} ({fpr * 100:.2f}%) [Gate: <= 2%]")
     print("=" * 60)
 
     assert total_mal >= 150, f"Expected >= 150 malicious, got {total_mal}"

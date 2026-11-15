@@ -7,7 +7,7 @@ import pytest
 import yaml
 from starlette.testclient import TestClient
 
-from app.main import create_app
+from sentinelgate.main import create_app
 
 
 @pytest.fixture

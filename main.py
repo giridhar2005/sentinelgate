@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uvicorn
 
-from app.main import app, create_app
+from sentinelgate.main import app, create_app
 
 # Export state instances for backwards compatibility
 router = app.state.router

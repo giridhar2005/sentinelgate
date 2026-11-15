@@ -19,7 +19,7 @@ from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.services.agent_guard import AgentToolGuard
+from sentinelgate.services.agent_guard import AgentToolGuard
 
 logger = logging.getLogger("sentinelgate.mcp")
 

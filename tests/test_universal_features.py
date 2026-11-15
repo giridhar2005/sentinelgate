@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.discovery import ProviderDiscovery, format_startup_banner
-from app.services.guardrails import SecretRedactor
+from sentinelgate.services.discovery import ProviderDiscovery, format_startup_banner
+from sentinelgate.services.guardrails import SecretRedactor
 
 
 def test_secret_redactor_unit():

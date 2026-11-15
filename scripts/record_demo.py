@@ -111,7 +111,7 @@ def record_walkthrough():
             str(ROOT / ".venv" / "bin" / "python"),
             "-m",
             "uvicorn",
-            "app.main:app",
+            "sentinelgate.main:app",
             "--host",
             "127.0.0.1",
             "--port",

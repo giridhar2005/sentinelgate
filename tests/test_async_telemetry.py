@@ -6,8 +6,8 @@ import time
 
 import pytest
 
-from app.core.database import init_db
-from app.services.telemetry_queue import AsyncTelemetryPipeline
+from sentinelgate.core.database import init_db
+from sentinelgate.services.telemetry_queue import AsyncTelemetryPipeline
 
 
 @pytest.mark.asyncio

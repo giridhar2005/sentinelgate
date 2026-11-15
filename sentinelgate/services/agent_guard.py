@@ -201,9 +201,7 @@ class AgentToolGuard:
         )
         if var_assignments:
             for v_name, v_val in var_assignments.items():
-                norm_cmd = re.sub(
-                    rf"\$(?:{v_name}\b|\{{{v_name}\}})", v_val, norm_cmd
-                )
+                norm_cmd = re.sub(rf"\$(?:{v_name}\b|\{{{v_name}\}})", v_val, norm_cmd)
 
         # B. Check for classic fork bombs
         if re.search(r":\(\)\s*\{\s*:\|:&\s*\};:", norm_cmd) or re.search(
@@ -488,9 +486,7 @@ class AgentToolGuard:
             expressions = []
 
         # Check policy allowlist tables
-        tables_allowlist = (
-            allowed_tables if allowed_tables is not None else cls.allowed_sql_tables
-        )
+        tables_allowlist = allowed_tables if allowed_tables is not None else cls.allowed_sql_tables
         if tables_allowlist and expressions:
             for expr in expressions:
                 if expr is not None:

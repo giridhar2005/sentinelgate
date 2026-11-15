@@ -32,11 +32,14 @@ class ReplayRequest(BaseModel):
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def serve_dashboard():
+    pkg_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     candidates = [
+        os.path.join(pkg_dir, "templates", "dashboard.html"),
         "frontend/dist/index.html",
         "/app/frontend/dist/index.html",
         "dashboard.html",
         "app/templates/dashboard.html",
+        "sentinelgate/templates/dashboard.html",
     ]
     for path in candidates:
         if os.path.exists(path):
@@ -423,6 +426,6 @@ async def get_guardrail_audit_logs(request: Request, limit: int = 50):
 @router.get("/api/traces/otel")
 async def get_otel_spans(limit: int = 50):
     """Return recent OpenTelemetry spans from the in-memory ring buffer."""
-    from app.routers.v1 import otlp_exporter
+    from sentinelgate.routers.v1 import otlp_exporter
 
     return JSONResponse(content={"spans": otlp_exporter.get_recent_spans(limit=limit)})

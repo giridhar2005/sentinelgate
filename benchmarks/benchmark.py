@@ -15,7 +15,7 @@ import httpx
 import respx
 from starlette.testclient import TestClient
 
-from app.main import create_app
+from sentinelgate.main import create_app
 
 
 def get_memory_rss_mb() -> float:

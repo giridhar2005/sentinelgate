@@ -4,8 +4,8 @@ import re
 
 from starlette.testclient import TestClient
 
-from app.core.telemetry_otlp import OTLPSpan, TraceContext
-from app.main import create_app
+from sentinelgate.core.telemetry_otlp import OTLPSpan, TraceContext
+from sentinelgate.main import create_app
 
 
 def test_w3c_traceparent_parsing_and_child_derivation():

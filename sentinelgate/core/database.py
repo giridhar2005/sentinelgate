@@ -25,7 +25,11 @@ def init_db(db_path: str = "sentinelgate.db"):
         # Schema migration check: ensure semantic_cache has multi-tenant fields
         cursor.execute("PRAGMA table_info(semantic_cache);")
         cache_cols = {row[1] for row in cursor.fetchall()}
-        if cache_cols and ("tenant_id" not in cache_cols or "system_hash" not in cache_cols or "prompt_hash" not in cache_cols):
+        if cache_cols and (
+            "tenant_id" not in cache_cols
+            or "system_hash" not in cache_cols
+            or "prompt_hash" not in cache_cols
+        ):
             logger.warning("Migrating legacy semantic_cache schema to multi-tenant...")
             conn.execute("DROP TABLE semantic_cache;")
 
@@ -48,7 +52,9 @@ def init_db(db_path: str = "sentinelgate.db"):
                 expires_at REAL NOT NULL
             );
         """)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_cache_tenant_lookup ON semantic_cache(tenant_id, model, prompt_hash);")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cache_tenant_lookup ON semantic_cache(tenant_id, model, prompt_hash);"
+        )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_cache_expires ON semantic_cache(expires_at);")
 
         # 2. Telemetry Request Metrics Table

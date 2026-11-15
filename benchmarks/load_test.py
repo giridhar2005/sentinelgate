@@ -24,10 +24,10 @@ import numpy as np
 # Add repository root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.core.database import init_db
-from app.services.budget import VirtualKeyManager
-from app.services.cache import SemanticCache
-from app.services.router import ProviderRouter
+from sentinelgate.core.database import init_db
+from sentinelgate.services.budget import VirtualKeyManager
+from sentinelgate.services.cache import SemanticCache
+from sentinelgate.services.router import ProviderRouter
 
 
 def get_rss_mb() -> float:

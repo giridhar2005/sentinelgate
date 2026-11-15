@@ -13,8 +13,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import httpx
 import yaml
 
-from app.core.circuit import ProviderCircuitBreaker
-from app.core.config import AppConfig, expand_env_vars
+from sentinelgate.core.circuit import ProviderCircuitBreaker
+from sentinelgate.core.config import AppConfig, expand_env_vars
 
 logger = logging.getLogger("sentinelgate.router")
 

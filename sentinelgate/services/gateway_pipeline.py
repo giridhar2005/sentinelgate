@@ -9,22 +9,22 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, cast
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.core.config import AppConfig
-from app.core.security import make_openai_error
-from app.core.telemetry_otlp import OTLPExporter, TraceContext
-from app.services.agent_guard import AgentToolGuard
-from app.services.budget import BudgetManager, VirtualKeyManager
-from app.services.cache import SemanticCache
-from app.services.evals import EvalsManager
-from app.services.guardrails import (
+from sentinelgate.core.config import AppConfig
+from sentinelgate.core.security import make_openai_error
+from sentinelgate.core.telemetry_otlp import OTLPExporter, TraceContext
+from sentinelgate.services.agent_guard import AgentToolGuard
+from sentinelgate.services.budget import BudgetManager, VirtualKeyManager
+from sentinelgate.services.cache import SemanticCache
+from sentinelgate.services.evals import EvalsManager
+from sentinelgate.services.guardrails import (
     ContextCompactor,
     PIIGuardrail,
     PromptOptimizer,
     SecretRedactor,
     SecurityInspector,
 )
-from app.services.router import ProviderRouter
-from app.services.streaming_redactor import SlidingWindowStreamRedactor
+from sentinelgate.services.router import ProviderRouter
+from sentinelgate.services.streaming_redactor import SlidingWindowStreamRedactor
 
 logger = logging.getLogger("sentinelgate.pipeline")
 
@@ -144,7 +144,9 @@ class GatewayPipeline:
             if not is_secrets_safe:
                 lat_ms = (time.perf_counter() - t_perf_start) * 1000.0
                 if self.evals:
-                    self.evals.log_guardrail_event(req_id, "SECRET_LEAK", secret_threat or "", blocked=True)
+                    self.evals.log_guardrail_event(
+                        req_id, "SECRET_LEAK", secret_threat or "", blocked=True
+                    )
                 if protocol == "anthropic":
                     return JSONResponse(
                         status_code=400,
@@ -177,7 +179,9 @@ class GatewayPipeline:
         if not is_inj_safe:
             lat_ms = (time.perf_counter() - t_perf_start) * 1000.0
             if self.evals:
-                self.evals.log_guardrail_event(req_id, "PROMPT_INJECTION", inj_threat or "", blocked=True)
+                self.evals.log_guardrail_event(
+                    req_id, "PROMPT_INJECTION", inj_threat or "", blocked=True
+                )
             if protocol == "anthropic":
                 return JSONResponse(
                     status_code=400,
@@ -261,7 +265,9 @@ class GatewayPipeline:
                     )
 
                 if protocol == "anthropic":
-                    anthropic_json = self._to_anthropic_response(resp_payload, req_id, model, user_prompt)
+                    anthropic_json = self._to_anthropic_response(
+                        resp_payload, req_id, model, user_prompt
+                    )
                     return JSONResponse(status_code=200, content=anthropic_json, headers=hdrs)
 
                 return JSONResponse(status_code=200, content=resp_payload, headers=hdrs)
@@ -313,7 +319,9 @@ class GatewayPipeline:
 
         hedge_header = request.headers.get("X-Speculative-Hedge", "").lower() in ("true", "1")
         hedge_body = bool(extra_payload.get("hedge", False)) if extra_payload else False
-        enable_hedging = (hedge_header or hedging_requested or hedge_body) and not stream and not tools
+        enable_hedging = (
+            (hedge_header or hedging_requested or hedge_body) and not stream and not tools
+        )
 
         tool_blocked = False
         tool_detail: Optional[str] = None
@@ -410,9 +418,7 @@ class GatewayPipeline:
         if hedge_meta:
             headers["X-Hedged-Request"] = "true"
             headers["X-Hedge-Winner"] = str(hedge_meta.get("winner", "primary"))
-            headers["X-Hedge-Triggered"] = (
-                "true" if hedge_meta.get("hedged_triggered") else "false"
-            )
+            headers["X-Hedge-Triggered"] = "true" if hedge_meta.get("hedged_triggered") else "false"
 
         cost_usd = self.router.get_model_cost(chosen_p, chosen_m, in_tok, out_tok)
         self.budget.record_spend(cost_usd)
@@ -670,6 +676,7 @@ class GatewayPipeline:
                 yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
 
         if protocol == "anthropic":
+
             async def anthropic_outer():
                 yield f"event: message_start\ndata: {json.dumps({'type': 'message_start', 'message': {'id': req_id, 'type': 'message', 'role': 'assistant', 'model': chosen_m, 'content': [], 'stop_reason': None, 'stop_sequence': None, 'usage': {'input_tokens': max(1, len(user_prompt) // 4), 'output_tokens': 0, 'cache_creation_input_tokens': 0, 'cache_read_input_tokens': 0}}})}\n\n"
                 yield f"event: ping\ndata: {json.dumps({'type': 'ping'})}\n\n"

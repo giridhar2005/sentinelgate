@@ -10,7 +10,7 @@ from __future__ import annotations
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from app.services.streaming_redactor import SlidingWindowStreamRedactor
+from sentinelgate.services.streaming_redactor import SlidingWindowStreamRedactor
 
 SAMPLE_SECRETS = [
     "sk-proj-abc1234567890abcdefghijklmnopqrstuvwxyz",
@@ -54,7 +54,16 @@ def text_with_secret_and_chunks(draw) -> tuple[str, list[str], str]:
         return full_text, [""], secret
 
     num_cuts = draw(st.integers(min_value=1, max_value=min(20, text_len)))
-    cut_points = sorted(draw(st.lists(st.integers(min_value=1, max_value=text_len - 1), min_size=num_cuts, max_size=num_cuts, unique=True)))
+    cut_points = sorted(
+        draw(
+            st.lists(
+                st.integers(min_value=1, max_value=text_len - 1),
+                min_size=num_cuts,
+                max_size=num_cuts,
+                unique=True,
+            )
+        )
+    )
 
     chunks = []
     prev = 0
