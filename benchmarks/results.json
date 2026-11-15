@@ -1,0 +1,33 @@
+{
+  "timestamp_utc": "2026-11-15 16:50 UTC",
+  "runner": {
+    "os": "Darwin",
+    "release": "27.2.0",
+    "arch": "arm64",
+    "python": "3.9.6",
+    "is_ci": false,
+    "description": "Local System (Darwin arm64)"
+  },
+  "config": {
+    "total_requests": 100,
+    "concurrency": 1,
+    "protocol": "In-process TestClient (no network hops)",
+    "model": "gpt-4o-mini",
+    "embedding_model": "BAAI/bge-small-en-v1.5 (CPU ONNX)"
+  },
+  "metrics": {
+    "cache_hits": 91,
+    "total_requests": 100,
+    "cache_hit_rate_pct": 91.0,
+    "min_overhead_ms": 3.28,
+    "avg_cached_latency_ms": 6.51,
+    "avg_uncached_latency_ms": 64.85,
+    "p50_ms": 4.82,
+    "p95_ms": 55.94,
+    "p99_ms": 87.58,
+    "wall_time_sec": 1.177,
+    "in_process_throughput_req_per_sec": 85.0,
+    "idle_ram_mb": 232.1,
+    "active_ram_mb": 446.5
+  }
+}

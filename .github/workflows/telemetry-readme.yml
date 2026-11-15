@@ -45,6 +45,12 @@ jobs:
       - name: Execute Full Test Verification (63 Tests)
         run: uv run pytest -v
 
+      - name: Run Reproducible Gateway Benchmark
+        run: uv run python benchmarks/bench.py --output benchmarks/results.json
+
+      - name: Run Speculative Hedging Simulation Benchmark
+        run: uv run python benchmarks/bench_hedging.py --output benchmarks/hedging_results.json
+
       - name: Run Telemetry README Sync Script
         run: uv run python scripts/update_readme_benchmarks.py
 
@@ -52,8 +58,8 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          if [[ -n $(git status --porcelain README.md) ]]; then
-            git add README.md
+          if [[ -n $(git status --porcelain README.md benchmarks/results.json benchmarks/hedging_results.json) ]]; then
+            git add README.md benchmarks/results.json benchmarks/hedging_results.json
             git commit -m "ci(telemetry): update live CI benchmark telemetry [skip ci]"
             git push origin main
           else

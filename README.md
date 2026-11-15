@@ -143,17 +143,16 @@ While viewing the `/dashboard` developer console, use these keys:
 > 🧪 **Autonomously Verified Telemetry:** Every commit to `main` executes `pytest` and `benchmarks/bench.py` via GitHub Actions, dynamically updating this verified telemetry block:
 
 <!-- BENCHMARK:START -->
-| Systems Performance Dimension | Measured Telemetry | Verification Protocol |
+| Systems Performance Dimension | Measured Telemetry | Protocol & Environment |
 | :--- | :--- | :--- |
-| **Test Suite Verification** | **63 / 63 Tests Passed (100%)** | `pytest -v` (adversarial, tool guard, stream redactor) |
-| **In-Process Cache Overhead (Min)** | **0.18 ms** | Memory-mapped SQLite WAL (`PRAGMA mmap_size=256MB`) |
-| **Semantic Cache Latency (p50)** | **4.05 ms** | Local `BAAI/bge-small-en-v1.5` ONNX runtime on CPU |
-| **Tail Latency (p95 / p99)** | **16.54 ms / 19.72 ms** | Multi-concurrency sweep (c=50 workers) |
-| **Cache Hit Efficiency** | **91.0%** (91 / 100 queries) | Served at **$0.00 upstream token cost** |
-| **Single-Core Peak Throughput** | **14,200 req/sec** | Zero network socket round-trips |
-| **Idle Memory RSS (Base)** | **45.1 MB** | Single Python process (Zero Redis / Zero Postgres) |
-| **Active Memory RSS (Loaded ONNX)** | **365.2 MB** | Embedded vector model in resident memory |
-| **CI Runner Architecture** | `Local System (Darwin arm64)` | Measured dynamically at `2026-11-15 16:35 UTC` |
+| **In-Process Cache Overhead (Min)** | **3.28 ms** | Memory-mapped SQLite WAL (`PRAGMA mmap_size=256MB`) |
+| **Semantic Cache Latency (Avg)** | **6.51 ms** | Local `BAAI/bge-small-en-v1.5` ONNX runtime on CPU |
+| **Latency p50 / p95 / p99** | **4.82 ms / 55.94 ms / 87.58 ms** | Sequential query stream (10 unique semantic pairs) |
+| **Cache Hit Efficiency** | **91.0%** (91/100 queries) | Exact + semantic cosine similarity threshold |
+| **In-Process Call Throughput (No Network Hops)** | **85.0 calls/sec** | In-process ASGI memory calls (no TCP socket round-trips) |
+| **Idle Memory RSS (Base)** | **232.1 MB** | Single Python process (Zero Redis / Zero Postgres) |
+| **Active Memory RSS (Loaded ONNX)** | **446.5 MB** | Embedded vector model loaded in resident memory |
+| **Runner & Benchmark Environment** | `Local System (Darwin arm64) | Python 3.9.6 | 100 reqs (c=1)` | Measured dynamically at `2026-11-15 16:50 UTC` |
 <!-- BENCHMARK:END -->
 
 ### Speculative Latency Hedging ("The Tail at Scale")
@@ -162,11 +161,15 @@ Production LLM APIs exhibit high p99 tail latency variance from GPU scheduling, 
 
 SentinelGate implements **Speculative Latency Hedging**: if the primary provider does not respond within `hedge_delay_ms=450`, SentinelGate speculatively dispatches a duplicate request to a designated fast fallback provider (e.g. Groq `llama-3.1-8b-instant`). Whichever finishes first is returned to the client; the slower request is aborted asynchronously.
 
+<!-- HEDGING:START -->
 | Execution Strategy | p50 Latency | p90 Latency | p95 Latency | p99 Latency (Tail) |
 | :--- | :---: | :---: | :---: | :---: |
-| Unhedged Requests | 412 ms | 890 ms | 1,450 ms | **2,480 ms** |
-| **Speculative Hedged (`hedge_delay_ms=450`)** | **398 ms** | **445 ms** | **462 ms** | **485 ms** |
-| **Tail Improvement** | **-3.4%** | **-50.0%** | **-68.1%** | **-80.4% Latency Slashed ⚡** |
+| Simulated Unhedged Requests | 401.6 ms | 621.7 ms | 2479.4 ms | **2519.0 ms** |
+| **Speculative Hedged (`hedge_delay_ms=450.0`)** | **403.0 ms** | **428.5 ms** | **501.6 ms** | **507.2 ms** |
+| **Improvement** | **+0.3%** | **-31.1%** | **-79.8%** | **-79.9% Latency Reduction** |
+
+*Methodology: Simulated mock provider benchmark (`benchmarks/bench_hedging.py`) modeling bimodal upstream latency (10.0% probability of ~2480.0ms spike vs 400.0ms baseline, 450.0ms hedge deadline, 45.0ms fast fallback). Committed raw data: [`benchmarks/hedging_results.json`](benchmarks/hedging_results.json).*
+<!-- HEDGING:END -->
 
 <p align="right"><a href="#top">🌸 Back to Top ↑</a></p>
 
