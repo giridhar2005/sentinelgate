@@ -2721,8 +2721,8 @@ wheels = [
 
 [[package]]
 name = "sentinelgate"
-version = "0.3.0"
-source = { virtual = "." }
+version = "0.4.0"
+source = { editable = "." }
 dependencies = [
     { name = "fastapi", version = "0.128.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "fastapi", version = "0.162.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
