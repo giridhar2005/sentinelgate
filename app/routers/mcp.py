@@ -9,6 +9,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import os
+import socket
 import urllib.parse
 import uuid
 from typing import Any, Dict, Optional, Set, Tuple
@@ -94,9 +95,19 @@ def validate_mcp_target(
     if not is_safe:
         return False, None, f"Target URL violates SSRF security policy: {detail}"
 
-    # Evaluate IP address safety
+    # Evaluate IP address safety (including IPv6 brackets and decimal/hex/octal encodings)
+    clean_host = hostname.strip("[]")
+    ip = None
     try:
-        ip = ipaddress.ip_address(hostname)
+        ip = ipaddress.ip_address(clean_host)
+    except ValueError:
+        try:
+            raw_bytes = socket.inet_aton(clean_host)
+            ip = ipaddress.IPv4Address(raw_bytes)
+        except (OSError, ValueError):
+            pass
+
+    if ip is not None:
         if (
             ip.is_loopback
             or ip.is_private
@@ -110,7 +121,7 @@ def validate_mcp_target(
                 None,
                 f"Target IP address '{hostname}' is in a prohibited restricted range (loopback, private, or link-local).",
             )
-    except ValueError:
+    else:
         # Hostname is a domain name rather than an IP literal
         lowered_host = hostname.lower()
         if lowered_host in PROHIBITED_HOSTNAMES:

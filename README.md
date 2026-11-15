@@ -56,7 +56,7 @@ SentinelGate brings together maximum systems engineering rigor and charming simp
 
 | 💰 Smart Cost Optimization (`model="auto"`) | 🛡️ Deterministic Agent Security | ⚡ Monolithic Simplicity |
 | :--- | :--- | :--- |
-| **🌸 In-Process Semantic Cache**<br>Evaluates `BAAI/bge-small-en-v1.5` ONNX embeddings locally on CPU in `<2ms`. 68% to 91% of repetitive queries resolve at **$0.00 token cost**. | **🛡️ Pre-Execution Tool Firewall**<br>Intercepts destructive shell commands (`rm -rf`), SQL mutations (`DROP TABLE`), and SSRF metadata calls before client agents execute them. | **🍵 Single-Binary Topology**<br>Runs on SQLite WAL mode (`PRAGMA mmap_size=256MB`). Zero external Redis clusters, PostgreSQL daemons, or Celery workers. |
+| **🌸 In-Process Semantic Cache**<br>Evaluates `BAAI/bge-small-en-v1.5` ONNX embeddings locally on CPU in `<2ms`. 68% to 91% of repetitive queries resolve at **$0.00 token cost**. | **🛡️ Heuristic Tool Guard**<br>Inspects assistant `tool_calls` payloads for common destructive shell patterns (`rm -rf`), SQL mutations (`DROP TABLE`), and SSRF. See [docs/SECURITY.md](docs/SECURITY.md). | **🍵 Single-Binary Topology**<br>Runs on SQLite WAL mode (`PRAGMA mmap_size=256MB`). Zero external Redis clusters, PostgreSQL daemons, or Celery workers. |
 | **⚡ Microsecond Smart Router**<br>`model="auto"` evaluates syntax and reasoning density in `<0.2ms`, triaging utility queries to $0.15/1M models instead of $15/1M frontier models. | **🍰 Stateful Stream Redactor**<br>Maintains an async sliding-window lookahead buffer (N=64) on SSE `text/event-stream` chunks, catching split credentials with zero token leakage. | **🧸 Dynamic Circuit Breakers**<br>Provider outages or 429 rate limits automatically trigger failover to secondary models with zero dropped requests. |
 
 <p align="right"><a href="#top">🌸 Back to Top ↑</a></p>
@@ -194,7 +194,7 @@ Every request hitting `POST /v1/chat/completions` undergoes a deterministic in-p
 3. **Context Compaction:** Trims redundant whitespace and preserves code blocks. PII entities are masked with reversible identifiers.
 4. **Local Vector Lookup:** Computes embeddings via FastEmbed ONNX on CPU and evaluates cosine similarity against memory-mapped SQLite cache entries. If match score $\ge 0.85$, cached completion is returned in `<2ms` with `$0.00` egress cost.
 5. **Smart Auto-Routing:** If uncached and `model="auto"`, calculates syntax and reasoning density in `<0.2ms` to triage utility queries to fast $0.15/1M models.
-6. **Pre-Execution Agent Tool Firewall:** Inspects assistant `tool_calls` payloads to block destructive shell commands (`rm -rf`), SQL mutations (`DROP TABLE`), and SSRF before client agents execute them.
+6. **Pre-Execution Agent Tool Inspection:** Heuristically scans assistant `tool_calls` payloads in completed responses to intercept common destructive shell commands (`rm -rf`), unconstrained SQL mutations (`DROP TABLE`), and SSRF destinations before returning them to client agents. Note that this inspects response payloads and does not replace OS-level sandboxing (see [docs/SECURITY.md](docs/SECURITY.md)).
 
 Read the complete engineering RFC in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 </details>
