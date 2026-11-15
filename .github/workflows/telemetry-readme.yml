@@ -1,0 +1,61 @@
+name: Telemetry README Auto-Updater
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'benchmarks/**'
+      - 'tests/**'
+  schedule:
+    # Run every Sunday at midnight UTC to verify telemetry stability
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: telemetry-readme-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  telemetry-update:
+    name: Run Benchmarks & Sync README Telemetry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Install Dependencies & Gateway Package
+        run: |
+          uv sync
+          uv pip install -e .
+
+      - name: Execute Full Test Verification (60 Tests)
+        run: uv run pytest -v
+
+      - name: Run Telemetry README Sync Script
+        run: uv run python scripts/update_readme_benchmarks.py
+
+      - name: Commit & Push If Telemetry Changed
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if [[ -n $(git status --porcelain README.md) ]]; then
+            git add README.md
+            git commit -m "ci(telemetry): update live CI benchmark telemetry [skip ci]"
+            git push origin main
+          else
+            echo "Telemetry block in README.md is identical; no commit necessary."
+          fi
