@@ -3,8 +3,8 @@
 > **Methodology Notice:** All HTTP metrics below are captured using a real HTTP harness (`benchmarks/bench.py`) executing against an in-process Uvicorn gateway over loopback sockets (`127.0.0.1`) with `httpx.AsyncClient` connection pooling. Tail latency hedging metrics derive from a controlled mock provider simulation (`benchmarks/bench_hedging.py`). Every number below matches the raw committed JSON artifacts exactly.
 
 ### Test Runner & Environment
-- **Git Commit SHA:** `5407a4c42fbb7f31b5d28d4b353d8944d5e0af97`
-- **Benchmark Date:** `2026-11-15 20:13 UTC`
+- **Git Commit SHA:** `68337eb6bd76812ef3c2d59b6a0c34799691e0fb`
+- **Benchmark Date:** `2026-11-15 20:22 UTC`
 - **Runner Environment:** Local Host (Darwin arm64)
 - **Operating System:** `Darwin` (arm64)
 - **Python Version:** `3.12.16`
@@ -18,9 +18,9 @@ Measures raw HTTP round-trip latency when proxying cache-miss requests through S
 
 | Endpoint Target | p50 (ms) | p95 (ms) | p99 (ms) | Min (ms) | Max (ms) | Throughput (req/s) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Direct Mock Upstream** | 0.63 | 1.16 | 1.30 | 0.58 | 1.34 | 1,395.3 |
-| **SentinelGate Proxy** | 7.52 | 9.37 | 13.32 | 7.13 | 14.51 | 125.3 |
-| **Net Gateway Overhead** | **+6.89** | **+8.21** | **+12.02** | **+6.55** | - | - |
+| **Direct Mock Upstream** | 0.71 | 2.63 | 3.12 | 0.58 | 3.14 | 1,110.5 |
+| **SentinelGate Proxy** | 14.84 | 28.48 | 32.09 | 12.27 | 32.56 | 60.6 |
+| **Net Gateway Overhead** | **+14.13** | **+25.85** | **+28.97** | **+11.69** | - | - |
 
 ---
 
@@ -30,9 +30,9 @@ Measures semantic vector lookup and SQLite WAL cache retrieval latency under var
 
 | Concurrency Level | p50 (ms) | p95 (ms) | p99 (ms) | Min (ms) | Max (ms) | Throughput (req/s) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Concurrency c = 1** | 1.69 | 3.01 | 14.27 | 1.59 | 17.80 | 391.3 |
-| **Concurrency c = 10** | 14.79 | 28.87 | 46.76 | 5.33 | 57.29 | 564.0 |
-| **Concurrency c = 50** | 53.16 | 93.16 | 95.62 | 18.86 | 96.59 | 504.1 |
+| **Concurrency c = 1** | 1.88 | 3.70 | 5.82 | 1.75 | 6.44 | 427.1 |
+| **Concurrency c = 10** | 16.80 | 46.77 | 56.46 | 5.98 | 61.63 | 460.5 |
+| **Concurrency c = 50** | 60.10 | 98.30 | 102.19 | 22.06 | 104.61 | 450.0 |
 
 ---
 
@@ -42,7 +42,7 @@ Measures deterministic lexical parsing, AST analysis (`sqlglot`), and IP SSRF va
 
 | Security Subsystem | p50 (ms) | p95 (ms) | p99 (ms) | Min (ms) | Max (ms) | Inspection Rate (calls/s) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Agent Tool & MCP Firewall** | **0.10** | **1.15** | **1.37** | 0.04 | 22.72 | **2,614.5** |
+| **Agent Tool & MCP Firewall** | **0.10** | **0.82** | **1.06** | 0.04 | 64.26 | **2,423.2** |
 
 ---
 
@@ -52,9 +52,9 @@ Measures deterministic lexical parsing, AST analysis (`sqlglot`), and IP SSRF va
 
 | Execution Strategy | p50 (ms) | p90 (ms) | p95 (ms) | p99 (ms) |
 | :--- | :---: | :---: | :---: | :---: |
-| **Unhedged Baseline** | 400.9 | 418.5 | 497.9 | **2029.2** |
-| **Speculative Hedged (`delay=450ms`)** | 402.7 | 420.0 | 424.3 | **505.7** |
-| **Improvement** | - | - | - | **-75.1% Tail Latency** |
+| **Unhedged Baseline** | 400.9 | 418.6 | 497.9 | **2029.1** |
+| **Speculative Hedged (`delay=450ms`)** | 402.7 | 419.9 | 424.2 | **507.1** |
+| **Improvement** | - | - | - | **-75.0% Tail Latency** |
 
 ---
 

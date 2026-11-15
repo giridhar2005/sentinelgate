@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'app/**'
+      - 'sentinelgate/**'
       - 'benchmarks/**'
       - 'tests/**'
   schedule:
@@ -24,44 +24,39 @@ jobs:
       contents: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a  # v5.1.0
         with:
           version: "latest"
           enable-cache: true
 
-      - name: Set up Python 3.11
-        run: uv python install 3.11
+      - name: Set up Python 3.12
+        run: uv python install 3.12
 
       - name: Install Dependencies & Gateway Package
         run: |
-          uv sync
+          uv sync --extra dev
           uv pip install -e .
 
-      - name: Execute Full Test Verification (63 Tests)
-        run: uv run pytest -v
+      - name: Execute Full Test Verification
+        run: uv run pytest -v --cov=sentinelgate --cov-fail-under=85
 
-      - name: Run Reproducible Gateway Benchmark
-        run: uv run python benchmarks/bench.py --output benchmarks/results.json
+      - name: Run Live HTTP Benchmark
+        run: uv run python benchmarks/bench.py --quick
 
       - name: Run Speculative Hedging Simulation Benchmark
-        run: uv run python benchmarks/bench_hedging.py --output benchmarks/hedging_results.json
+        run: uv run python benchmarks/bench_hedging.py
 
       - name: Run Telemetry README Sync Script
-        run: uv run python scripts/update_readme_benchmarks.py
+        run: uv run python scripts/generate_benchmarks_doc.py
 
       - name: Commit & Push If Telemetry Changed
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          if [[ -n $(git status --porcelain README.md benchmarks/results.json benchmarks/hedging_results.json) ]]; then
-            git add README.md benchmarks/results.json benchmarks/hedging_results.json
-            git commit -m "ci(telemetry): update live CI benchmark telemetry [skip ci]"
-            git push origin main
-          else
-            echo "Telemetry block in README.md is identical; no commit necessary."
-          fi
+          git add BENCHMARKS.md benchmarks/results.json benchmarks/hedging_results.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore(telemetry): update live benchmark telemetry [skip ci]" && git push)

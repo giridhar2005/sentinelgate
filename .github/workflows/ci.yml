@@ -12,45 +12,51 @@ concurrency:
 
 jobs:
   lint:
-    name: Lint & Type Check (Ruff & Mypy)
+    name: Code Quality & Supply Chain (Ruff, Mypy, Pip-Audit)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a  # v5.1.0
         with:
           version: "latest"
           enable-cache: true
 
-      - name: Set up Python
-        run: uv python install 3.11
+      - name: Set up Python 3.12
+        run: uv python install 3.12
 
       - name: Install Dependencies
         run: |
-          uv sync
-          uv pip install -e . types-PyYAML mypy
+          uv sync --extra dev
+          uv pip install -e .
 
-      - name: Run Ruff Lint Checks
-        run: uv run ruff check .
+      - name: Run Ruff Lint Check
+        run: uv run ruff check sentinelgate tests scripts
+
+      - name: Run Ruff Format Check
+        run: uv run ruff format --check sentinelgate tests scripts
 
       - name: Run Mypy Type Check
-        run: uv run mypy app sentinelgate
+        run: uv run mypy sentinelgate
+
+      - name: Run Pip-Audit Dependency Vulnerability Scan
+        run: uv run pip-audit
 
   test:
-    name: Test Suite & Benchmarks (Python ${{ matrix.python-version }})
+    name: Test Suite & Quick Benchmark (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a  # v5.1.0
         with:
           version: "latest"
           enable-cache: true
@@ -58,9 +64,9 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      - name: Install Dependencies & CLI Package
+      - name: Install Dependencies & Gateway Package
         run: |
-          uv sync
+          uv sync --extra dev
           uv pip install -e .
 
       - name: Verify CLI Entrypoint
@@ -68,11 +74,34 @@ jobs:
           uv run sentinelgate --help
           uv run python -m sentinelgate --help
 
-      - name: Run Pytest Suite with Coverage
-        run: uv run pytest -v --cov=app --cov=sentinelgate
+      - name: Run Pytest Suite with Coverage (85% Gate)
+        run: uv run pytest -v --cov=sentinelgate --cov-fail-under=85
 
-      - name: Verify Gateway Benchmark Execution
-        run: uv run python benchmarks/bench.py --output benchmarks/results.json
+      - name: Verify Live HTTP Quick Benchmark (<30s)
+        run: uv run python benchmarks/bench.py --quick
 
-      - name: Verify Speculative Hedging Benchmark Execution
-        run: uv run python benchmarks/bench_hedging.py --output benchmarks/hedging_results.json
+      - name: Verify Speculative Hedging Simulation Benchmark
+        run: uv run python benchmarks/bench_hedging.py
+
+      - name: Verify Documentation Generator Script
+        run: uv run python scripts/generate_benchmarks_doc.py
+
+  container-security:
+    name: Container Build & Trivy Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Build Docker Container
+        run: docker build -t sentinelgate:ci .
+
+      - name: Run Trivy Container Security Scan
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0  # v0.29.0
+        with:
+          image-ref: "sentinelgate:ci"
+          format: "table"
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
