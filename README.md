@@ -229,7 +229,7 @@ Virtual keys issued via `/dashboard` or `VirtualKeyManager` enforce atomic dual-
 Built by **Bathini Venkata Giridhar** &mdash; Systems & AI Infrastructure Engineer specializing in high-throughput gateway runtimes, zero-dependency storage engines, and agentic security firewalls.
 
 - 🎓 **B.Tech in Mechanical Engineering**, Indian Institute of Information Technology, Design and Manufacturing (IIITDM), Kancheepuram
-- 🏛️ **Incoming Economics & Business Administration**, University of St. Gallen (HSG)
+
 - 🌐 **GitHub:** [github.com/giridhar2005](https://github.com/giridhar2005)
 - 📫 **Email:** [ggirebathini@gmail.com](mailto:ggirebathini@gmail.com)
 
