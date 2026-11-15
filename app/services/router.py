@@ -783,8 +783,11 @@ class ProviderRouter:
             for _ in range(num_keys):
                 api_key = self.get_next_key(p)
                 headers = {"Content-Type": "application/json"}
+                if "_headers" in request_data and isinstance(request_data["_headers"], dict):
+                    headers.update(request_data["_headers"])
                 url = ""
                 payload = dict(request_data)
+                payload.pop("_headers", None)
                 payload["model"] = m
 
                 if p_type in ("openai", "openai_compatible", "ollama"):

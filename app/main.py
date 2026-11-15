@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import AppConfig, load_config
 from app.core.database import init_db
-from app.routers import dashboard, health, metrics, v1
+from app.routers import dashboard, health, mcp, metrics, v1
 from app.services.budget import BudgetManager, VirtualKeyManager
 from app.services.cache import SemanticCache
 from app.services.discovery import ProviderDiscovery, print_startup_banner
@@ -43,6 +43,7 @@ def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None)
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
         logger.info("Initializing SentinelGate Gateway engine...")
+        evals.pipeline.start()
         try:
             discovery_info = await ProviderDiscovery.discover()
             gateway_router.apply_discovery(discovery_info)
@@ -52,13 +53,14 @@ def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None)
             logger.warning(f"Provider auto-discovery error: {e}")
         await gateway_router.get_client()
         yield
-        logger.info("Gracefully terminating SentinelGate client pool...")
+        logger.info("Gracefully terminating SentinelGate client pool and telemetry pipeline...")
         await gateway_router.close()
+        await evals.pipeline.stop()
 
     app = FastAPI(
         title="SentinelGate",
         description="Zero-bloat, production-grade OpenAI-compatible LLM Gateway with semantic caching and failover.",
-        version="0.4.0",
+        version="0.5.0",
         lifespan=lifespan,
     )
 
@@ -81,6 +83,7 @@ def create_app(config_path: Optional[str] = None, db_path: Optional[str] = None)
     # Include modular sub-routers
     app.include_router(health.router)
     app.include_router(v1.router)
+    app.include_router(mcp.router)
     app.include_router(dashboard.router)
     app.include_router(metrics.router)
 

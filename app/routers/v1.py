@@ -10,6 +10,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.core.security import make_openai_error, parse_bearer_token
+from app.core.telemetry_otlp import OTLPExporter, OTLPSpan, TraceContext
+from app.services.agent_guard import AgentToolGuard
 from app.services.guardrails import (
     ContextCompactor,
     JSONSelfHealer,
@@ -18,8 +20,10 @@ from app.services.guardrails import (
     SecretRedactor,
     SecurityInspector,
 )
+from app.services.streaming_redactor import sse_sliding_window_redactor
 
 logger = logging.getLogger("sentinelgate.v1")
+otlp_exporter = OTLPExporter()
 
 router = APIRouter(prefix="/v1", tags=["OpenAI Compatible v1"])
 
@@ -32,6 +36,8 @@ class ChatCompletionRequest(BaseModel):
     stream: Optional[bool] = False
     response_format: Optional[Dict[str, Any]] = None
     hedge: Optional[bool] = False
+    tools: Optional[List[Dict[str, Any]]] = None
+    tool_choice: Optional[Union[str, Dict[str, Any]]] = None
 
 
 class EmbeddingsRequest(BaseModel):
@@ -69,13 +75,29 @@ async def chat_completions(
     x_no_cache: Optional[str] = Header(None, alias="X-No-Cache"),
     cache_control: Optional[str] = Header(None, alias="Cache-Control"),
     x_hedge: Optional[str] = Header(None, alias="X-Hedge"),
+    traceparent: Optional[str] = Header(None, alias="traceparent"),
 ):
     start_time = time.time()
     t_perf_start = time.perf_counter()
-    req_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+    trace_ctx = TraceContext.from_header(traceparent)
+    req_id = f"chatcmpl-{trace_ctx.span_id}"
     user_prompt = (
         " ".join([str(m.get("content", "")) for m in req.messages if m.get("role") == "user"])
         or "User prompt"
+    )
+
+    t_start_ns = int(time.time() * 1e9)
+    root_span = OTLPSpan(
+        name="sentinelgate.request",
+        trace_id=trace_ctx.trace_id,
+        span_id=trace_ctx.span_id,
+        parent_span_id=trace_ctx.parent_span_id,
+        start_time_ns=t_start_ns,
+        attributes={
+            "http.method": "POST",
+            "http.route": "/v1/chat/completions",
+            "llm.request.model": req.model,
+        },
     )
 
     # Access app services
@@ -202,6 +224,7 @@ async def chat_completions(
     raw_dict = req.model_dump(exclude_unset=True)
     active_req = dict(raw_dict)
     active_req["messages"] = masked_messages
+    active_req["_headers"] = {"traceparent": trace_ctx.create_child().to_header()}
 
     requested_model = req.model
     provider, internal_model, _ = app_router.resolve_model(requested_model, masked_messages)
@@ -264,6 +287,8 @@ async def chat_completions(
                 "X-Cache": "HIT",
                 "X-Provider-Used": f"{provider}(cached)",
                 "X-Latency-Ms": f"{latency_ms:.2f}",
+                "X-Agent-Firewall-Blocked": "false",
+                "traceparent": trace_ctx.to_header(),
             }
             if scrubbed_count > 0:
                 headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
@@ -272,6 +297,16 @@ async def chat_completions(
                 app_keys.record_token_adjustment(
                     bearer_token, (in_tokens + out_tokens) - estimated_prompt_tokens
                 )
+            root_span.attributes.update({
+                "cache.hit": True,
+                "llm.provider": provider,
+                "llm.cost_usd": 0.0,
+                "llm.cost_saved_usd": cost_saved,
+                "llm.usage.prompt_tokens": in_tokens,
+                "llm.usage.completion_tokens": out_tokens,
+            })
+            root_span.finish(status_code=1)
+            otlp_exporter.record_span(root_span)
             return JSONResponse(content=final_resp, headers=headers)
 
     # 6. Daily Budget Circuit Breaker Check
@@ -307,10 +342,15 @@ async def chat_completions(
     # 8. Handle SSE Streaming Response
     if req.stream:
         ttft_logged = {"done": False}
+        redacted_stream = sse_sliding_window_redactor(
+            upstream_res,
+            secret_mapping=secret_mapping,
+            action=secret_action,
+        )
 
         async def event_generator():
             try:
-                async for chunk in upstream_res:
+                async for chunk in redacted_stream:
                     if not ttft_logged["done"]:
                         ttft_ms = (time.time() - start_time) * 1000.0
                         stream_status = (
@@ -331,11 +371,17 @@ async def chat_completions(
                             status=stream_status,
                             prompt_snippet=user_prompt[:250],
                         )
+                        root_span.attributes.update({
+                            "cache.hit": False,
+                            "llm.provider": chosen_provider,
+                            "llm.ttft_ms": ttft_ms,
+                            "stream": True,
+                        })
+                        root_span.finish(status_code=1)
+                        otlp_exporter.record_span(root_span)
                         ttft_logged["done"] = True
                     if pii_mapping:
                         chunk = PIIGuardrail.restore_text(chunk, pii_mapping)
-                    if secret_mapping:
-                        chunk = SecretRedactor.restore_text(chunk, secret_mapping)
                     yield chunk
             except Exception as stream_err:
                 logger.error(f"Streaming error: {stream_err}")
@@ -345,6 +391,8 @@ async def chat_completions(
             "X-Cache": "MISS",
             "X-Provider-Used": chosen_provider,
             "X-Latency-Ms": f"{(time.time() - start_time) * 1000.0:.2f}",
+            "X-Agent-Firewall-Blocked": "false",
+            "traceparent": trace_ctx.to_header(),
         }
         if scrubbed_count > 0:
             stream_headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
@@ -373,6 +421,19 @@ async def chat_completions(
         final_resp = SecretRedactor.restore_in_response(final_resp, secret_mapping)
     final_resp["id"] = req_id
 
+    # Agent Tool-Call Firewall Inspection
+    is_tool_safe, tool_threat, tool_detail, sanitized_resp = AgentToolGuard.inspect_response(final_resp)
+    tool_blocked = False
+    if not is_tool_safe:
+        tool_blocked = True
+        app_evals.log_guardrail_event(
+            request_id=req_id,
+            event_type="TOOL_CALL_BLOCKED",
+            threat_detail=tool_detail or "Blocked by Agent Tool Guard",
+            blocked=True,
+        )
+        final_resp = sanitized_resp
+
     latency_ms = (time.time() - start_time) * 1000.0
     usage = final_resp.get("usage", {})
     in_tok = usage.get("prompt_tokens", max(1, len(str(req.messages)) // 4))
@@ -389,16 +450,19 @@ async def chat_completions(
         frontier_cost = app_router.get_model_cost("openai", "gpt-4o", in_tok, out_tok)
         auto_saved_usd = max(0.0, frontier_cost - cost_usd)
 
-    # Store in Semantic Cache
-    app_cache.store(
-        messages=masked_messages,
-        model=requested_model,
-        response=final_resp,
-        prompt_tokens=in_tok,
-        completion_tokens=out_tok,
-    )
+    # Store in Semantic Cache only if tool call was safe
+    if not tool_blocked:
+        app_cache.store(
+            messages=masked_messages,
+            model=requested_model,
+            response=final_resp,
+            prompt_tokens=in_tok,
+            completion_tokens=out_tok,
+        )
 
-    if chosen_provider != provider:
+    if tool_blocked:
+        status = "BLOCKED"
+    elif chosen_provider != provider:
         status = "FAILOVER"
     elif scrubbed_count > 0:
         status = "REDACTED"
@@ -449,7 +513,11 @@ async def chat_completions(
         "X-Cache": "MISS",
         "X-Provider-Used": chosen_provider,
         "X-Latency-Ms": f"{latency_ms:.2f}",
+        "X-Agent-Firewall-Blocked": "true" if tool_blocked else "false",
+        "traceparent": trace_ctx.to_header(),
     }
+    if tool_blocked and tool_threat:
+        headers["X-Agent-Firewall-Reason"] = str(tool_threat)
     if scrubbed_count > 0:
         headers["X-Secrets-Scrubbed"] = str(scrubbed_count)
     if hedge_meta:
@@ -467,6 +535,20 @@ async def chat_completions(
             headers["X-Auto-Complexity"] = (
                 f"{auto_meta.get('classification', 'simple')} ({auto_meta.get('score', 0)}/100)"
             )
+
+    root_span.attributes.update({
+        "cache.hit": False,
+        "llm.provider": chosen_provider,
+        "llm.response.model": chosen_model,
+        "llm.cost_usd": cost_usd,
+        "llm.cost_saved_usd": auto_saved_usd,
+        "llm.usage.prompt_tokens": in_tok,
+        "llm.usage.completion_tokens": out_tok,
+        "agent.tool_blocked": tool_blocked,
+    })
+    root_span.finish(status_code=2 if tool_blocked else 1)
+    otlp_exporter.record_span(root_span)
+
     return JSONResponse(content=final_resp, headers=headers)
 
 
