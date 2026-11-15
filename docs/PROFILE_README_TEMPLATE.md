@@ -6,7 +6,6 @@
 
 <p align="left">
   🎓 <strong>B.Tech in Mechanical Engineering</strong>, IIITDM Kancheepuram<br>
-  🏛️ <strong>Incoming Economics &amp; Business Administration</strong>, University of St. Gallen (HSG)<br>
   📫 <strong>Email:</strong> <a href="mailto:ggirebathini@gmail.com">ggirebathini@gmail.com</a> &bull; 
   🌐 <strong>GitHub:</strong> <a href="https://github.com/giridhar2005">github.com/giridhar2005</a>
 </p>

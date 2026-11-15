@@ -211,15 +211,15 @@
         <rect x="-6" y="-12" width="554" height="48" rx="6" fill="#141122" stroke="#8B5CF6" stroke-width="0.8" stroke-opacity="0.3" />
         <text x="4" y="4" fill="#A78BFA" font-weight="700">[REDACT]</text>
         <text x="76" y="4" fill="#E4E4E7">Outbound prompt scanned in 0.08ms</text>
-        <text x="4" y="24" fill="#71717A">Scrubbed: <tspan fill="#F87171">sk-proj-9a88...71f</tspan> &rarr; <tspan fill="#34D399">__SG_SECRET_1__</tspan> (restored inbound)</text>
+        <text x="4" y="24" fill="#71717A">Scrubbed: <tspan fill="#F87171">sk-proj-9a88...71f</tspan> → <tspan fill="#34D399">__SG_SECRET_1__</tspan> (restored inbound)</text>
       </g>
 
       <!-- Animated Event 2: Local FastEmbed Cache Hit -->
       <g transform="translate(0, 116)" class="anim-line-2">
         <rect x="-6" y="-12" width="554" height="48" rx="6" fill="#0D1F17" stroke="#10B981" stroke-width="0.8" stroke-opacity="0.4" />
         <text x="4" y="4" fill="#34D399" font-weight="700">[CACHE HIT]</text>
-        <text x="88" y="4" fill="#E4E4E7">Cosine Match: <tspan fill="#10B981" font-weight="700">0.9412</tspan> &middot; <tspan fill="#38BDF8">FastEmbed CPU</tspan></text>
-        <text x="4" y="24" fill="#71717A">Latency: <tspan fill="#34D399" font-weight="700">1.14ms</tspan> &middot; Upstream Egress Cost: <tspan fill="#34D399" font-weight="700">$0.000000</tspan></text>
+        <text x="88" y="4" fill="#E4E4E7">Cosine Match: <tspan fill="#10B981" font-weight="700">0.9412</tspan> · <tspan fill="#38BDF8">FastEmbed CPU</tspan></text>
+        <text x="4" y="24" fill="#71717A">Latency: <tspan fill="#34D399" font-weight="700">1.14ms</tspan> · Upstream Egress Cost: <tspan fill="#34D399" font-weight="700">$0.000000</tspan></text>
       </g>
 
       <!-- Animated Event 3: Pre-Execution Agent Tool Firewall Block -->
@@ -227,16 +227,16 @@
         <rect x="-6" y="-12" width="554" height="60" rx="6" fill="#241113" stroke="#EF4444" stroke-width="0.8" stroke-opacity="0.4" />
         <text x="4" y="4" fill="#F87171" font-weight="700">[BLOCKED]</text>
         <text x="78" y="4" fill="#FCA5A5">Pre-Execution Agent Tool Firewall (0.18ms)</text>
-        <text x="4" y="24" fill="#EF4444">Threat: DESTRUCTIVE_SHELL &middot; bash(command="rm -rf /")</text>
-        <text x="4" y="40" fill="#71717A">Action: Synthetic OpenAI Refusal &middot; Agent safely self-corrects</text>
+        <text x="4" y="24" fill="#EF4444">Threat: DESTRUCTIVE_SHELL · bash(command="rm -rf /")</text>
+        <text x="4" y="40" fill="#71717A">Action: Synthetic OpenAI Refusal · Agent safely self-corrects</text>
       </g>
 
       <!-- Animated Event 4: Upstream Outage Failover & OTLP Trace -->
       <g transform="translate(0, 258)" class="anim-line-4">
         <rect x="-6" y="-12" width="554" height="48" rx="6" fill="#1C180E" stroke="#F59E0B" stroke-width="0.8" stroke-opacity="0.4" />
         <text x="4" y="4" fill="#FBBF24" font-weight="700">[FAILOVER]</text>
-        <text x="88" y="4" fill="#FDE68A">Primary HTTP 429 &rarr; Secondary Groq (0 dropped reqs)</text>
-        <text x="4" y="24" fill="#71717A">Trace: <tspan fill="#D4D4D8">00-7c98b2-a4f-01</tspan> &middot; OTLP JSON Flushed to Queue</text>
+        <text x="88" y="4" fill="#FDE68A">Primary HTTP 429 → Secondary Groq (0 dropped reqs)</text>
+        <text x="4" y="24" fill="#71717A">Trace: <tspan fill="#D4D4D8">00-7c98b2-a4f-01</tspan> · OTLP JSON Flushed to Queue</text>
       </g>
 
       <!-- Bottom Status Line with blinking cursor -->

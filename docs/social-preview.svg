@@ -53,7 +53,7 @@
       Zero-bloat, production LLM gateway backed by in-process SQLite WAL.
     </text>
     <text x="0" y="34" font-family="-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" font-size="16.5" font-weight="400" fill="#71717A">
-      Semantic vector cache &middot; Pre-execution agent firewall &middot; Stream secret redactor &middot; 0 External Daemons
+      Semantic vector cache · Pre-execution agent firewall · Stream secret redactor · 0 External Daemons
     </text>
   </g>
 
@@ -95,7 +95,7 @@
   <!-- Bottom Details & Author Strip -->
   <g transform="translate(80, 545)">
     <text x="0" y="0" font-family="'JetBrains Mono', monospace" font-size="12" fill="#71717A">
-      <tspan fill="#10B981" font-weight="600">$</tspan> pip install sentinelgate &middot; Bathini Venkata Giridhar
+      <tspan fill="#10B981" font-weight="600">$</tspan> pip install sentinelgate · Bathini Venkata Giridhar
     </text>
     <text x="1120" y="0" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="12" fill="#71717A">
       github.com/giridhar2005/sentinelgate
